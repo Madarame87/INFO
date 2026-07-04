@@ -4,13 +4,19 @@
 每小时自动翻译成中文 Markdown，落到你指定的文件夹。处理状态在扩展的
 Dashboard 里一目了然（待处理 → 处理中 → 已完成），跨设备同步。
 
+Dashboard 长这样：状态卡片、流水线运行时间、逐篇文章的状态与操作按钮：
+
+![Info Collector Dashboard：文章处理台账，显示待处理/已完成状态、来源、更新时间和操作按钮](docs/images/dashboard.png)
+
 ## 快速上手（普通用户）
 
 只需要一个 Anthropic API Key，三步装好，全程约 10 分钟：
 
-1. 获取 API Key → 2. Chrome 加载扩展 → 3. 终端跑 `bash scripts/setup.sh`
+1. 获取 API Key
+2. Chrome 加载扩展
+3. 终端跑 `bash scripts/setup.sh`
 
-**手把手图文指南（写给非技术用户）：[SETUP.md](SETUP.md)** ⭐
+**手把手图文指南（写给非技术用户）：[SETUP.md](SETUP.md)**
 
 也可以让 AI 替你装：把项目文件夹交给 AI 编程助手，说「按 SETUP.md 装好」。
 安装脚本支持非交互模式（`INFO_COLLECTOR_API_KEY=... INFO_COLLECTOR_ENGINE=claude bash scripts/setup.sh`），
@@ -30,7 +36,7 @@ Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥
   交换数据（outbox 待处理清单 / inbox 完成报告），由 launchd 每小时调度，
   也可在 Dashboard 里点「▶ 立即处理」立刻触发。
 - 内置翻译流直接调 Claude API（服务端 web_fetch 抓取原文），
-  纯 python 标准库，零第三方依赖。
+  只用 Python 标准库，不需要安装任何第三方包。
 
 ## 开发者
 
