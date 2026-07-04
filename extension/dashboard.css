@@ -120,12 +120,13 @@ td .url { font: 11px/1.5 var(--font-data); color: var(--muted); word-break: brea
 .chip {
   display: inline-block; padding: 1px 8px; border-radius: 2px;
   font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
-  border: 1px solid currentColor;
+  border: 1px solid currentColor; white-space: nowrap;
 }
 .badge-archived {
   color: var(--muted); font-size: 11px; border: 1px solid var(--hairline);
   border-radius: 2px; padding: 0 4px; margin-left: 6px;
 }
+td.src { white-space: nowrap; }
 td.ops { white-space: nowrap; }
 td.ops button { margin: 0 4px 4px 0; font-size: 12px; padding: 3px 8px; }
 #empty { color: var(--muted); text-align: center; padding: 28px; }

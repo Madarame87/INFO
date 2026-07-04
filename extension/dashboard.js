@@ -70,6 +70,14 @@ function fmtTime(iso) {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
+function fmtDateTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function stationEl(name, infoHtml, state) {
   const div = document.createElement('div');
   div.className = 'station' + (state ? ` station-${state}` : '');
@@ -167,13 +175,14 @@ function renderTable() {
     }
 
     const tdSrc = document.createElement('td');
+    tdSrc.className = 'src';
     tdSrc.textContent = [...new Set(rec.sources.map((s) => ({
       bookmark: `书签:${s.folderName || '?'}`, manual: '手动', report: '报告',
     }[s.kind] || s.kind)))].join('、');
 
     const tdT = document.createElement('td');
     tdT.className = 'time';
-    tdT.textContent = (rec.updatedAt || '').replace('T', ' ').slice(0, 16);
+    tdT.textContent = fmtDateTime(rec.updatedAt);
 
     const tdOps = document.createElement('td');
     tdOps.className = 'ops';
