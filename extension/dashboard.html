@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Info Collector — Dashboard</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="seal" aria-hidden="true">收</span>
+    <div>
+      <h1>Info Collector</h1>
+      <p class="tagline">文章处理台账 · 书签只进不改</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button id="btn-import">立即导入书签</button>
+    <button id="btn-bridge">立即桥接同步</button>
+    <button id="btn-bulk">批量标记完成</button>
+    <button id="btn-export">导出 JSON</button>
+  </div>
+</header>
+
+<div id="toast" hidden></div>
+
+<section class="tiles">
+  <div class="tile"><div class="num" id="n-pending">–</div><div class="lbl st-pending">⏳ 待处理</div></div>
+  <div class="tile"><div class="num" id="n-processing">–</div><div class="lbl st-processing">⚙ 处理中</div></div>
+  <div class="tile"><div class="num" id="n-failed">–</div><div class="lbl st-failed">✕ 失败</div></div>
+  <div class="tile"><div class="num" id="n-done">–</div><div class="lbl st-done">✓ 已完成</div></div>
+  <div class="tile"><div class="num" id="n-ignored">–</div><div class="lbl st-ignored">– 已忽略</div></div>
+  <div class="tile"><div class="num" id="n-archived">–</div><div class="lbl">🗄 已归档</div></div>
+  <div class="tile quota">
+    <div class="lbl">sync 配额 <span id="quota-text">–</span></div>
+    <div class="meter"><div class="meter-fill" id="quota-fill"></div></div>
+  </div>
+</section>
+
+<section class="pipeline" id="runs"></section>
+
+<section class="filters">
+  <label>处理类型 <select id="f-type"></select></label>
+  <label>状态
+    <select id="f-status">
+      <option value="">全部</option>
+      <option value="pending">待处理</option>
+      <option value="processing">处理中</option>
+      <option value="failed">失败</option>
+      <option value="done">已完成</option>
+      <option value="ignored">已忽略</option>
+    </select>
+  </label>
+  <label class="grow">搜索 <input id="f-q" type="search" placeholder="标题或 URL"></label>
+  <label class="check"><input id="f-archived" type="checkbox"> 含归档</label>
+</section>
+
+<table>
+  <thead>
+    <tr><th>文章</th><th>状态</th><th>来源</th><th>更新时间</th><th>操作</th></tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+<p id="empty" hidden>没有匹配的记录。</p>
+
+<details class="settings">
+  <summary>设置</summary>
+  <div class="setting-row">
+    <label>书签导入文件夹（逗号分隔）<input id="s-folders"></label>
+    <button id="s-folders-save">保存</button>
+  </div>
+  <div class="setting-row">
+    <label>新增处理类型 id <input id="s-type-id" placeholder="如 transcript"></label>
+    <label>名称 <input id="s-type-label" placeholder="如 文稿"></label>
+    <label class="check"><input id="s-type-auto" type="checkbox"> 新文章自动排队</label>
+    <button id="s-type-add">添加</button>
+  </div>
+  <p class="hint">类型是数据注册表：新增后 outbox 会自动多出对应文件，外部流程只需读
+    <code>~/.info-collector/outbox/&lt;type&gt;.json</code>、写 Completion Report 到
+    <code>~/.info-collector/inbox/</code>。</p>
+</details>
+
+<dialog id="bulk-dialog">
+  <form method="dialog">
+    <h2>批量标记完成</h2>
+    <label>处理类型 <select id="bulk-type"></select></label>
+    <textarea id="bulk-urls" rows="8" placeholder="每行一个 URL"></textarea>
+    <div class="dialog-actions">
+      <button value="cancel">取消</button>
+      <button value="ok" id="bulk-ok">标记完成</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="dashboard.js" type="module"></script>
+</body>
+</html>

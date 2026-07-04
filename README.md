@@ -1,0 +1,67 @@
+# Info Collector
+
+把 Chrome 书签变成自动翻译流水线：文章存进「收藏文章」书签文件夹，
+每小时自动翻译成中文 Markdown，落到你指定的文件夹。处理状态在扩展的
+Dashboard 里一目了然（待处理 → 处理中 → 已完成），跨设备同步。
+
+## 快速上手（普通用户）
+
+只需要一个 Anthropic API Key，三步装好，全程约 10 分钟：
+
+1. 获取 API Key → 2. Chrome 加载扩展 → 3. 终端跑 `bash scripts/setup.sh`
+
+**手把手图文指南（写给非技术用户）：[SETUP.md](SETUP.md)** ⭐
+
+也可以让 AI 替你装：把项目文件夹交给 AI 编程助手，说「按 SETUP.md 装好」。
+安装脚本支持非交互模式（`INFO_COLLECTOR_API_KEY=... INFO_COLLECTOR_ENGINE=claude bash scripts/setup.sh`），
+装完可用 `translate-flow.py --check` 自检。
+
+## 工作原理
+
+```
+Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 翻译流（Claude API）
+                                                              ↓
+                                                     ~/Documents/InfoCollector/*.md
+```
+
+- **扩展**（MV3）是唯一事实来源：从书签只读导入，状态存 `chrome.storage.sync`
+  跨设备同步；书签本身永远不会被修改。
+- **翻译流**是普通本机脚本，经 `~/.info-collector/` 下的文件契约与扩展
+  交换数据（outbox 待处理清单 / inbox 完成报告），由 launchd 每小时调度，
+  也可在 Dashboard 里点「▶ 立即处理」立刻触发。
+- 内置翻译流直接调 Claude API（服务端 web_fetch 抓取原文），
+  纯 python 标准库，零第三方依赖。
+
+## 开发者
+
+- 领域语言：[CONTEXT.md](CONTEXT.md) · 总体设计：[docs/design.md](docs/design.md)
+  · 关键决策：[docs/adr/](docs/adr/)
+- 目录：`extension/`（MV3 扩展）· `host/`（native messaging 文件桥）·
+  `flows/`（处理流脚本）· `templates/`（launchd 模板）· `scripts/`（安装）·
+  `test/`（`npm test`，node --test）
+- 配置文件：`~/.info-collector/config.json`（apiKey / model / outputDir）·
+  `~/.info-collector/flows.json`（流程注册表，见 ADR 0004）
+
+### 新增一条处理流（文稿、书籍……）
+
+1. Dashboard → 设置 → 新增处理类型（如 `transcript`）。
+2. 写脚本：读 `~/.info-collector/outbox/transcript.json`，处理完写报告到
+   `~/.info-collector/inbox/<reportId>.json`（原子写：临时文件 + rename）：
+
+```json
+{ "reportId": "transcript-20260705T120000-ab12", "processingType": "transcript",
+  "results": [ { "url": "…", "status": "done", "processedAt": "…" } ] }
+```
+
+`status` 支持 `processing`（认领，显示「处理中」）/ `done` / `failed`。
+`flows/translate-claude-api.py` 是完整参考实现（含状态文件、锁、认领报告）。
+
+3. 想要 Dashboard 的「▶ 立即处理」按钮和运行状态，往
+   `~/.info-collector/flows.json` 加一条注册：
+   `{"command": [...启动命令, "--manual"], "lockFile": "…", "intervalSeconds": 3600}`。
+
+## 平台支持
+
+目前仅 macOS（launchd、Chrome native messaging 路径）。Chrome 需要
+以「加载已解压的扩展程序」方式安装（manifest 内置固定 key，所有设备
+上扩展 ID 一致：`fmdbamjmoabmcggjfgeopaijnbjkjbhm`）。
