@@ -171,10 +171,13 @@ state/<type>-trigger.log   手动触发的流程输出。
 `flows/` 提供两个满足同一 spool 契约的 translate 流，`scripts/setup.sh`
 默认为普通用户安装通用版：
 
-- **`translate-claude-api.py`（通用，随仓库分发）**：纯 python 标准库直接调
-  Claude Messages API，用服务端 `web_fetch` 工具抓取原文，逐篇翻译并按篇
-  报告 done/failed。配置在 `~/.info-collector/config.json`（apiKey/model/
-  outputDir），`--check` 自检可验证 Key 与目录。launchd 模板见
+- **`translate-claude-api.py`（通用，随仓库分发）**：纯 python 标准库支持
+  DeepSeek API 和 Claude API 两种 provider。DeepSeek 路径优先调用本机
+  `defuddle parse --json` 提取正文与 metadata，再调 OpenAI-compatible
+  `/chat/completions`；未安装 defuddle 时退回内置简易抓取器。Claude 路径直接
+  调 Anthropic Messages API，用服务端 `web_fetch` 工具抓取原文。逐篇翻译并按篇
+  报告 done/failed。配置在 `~/.info-collector/config.json`（provider/apiKey/
+  baseUrl/model/outputDir），`--check` 自检可验证 Key 与目录。launchd 模板见
   `templates/`，由 setup.sh 渲染安装。
 - **`translate-bookmarks.py`（作者个人流）**：调 `pi` CLI +
   translate-article skill 存入 Obsidian，`scripts/setup-pi-flow.sh` 安装。

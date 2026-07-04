@@ -10,7 +10,7 @@ Dashboard 长这样：状态卡片、流水线运行时间、逐篇文章的状�
 
 ## 快速上手（普通用户）
 
-只需要一个 Anthropic API Key，三步装好，全程约 10 分钟：
+只需要一个 DeepSeek API Key（也支持 Anthropic API Key），三步装好，全程约 10 分钟：
 
 1. 获取 API Key
 2. Chrome 加载扩展
@@ -19,13 +19,13 @@ Dashboard 长这样：状态卡片、流水线运行时间、逐篇文章的状�
 **手把手图文指南（写给非技术用户）：[SETUP.md](SETUP.md)**
 
 也可以让 AI 替你装：把项目文件夹交给 AI 编程助手，说「按 SETUP.md 装好」。
-安装脚本支持非交互模式（`INFO_COLLECTOR_API_KEY=... INFO_COLLECTOR_ENGINE=claude bash scripts/setup.sh`），
+安装脚本支持非交互模式（`INFO_COLLECTOR_ENGINE=deepseek INFO_COLLECTOR_API_KEY=sk-... bash scripts/setup.sh`），
 装完可用 `translate-flow.py --check` 自检。
 
 ## 工作原理
 
 ```
-Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 翻译流（Claude API）
+Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 翻译流（DeepSeek/Claude API）
                                                               ↓
                                                      ~/Documents/InfoCollector/*.md
 ```
@@ -35,8 +35,10 @@ Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥
 - **翻译流**是普通本机脚本，经 `~/.info-collector/` 下的文件契约与扩展
   交换数据（outbox 待处理清单 / inbox 完成报告），由 launchd 每小时调度，
   也可在 Dashboard 里点「▶ 立即处理」立刻触发。
-- 内置翻译流直接调 Claude API（服务端 web_fetch 抓取原文），
-  只用 Python 标准库，不需要安装任何第三方包。
+- 内置翻译流支持 DeepSeek API 和 Claude API。DeepSeek 路径会优先用本机
+  `defuddle parse --json` 提取正文与 metadata，再调 OpenAI-compatible
+  `/chat/completions`；未安装 defuddle 时退回内置简易抓取器。Claude 路径继续
+  使用 Anthropic Messages API 的服务端 `web_fetch`。
 
 ## 开发者
 
@@ -45,7 +47,7 @@ Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥
 - 目录：`extension/`（MV3 扩展）· `host/`（native messaging 文件桥）·
   `flows/`（处理流脚本）· `templates/`（launchd 模板）· `scripts/`（安装）·
   `test/`（`npm test`，node --test）
-- 配置文件：`~/.info-collector/config.json`（apiKey / model / outputDir）·
+- 配置文件：`~/.info-collector/config.json`（provider / apiKey / baseUrl / model / outputDir）·
   `~/.info-collector/flows.json`（流程注册表，见 ADR 0004）
 
 ### 新增一条处理流（文稿、书籍……）

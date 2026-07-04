@@ -6,28 +6,31 @@
 
 整个安装分四部分，请按顺序做（Part C 会用到 Part A 拿到的 API Key）：
 
-- **Part A**：获取一个 Anthropic API Key（翻译要用的「钥匙」）
+- **Part A**：获取一个 DeepSeek API Key（翻译要用的「钥匙」；也支持 Anthropic）
 - **Part B**：把扩展装进 Chrome
 - **Part C**：在终端里跑一条安装命令
 - **Part D**：验证一切正常
 
 ---
 
-## Part A：获取 Anthropic API Key（约 3 分钟）
+## Part A：获取 DeepSeek API Key（约 3 分钟）
 
-API Key 是一串以 `sk-ant-` 开头的字符，相当于你调用 Claude 翻译服务的
-钥匙。翻译按用量计费，一篇普通文章大约几美分。
+API Key 是一串通常以 `sk-` 开头的字符，相当于你调用 DeepSeek 翻译服务的
+钥匙。翻译按用量计费，一篇普通文章通常很便宜，具体以 DeepSeek 平台价格为准。
 
-1. 打开 <https://console.anthropic.com/> 并注册/登录。
-2. 左侧菜单进入 **API Keys**（或直接打开
-   <https://console.anthropic.com/settings/keys>）。
-3. 点 **Create Key**，名字随便填（比如 `info-collector`），点创建。
-4. 屏幕上会显示一串 `sk-ant-` 开头的字符——**点复制，找个地方暂存**
+1. 打开 <https://platform.deepseek.com/> 并注册/登录。
+2. 左侧菜单进入 **API keys**（或直接打开
+   <https://platform.deepseek.com/api_keys>）。
+3. 点 **Create new API key**，名字随便填（比如 `info-collector`），点创建。
+4. 屏幕上会显示一串 `sk-` 开头的字符——**点复制，找个地方暂存**
    （备忘录就行）。⚠️ 这串字符只显示这一次，关掉就看不到了；
    丢了也没关系，重新创建一个即可。
-5. 如果账户还没有余额，去 **Billing** 页面充值（最低 $5 足够翻译很久）。
+5. 如果账户还没有余额，去 **Top up** 页面充值。
 
-✅ **检查点**：你手上有一串 `sk-ant-` 开头的字符。
+✅ **检查点**：你手上有一串 `sk-` 开头的字符。
+
+想继续用 Claude 也可以：去 <https://console.anthropic.com/settings/keys>
+创建 `sk-ant-...`，Part C 选择第 2 个翻译引擎。
 
 ---
 
@@ -71,11 +74,18 @@ API Key 是一串以 `sk-ant-` 开头的字符，相当于你调用 Claude 翻�
    `bash ` 再回车。
 
 3. 脚本会问你两三个问题：
-   - **选择翻译引擎**：直接回车（默认选 1，内置 Claude 翻译）。
-   - **粘贴 API Key**：把 Part A 复制的 `sk-ant-...` 粘贴进来，回车。
+   - **选择翻译引擎**：直接回车（默认选 1，内置 DeepSeek 翻译）。
+   - **粘贴 API Key**：把 Part A 复制的 `sk-...` 粘贴进来，回车。
      （终端里粘贴用 `⌘V`；粘贴后看不到字符变化也是正常的。）
    - **译文保存到哪**：直接回车用默认位置（文稿/InfoCollector），
      或输入你想要的文件夹路径。
+
+   DeepSeek 翻译流会优先使用本机 `defuddle` 提取网页正文。没装也能跑，
+   只是会退回内置简易抓取器；想和 Pi 的翻译流保持同样正文提取效果，可先装：
+
+   ```
+   npm install -g defuddle
+   ```
 
 4. 跑一下自检，确认配置没问题：
 
@@ -111,7 +121,8 @@ API Key 是一串以 `sk-ant-` 开头的字符，相当于你调用 Claude 翻�
 `setup.sh`，然后完全退出 Chrome（`⌘Q`）再打开。
 
 **自检说「API Key 验证失败：API 401」**
-→ Key 粘贴错了或被删除了。去 <https://console.anthropic.com/settings/keys>
+→ Key 粘贴错了或被删除了。DeepSeek 用户去 <https://platform.deepseek.com/api_keys>
+重新创建一个；Claude 用户去 <https://console.anthropic.com/settings/keys>
 重新创建一个，然后打开 `~/.info-collector/config.json`（终端里输入
 `open ~/.info-collector/config.json`），把 `apiKey` 的值换掉。
 
@@ -130,11 +141,24 @@ Dashboard 顶部的流水线条会显示「翻译流」上次运行时间和下�
 → 你选的不是项目里的 `extension` 文件夹，删掉重新加载一次。
 
 **想换翻译模型或输出文件夹**
-→ 编辑 `~/.info-collector/config.json`（`model` 可改为
-`claude-sonnet-5`，更便宜）。改完不用重启任何东西，下次翻译自动生效。
+→ 编辑 `~/.info-collector/config.json`。DeepSeek 推荐配置如下：
+
+```json
+{
+ "provider": "deepseek",
+ "apiKey": "sk-...",
+ "baseUrl": "https://api.deepseek.com",
+ "model": "deepseek-v4-flash",
+ "outputDir": "~/Documents/InfoCollector"
+}
+```
+
+Claude 配置则把 `provider` 改成 `anthropic`，`apiKey` 用 `sk-ant-...`，
+`baseUrl` 用 `https://api.anthropic.com`，`model` 用 Claude 模型名。
+改完不用重启任何东西，下次翻译自动生效。
 
 **用 AI 帮你装**
 → 把整个项目文件夹给任何 AI 编程助手（如 Claude Code），说
 「按 SETUP.md 帮我装好」。安装脚本支持非交互模式：
-`INFO_COLLECTOR_API_KEY=sk-ant-... INFO_COLLECTOR_ENGINE=claude bash scripts/setup.sh`，
+`INFO_COLLECTOR_ENGINE=deepseek INFO_COLLECTOR_API_KEY=sk-... bash scripts/setup.sh`，
 装完让它跑 `--check` 自检即可。

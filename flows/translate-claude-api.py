@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-通用翻译流（translate）：只需要一个 Anthropic API Key，无任何第三方依赖。
+通用翻译流（translate）：支持 DeepSeek API 或 Anthropic API，无任何第三方依赖。
 1. 读 ~/.info-collector/outbox/translate.json（Info Collector 扩展导出）
-2. 逐篇调 Claude API：用服务端 web_fetch 工具抓取原文并翻译成中文 Markdown
+2. 逐篇抓取原文并调 LLM API 翻译成中文 Markdown
 3. 译文存到配置的输出目录，结果写成 Completion Report 放进 inbox/
 
 配置文件 ~/.info-collector/config.json：
-  { "apiKey": "sk-ant-...", "model": "claude-opus-4-8",
+  { "provider": "deepseek", "apiKey": "sk-...", "model": "deepseek-v4-flash",
     "outputDir": "~/Documents/InfoCollector" }
 
 用法：
@@ -16,11 +16,14 @@
 """
 
 import fcntl
+from html.parser import HTMLParser
 import json
 import os
 import random
 import re
+import shutil
 import string
+import subprocess
 import sys
 import tempfile
 import time
@@ -36,12 +39,25 @@ STATUS_FILE = os.path.join(SPOOL, "state", "translate-status.json")
 LOCK_FILE = os.path.join(SPOOL, "state", "translate.lock")
 LOG_FILE = os.path.join(SPOOL, "state", "translate-flow.log")
 
-API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
-DEFAULT_MODEL = "claude-opus-4-8"
+DEFAULT_PROVIDER = "deepseek"
+PROVIDER_DEFAULTS = {
+    "deepseek": {
+        "baseUrl": "https://api.deepseek.com",
+        "model": "deepseek-v4-flash",
+    },
+    "anthropic": {
+        "baseUrl": "https://api.anthropic.com",
+        "model": "claude-opus-4-8",
+    },
+}
 MAX_TOKENS = 16000          # 非流式安全上限；超长文章会报 failed
 REQUEST_TIMEOUT = 900       # 单篇翻译最长等待（秒）
 MAX_CONTINUATIONS = 4       # 服务端工具 pause_turn 续跑次数上限
+FETCH_TIMEOUT = 45
+DEFUDDLE_TIMEOUT = 90
+MAX_FETCH_BYTES = 2_000_000
+MAX_DEEPSEEK_INPUT_CHARS = 180_000
 
 TRIGGER = "manual" if "--manual" in sys.argv else "scheduled"
 
@@ -88,27 +104,60 @@ def load_json(path, default):
 
 def load_config():
     cfg = load_json(CONFIG_FILE, {})
-    cfg.setdefault("model", DEFAULT_MODEL)
+    provider = normalize_provider(cfg)
+    cfg["provider"] = provider
+    defaults = PROVIDER_DEFAULTS.get(provider, PROVIDER_DEFAULTS[DEFAULT_PROVIDER])
+    cfg["baseUrl"] = (cfg.get("baseUrl") or cfg.get("baseURL") or
+                      cfg.get("apiBase") or defaults["baseUrl"]).rstrip("/")
+    if not cfg.get("model") or model_looks_like_other_provider(cfg.get("model", ""), provider):
+        cfg["model"] = defaults["model"]
     cfg.setdefault("outputDir", "~/Documents/InfoCollector")
     return cfg
 
 
-def config_ok(cfg):
+def normalize_provider(cfg):
+    provider = (cfg.get("provider") or cfg.get("apiProvider") or "").strip().lower()
+    if not provider:
+        provider = "anthropic" if (cfg.get("apiKey") or "").startswith("sk-ant-") else DEFAULT_PROVIDER
+    aliases = {"claude": "anthropic", "anthropic": "anthropic", "deepseek": "deepseek"}
+    if provider not in aliases:
+        return provider
+    return aliases[provider]
+
+
+def model_looks_like_other_provider(model, provider):
+    if provider == "deepseek":
+        return model.startswith("claude-")
+    if provider == "anthropic":
+        return model.startswith("deepseek-")
+    return False
+
+
+def config_error(cfg):
     key = cfg.get("apiKey") or ""
-    return key.startswith("sk-ant-") and len(key) > 20
+    provider = cfg.get("provider")
+    if provider not in PROVIDER_DEFAULTS:
+        return f"不支持的 API provider：{provider}（可选 deepseek 或 anthropic）"
+    if len(key) <= 20:
+        return "API Key 未配置或过短"
+    if provider == "anthropic" and not key.startswith("sk-ant-"):
+        return "Anthropic API Key 应以 sk-ant- 开头"
+    if provider == "deepseek" and not key.startswith("sk-"):
+        return "DeepSeek API Key 通常以 sk- 开头"
+    return None
 
 
-# ===== Claude API（标准库 raw HTTP）=====
+def config_ok(cfg):
+    return config_error(cfg) is None
 
-def api_request(path, payload, api_key):
+
+# ===== API（标准库 raw HTTP）=====
+
+def post_json(url, payload, headers):
     req = urllib.request.Request(
-        f"https://api.anthropic.com{path}",
+        url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "content-type": "application/json",
-            "x-api-key": api_key,
-            "anthropic-version": API_VERSION,
-        },
+        headers={"content-type": "application/json", **headers},
         method="POST",
     )
     try:
@@ -119,15 +168,56 @@ def api_request(path, payload, api_key):
         raise RuntimeError(f"API {e.code}: {body}") from e
 
 
+def anthropic_request(path, payload, cfg):
+    return post_json(
+        f"{cfg['baseUrl']}{path}",
+        payload,
+        {
+            "x-api-key": cfg["apiKey"],
+            "anthropic-version": API_VERSION,
+        },
+    )
+
+
+def deepseek_request(path, payload, cfg):
+    return post_json(
+        f"{cfg['baseUrl']}{path}",
+        payload,
+        {"authorization": f"Bearer {cfg['apiKey']}"},
+    )
+
+
 def check_api_key(cfg):
-    """用免费的 count_tokens 端点验证 API Key。"""
-    api_request("/v1/messages/count_tokens", {
+    """验证 API Key。Anthropic 用 count_tokens；DeepSeek 用一次极小 chat 请求。"""
+    if cfg["provider"] == "anthropic":
+        anthropic_request("/v1/messages/count_tokens", {
+            "model": cfg["model"],
+            "messages": [{"role": "user", "content": "ping"}],
+        }, cfg)
+        return
+    payload = {
         "model": cfg["model"],
         "messages": [{"role": "user", "content": "ping"}],
-    }, cfg["apiKey"])
+        "max_tokens": 8,
+        "stream": False,
+    }
+    if cfg["model"].startswith("deepseek-v4"):
+        payload["thinking"] = {"type": "disabled"}
+    resp = deepseek_request("/chat/completions", payload, cfg)
+    if not resp.get("choices"):
+        raise RuntimeError("DeepSeek 响应中没有 choices")
 
 
 def translate_article(url, title, cfg):
+    """翻译一篇文章，返回 Markdown 文本。失败抛 RuntimeError。"""
+    if cfg["provider"] == "anthropic":
+        return translate_article_anthropic(url, title, cfg)
+    if cfg["provider"] == "deepseek":
+        return translate_article_deepseek(url, title, cfg)
+    raise RuntimeError(f"不支持的 API provider：{cfg['provider']}")
+
+
+def translate_article_anthropic(url, title, cfg):
     """翻译一篇文章，返回 Markdown 文本。失败抛 RuntimeError。"""
     now_local = time.strftime("%Y-%m-%dT%H:%M")
     user_prompt = (
@@ -147,7 +237,7 @@ def translate_article(url, title, cfg):
     }
 
     for _ in range(MAX_CONTINUATIONS):
-        resp = api_request("/v1/messages", payload, cfg["apiKey"])
+        resp = anthropic_request("/v1/messages", payload, cfg)
         stop = resp.get("stop_reason")
         if stop == "pause_turn":
             # 服务端工具循环没跑完，把 assistant 回合附回去继续
@@ -165,6 +255,207 @@ def translate_article(url, title, cfg):
             raise RuntimeError(f"响应中没有文本内容（stop_reason={stop}）")
         return strip_code_fence(text)
     raise RuntimeError("服务端工具续跑次数超限（pause_turn loop）")
+
+
+class ArticleHTMLParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+        self.skip_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.lower()
+        if tag in {"script", "style", "noscript", "svg"}:
+            self.skip_depth += 1
+            return
+        if self.skip_depth:
+            return
+        if tag in {"p", "div", "section", "article", "header", "footer", "br",
+                   "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",
+                   "pre"}:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        tag = tag.lower()
+        if tag in {"script", "style", "noscript", "svg"} and self.skip_depth:
+            self.skip_depth -= 1
+            return
+        if not self.skip_depth and tag in {"p", "div", "section", "article", "li",
+                                           "h1", "h2", "h3", "h4", "h5", "h6",
+                                           "blockquote", "pre"}:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        if not self.skip_depth:
+            text = data.strip()
+            if text:
+                self.parts.append(text)
+
+    def text(self):
+        raw = " ".join(self.parts)
+        raw = re.sub(r"[ \t\r\f\v]+", " ", raw)
+        raw = re.sub(r"\n\s*", "\n", raw)
+        raw = re.sub(r"\n{3,}", "\n\n", raw)
+        return raw.strip()
+
+
+def extract_author(meta):
+    for item in meta.get("schemaOrgData") or []:
+        if not isinstance(item, dict):
+            continue
+        author = item.get("author")
+        if isinstance(author, dict) and author.get("name"):
+            return author["name"]
+        if isinstance(author, list):
+            names = [a.get("name") for a in author if isinstance(a, dict) and a.get("name")]
+            if names:
+                return ", ".join(names)
+    return meta.get("author") or ""
+
+
+def content_from_defuddle(meta):
+    for key in ("markdown", "content", "text", "article"):
+        val = meta.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    html = meta.get("html")
+    if isinstance(html, str) and html.strip():
+        parser = ArticleHTMLParser()
+        parser.feed(html)
+        return parser.text()
+    return ""
+
+
+def fetch_article_with_defuddle(url):
+    if os.environ.get("INFO_COLLECTOR_DISABLE_DEFUDDLE"):
+        return None
+    exe = shutil.which("defuddle")
+    if not exe:
+        return None
+    try:
+        proc = subprocess.run(
+            [exe, "parse", url, "--json"],
+            capture_output=True,
+            text=True,
+            timeout=DEFUDDLE_TIMEOUT,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log(f"defuddle 不可用，改用内置抓取器: {e}")
+        return None
+    if proc.returncode != 0:
+        log(f"defuddle 抓取失败，改用内置抓取器: {proc.stderr[:300]}")
+        return None
+    try:
+        meta = json.loads(proc.stdout)
+    except json.JSONDecodeError as e:
+        log(f"defuddle 输出不是 JSON，改用内置抓取器: {e}")
+        return None
+    content = content_from_defuddle(meta)
+    if len(content) < 80:
+        log("defuddle 抓取到的正文太短，改用内置抓取器")
+        return None
+    return {
+        "content": content,
+        "title": meta.get("title") or "",
+        "published": meta.get("published") or meta.get("date") or "",
+        "authors": extract_author(meta),
+        "extractor": "defuddle",
+    }
+
+
+def fetch_article_with_builtin(url):
+    req = urllib.request.Request(
+        url,
+        headers={
+            "user-agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) "
+                           "Chrome/126.0 Safari/537.36 InfoCollector/1.0"),
+            "accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+            content_type = resp.headers.get("content-type", "")
+            charset = resp.headers.get_content_charset() or "utf-8"
+            raw = resp.read(MAX_FETCH_BYTES + 1)
+    except urllib.error.HTTPError as e:
+        body = e.read(200).decode("utf-8", errors="replace")
+        raise RuntimeError(f"抓取原文失败 HTTP {e.code}: {body}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"抓取原文失败: {e}") from e
+
+    if len(raw) > MAX_FETCH_BYTES:
+        raise RuntimeError("原文页面过大，超过本地抓取上限")
+
+    text = raw.decode(charset, errors="replace")
+    if "html" in content_type.lower() or re.search(r"<html|<article|<body", text, re.I):
+        parser = ArticleHTMLParser()
+        parser.feed(text)
+        text = parser.text()
+    else:
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
+
+    if len(text) < 80:
+        raise RuntimeError("抓取到的正文太短，网站可能需要登录或阻止抓取")
+    return {"content": text, "title": "", "published": "", "authors": "", "extractor": "builtin"}
+
+
+def fetch_article_source(url):
+    return fetch_article_with_defuddle(url) or fetch_article_with_builtin(url)
+
+
+def translate_article_deepseek(url, title, cfg):
+    now_local = time.strftime("%Y-%m-%dT%H:%M")
+    article = fetch_article_source(url)
+    article_text = article["content"]
+    truncated = ""
+    if len(article_text) > MAX_DEEPSEEK_INPUT_CHARS:
+        article_text = article_text[:MAX_DEEPSEEK_INPUT_CHARS]
+        truncated = "\n\n注意：原文很长，以下文本已按本地输入上限截断。"
+
+    system_prompt = (
+        "你是一名专业译者。用户会提供从网页抓取出的文章正文。"
+        "请把正文完整翻译成自然通顺的简体中文 Markdown。规则："
+        "代码块、命令、路径原样保留不翻译；图片链接如正文中出现则保留；"
+        "文章主标题用「中文（English）」双语形式。"
+        "你的最终回复必须只包含完成的 Markdown 文档本身"
+        "（以 --- 开头的 YAML frontmatter 开始），"
+        "不要有任何解释、前言或代码围栏。"
+    )
+    user_prompt = (
+        f"来源 URL: {url}\n"
+        f"书签标题: {title}\n\n"
+        f"正文提取器: {article['extractor']}\n"
+        f"原文标题: {article['title']}\n"
+        f"原文发布日期: {article['published']}\n"
+        f"作者: {article['authors']}\n\n"
+        f"frontmatter 需包含：title（中文标题）、source（原文 URL）、"
+        f"published（优先使用上面的原文发布日期，YYYY-MM-DD，找不到就留空）、"
+        f"date: {now_local}（收录时间，原样使用这个值）、"
+        f"authors（优先使用上面的作者，找不到就留空）。{truncated}\n\n"
+        f"原文提取文本：\n\n{article_text}"
+    )
+    payload = {
+        "model": cfg["model"],
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "max_tokens": MAX_TOKENS,
+        "stream": False,
+        "temperature": 0.2,
+    }
+    if cfg["model"].startswith("deepseek-v4"):
+        payload["thinking"] = {"type": "disabled"}
+    resp = deepseek_request("/chat/completions", payload, cfg)
+    choice = (resp.get("choices") or [{}])[0]
+    text = ((choice.get("message") or {}).get("content") or "").strip()
+    if not text:
+        reason = choice.get("finish_reason") or "unknown"
+        raise RuntimeError(f"DeepSeek 响应中没有文本内容（finish_reason={reason}）")
+    if choice.get("finish_reason") == "length":
+        raise RuntimeError("译文超出输出上限，文章可能过长")
+    return strip_code_fence(text)
 
 
 def strip_code_fence(text):
@@ -241,13 +532,13 @@ def run_check():
     if not os.path.exists(CONFIG_FILE):
         print(f"✕ 配置文件不存在：{CONFIG_FILE}（运行 scripts/setup.sh）")
         ok = False
-    elif not config_ok(cfg):
-        print(f"✕ API Key 未配置或格式不对（应以 sk-ant- 开头）：{CONFIG_FILE}")
+    elif config_error(cfg):
+        print(f"✕ {config_error(cfg)}：{CONFIG_FILE}")
         ok = False
     else:
         try:
             check_api_key(cfg)
-            print(f"✓ API Key 有效（模型 {cfg['model']}）")
+            print(f"✓ API Key 有效（{cfg['provider']} / {cfg['model']}）")
         except Exception as e:
             print(f"✕ API Key 验证失败：{e}")
             ok = False
@@ -278,8 +569,9 @@ def main():
 
     cfg = load_config()
     if not config_ok(cfg):
-        log("❌ API Key 未配置，跳过（编辑 ~/.info-collector/config.json 或重跑 setup.sh）")
+        log(f"❌ {config_error(cfg)}，跳过（编辑 ~/.info-collector/config.json 或重跑 setup.sh）")
         return
+    log(f"使用翻译引擎：{cfg['provider']} / {cfg['model']}")
 
     lock_fd = acquire_lock()
     if lock_fd is None:
