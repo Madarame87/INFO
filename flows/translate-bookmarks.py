@@ -39,7 +39,7 @@ TRIGGER = "manual" if "--manual" in sys.argv else "scheduled"
 def log(msg):
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
-    with open(LOG_FILE, "a") as f:
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{ts}] {msg}\n")
     print(f"[{ts}] {msg}", flush=True)
 
@@ -48,10 +48,15 @@ def append_history(entry):
     os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
     history = []
     if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE) as f:
-            history = json.load(f)
+        try:
+            with open(HISTORY_FILE, encoding="utf-8") as f:
+                history = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            history = []
+    if not isinstance(history, list):
+        history = []
     history.append(entry)
-    with open(HISTORY_FILE, "w") as f:
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2, ensure_ascii=False)
 
 
@@ -69,7 +74,7 @@ def atomic_write_json(path, obj):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
     try:
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, indent=1)
         os.replace(tmp, path)
     finally:
@@ -85,9 +90,9 @@ def update_status(patch):
     status = {}
     if os.path.exists(STATUS_FILE):
         try:
-            with open(STATUS_FILE) as f:
+            with open(STATUS_FILE, encoding="utf-8") as f:
                 status = json.load(f)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, OSError):
             status = {}
     status.update(patch)
     atomic_write_json(STATUS_FILE, status)
@@ -96,8 +101,11 @@ def update_status(patch):
 def load_state():
     """已报告 done 的文章：articleKey/url → 报告时间。"""
     if os.path.exists(STATE_FILE):
-        with open(STATE_FILE) as f:
-            return json.load(f)
+        try:
+            with open(STATE_FILE, encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return {}
     return {}
 
 
@@ -139,7 +147,7 @@ def main():
             finish("no-outbox")
             return
         try:
-            with open(OUTBOX_FILE) as f:
+            with open(OUTBOX_FILE, encoding="utf-8") as f:
                 outbox = json.load(f)
         except json.JSONDecodeError as e:
             log(f"❌ outbox 解析失败: {e}")
@@ -150,7 +158,7 @@ def main():
         state = load_state()
         pending = [
             a for a in articles
-            if a.get("articleKey") not in state and a.get("url") not in state
+            if a.get("url") and a.get("articleKey") not in state and a.get("url") not in state
         ]
         log(f"outbox 共 {len(articles)} 条，其中 {len(pending)} 条未报告")
 
@@ -190,7 +198,12 @@ def main():
             env={**os.environ, "HOME": os.path.expanduser("~")},
         )
         elapsed = time.time() - t_start
-        success = result.returncode == 0
+        # 退出码 0 还不够：pi 可能子任务失败却仍以 0 退出。要求它按 prompt
+        # 约定输出的 ALL_DONE 标记，缺失则视为失败并重试，避免误标 done 丢文章。
+        # 权衡：ALL_DONE 是整批标记，部分成功（已译若干篇但没打出 ALL_DONE）会
+        # 整批重试，可能重复翻译已保存的几篇。这里宁可重复也不静默丢文章——
+        # 想要逐篇精确到 done/failed 请改用 translate-claude-api.py（按篇报告）。
+        success = result.returncode == 0 and "ALL_DONE" in (result.stdout or "")
         log(f"⏱ pi 运行 {elapsed:.0f}s，退出码: {result.returncode}")
 
         if result.stdout:

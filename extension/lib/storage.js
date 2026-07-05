@@ -70,8 +70,8 @@ export async function putRecords(records) {
   await chrome.storage.sync.set(set);
 }
 
-export async function removeRecords(articleKeys) {
-  if (!articleKeys.length) return;
+// 仅从 sync 活跃桶里删除，不碰 archive。归档搬迁与彻底删除都复用它。
+async function removeFromBuckets(articleKeys) {
   const byBucket = new Map();
   for (const key of articleKeys) {
     const bk = bucketKeyOf(key);
@@ -87,6 +87,12 @@ export async function removeRecords(articleKeys) {
     set[bk] = bucket;
   }
   await chrome.storage.sync.set(set);
+}
+
+// 彻底删除：从活跃桶与归档都移除（Dashboard「删除」）。
+export async function removeRecords(articleKeys) {
+  if (!articleKeys.length) return;
+  await removeFromBuckets(articleKeys);
   const archive = await rawArchive();
   let touched = false;
   for (const key of articleKeys) {
@@ -114,7 +120,7 @@ async function archiveRecords(records) {
   const archive = await rawArchive();
   for (const rec of records) archive[rec.articleKey] = encodeRecord(rec);
   await chrome.storage.local.set({ [ARCHIVE_KEY]: archive });
-  await removeRecords(records.map((r) => r.articleKey));
+  await removeFromBuckets(records.map((r) => r.articleKey));
 }
 
 // 归档触发：全部 job 完成且 30 天未更新；或 sync 用量超软限时从最旧完成记录开始腾挪。

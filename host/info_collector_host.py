@@ -70,7 +70,7 @@ def send_message(obj):
 def atomic_write_json(path, obj):
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
     try:
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, indent=1)
         os.replace(tmp, path)
     finally:
@@ -89,7 +89,7 @@ def load_flows():
     if not os.path.exists(FLOWS_FILE):
         return {}
     try:
-        with open(FLOWS_FILE) as f:
+        with open(FLOWS_FILE, encoding="utf-8") as f:
             flows = json.load(f)
         return flows if isinstance(flows, dict) else {}
     except (json.JSONDecodeError, OSError):
@@ -123,7 +123,7 @@ def flow_statuses():
         status_path = os.path.join(STATE, f"{ptype}-status.json")
         if os.path.exists(status_path):
             try:
-                with open(status_path) as f:
+                with open(status_path, encoding="utf-8") as f:
                     status = json.load(f)
             except (json.JSONDecodeError, OSError):
                 status = {}
@@ -167,7 +167,7 @@ def handle_sync(msg):
         if not os.path.isfile(fpath):
             continue
         try:
-            with open(fpath) as f:
+            with open(fpath, encoding="utf-8") as f:
                 rep = json.load(f)
             rep["reportId"] = fname[:-5]  # 文件名即 ack 标识
             reports.append(rep)
@@ -218,7 +218,10 @@ def main():
             else:
                 send_message({"ok": False, "error": f"未知消息类型: {mtype}"})
         except Exception as e:
-            send_message({"ok": False, "error": str(e)})
+            try:
+                send_message({"ok": False, "error": str(e)})
+            except Exception:
+                break
 
 
 if __name__ == "__main__":

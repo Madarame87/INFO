@@ -81,6 +81,9 @@ async function handle(msg) {
         const key = normalizeUrl(msg.url);
         if (!key) return { ok: false, error: '该页面无法入队（仅支持 http/https）' };
         const now = new Date().toISOString();
+        // 已归档＝处理历史已完成，和导入/桥接一样跳过，避免复活成新的活跃记录被重复处理。
+        const archive = await store.loadArchive();
+        if (archive.has(key)) return { ok: true, articleKey: key, existed: true, archived: true };
         const meta = await store.loadMeta();
         const autoTypes = Object.entries(meta.types).filter(([, t]) => t.autoEnroll).map(([id]) => id);
         const prev = await store.getRecord(key);

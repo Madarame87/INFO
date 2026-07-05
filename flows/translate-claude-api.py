@@ -75,7 +75,7 @@ SYSTEM_PROMPT = (
 def log(msg):
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
-    with open(LOG_FILE, "a") as f:
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{ts}] {msg}\n")
     print(f"[{ts}] {msg}", flush=True)
 
@@ -84,7 +84,7 @@ def atomic_write_json(path, obj):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
     try:
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(obj, f, ensure_ascii=False, indent=1)
         os.replace(tmp, path)
     finally:
@@ -95,9 +95,9 @@ def atomic_write_json(path, obj):
 def load_json(path, default):
     if os.path.exists(path):
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 return json.load(f)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, OSError):
             return default
     return default
 
@@ -485,7 +485,7 @@ def save_markdown(markdown, title, out_dir):
         path = os.path.join(out_dir, f"{base}-{n}.md")
         n += 1
     fd, tmp = tempfile.mkstemp(dir=out_dir)
-    with os.fdopen(fd, "w") as f:
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(markdown)
     os.replace(tmp, path)
     return path
@@ -597,7 +597,7 @@ def main():
         state = load_json(STATE_FILE, {})
         pending = [
             a for a in articles
-            if a.get("articleKey") not in state and a.get("url") not in state
+            if a.get("url") and a.get("articleKey") not in state and a.get("url") not in state
         ]
         log(f"outbox 共 {len(articles)} 条，其中 {len(pending)} 条未报告")
         if not pending:

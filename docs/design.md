@@ -115,7 +115,8 @@
   （articleKey 的 FNV-1a hash 取模），桶内是 articleKey → 压缩记录的 map；
   `aq:meta` 存注册表和设置。压缩编码（短字段名）由 `codec.js` 负责，
   读写两侧只见完整形态。
-- `chrome.storage.local`：`aq:archive` 归档记录 + `aq:pendingAcks` 桥接状态。
+- `chrome.storage.local`：`aq:archive` 归档记录、`aq:acks` 待发送的报告 ack、
+  `aq:runs` 导入/桥接运行状态、`aq:flows` 各流程运行状态缓存。
 - 归档触发：所有 job 均为 done/ignored 且 30 天未更新，或 sync 用量超 80% 时
   从最旧的已完成记录开始迁移。导入去重同时查活跃桶和归档。
 
@@ -193,7 +194,7 @@ state/<type>-trigger.log   手动触发的流程输出。
 - 成功后原子写 inbox 报告，更新本地已报告清单，追加 action-history。
 - outbox 不存在时打日志静默退出（扩展尚未装好时的过渡行为）。
 
-历史迁移：`scripts/setup.sh` 把现有 `translated-urls.json`（10 条）转成一份
+历史迁移：`scripts/setup-pi-flow.sh` 把现有 `translated-urls.json` 转成一份
 inbox 报告，扩展首次桥接时即把它们记为 done。
 
 ## Dashboard / Popup

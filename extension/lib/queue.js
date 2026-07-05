@@ -97,9 +97,12 @@ export function setJobStatus(record, type, status, now) {
 }
 
 // 认领过期回退：流程已不在运行却仍是 processing → 回到 pending（不计失败次数）。
+// 本次会话刚认领的（updatedAt === now）不回退：那可能是流程在启动、其
+// running 状态尚未在同一次桥接里体现，避免把刚认领的文章误退回重复处理。
 export function reclaimIfStale(record, type, now) {
   const j = record.jobs[type];
   if (!j || j.status !== 'processing') return null;
+  if (j.updatedAt === now) return null;
   return setJobStatus(record, type, 'pending', now);
 }
 
