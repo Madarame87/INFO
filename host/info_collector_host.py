@@ -26,6 +26,29 @@ STATE = os.path.join(SPOOL, "state")
 FLOWS_FILE = os.path.join(SPOOL, "flows.json")
 
 
+def trigger_env():
+    env = dict(os.environ)
+    path_parts = [p for p in env.get("PATH", "").split(os.pathsep) if p]
+    candidates = []
+    nvm_root = os.path.expanduser("~/.nvm/versions/node")
+    if os.path.isdir(nvm_root):
+        for name in sorted(os.listdir(nvm_root), reverse=True):
+            candidates.append(os.path.join(nvm_root, name, "bin"))
+    candidates.extend([
+        os.path.expanduser("~/.local/bin"),
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+    ])
+    for path in reversed(candidates):
+        if os.path.isdir(path) and path not in path_parts:
+            path_parts.insert(0, path)
+    env["PATH"] = os.pathsep.join(path_parts)
+    env["HOME"] = os.path.expanduser("~")
+    return env
+
+
 def read_message():
     raw = sys.stdin.buffer.read(4)
     if len(raw) < 4:
@@ -171,6 +194,7 @@ def handle_trigger(msg):
         stderr=logf,
         start_new_session=True,
         cwd=os.path.expanduser("~"),
+        env=trigger_env(),
     )
     return {"ok": True, "started": True}
 
