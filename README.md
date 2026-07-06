@@ -1,8 +1,9 @@
 # Info Collector
 
-把 Chrome 书签变成自动翻译流水线：文章存进「收藏文章」书签文件夹，
-每小时自动翻译成中文 Markdown，落到你指定的文件夹。处理状态在扩展的
-Dashboard 里一目了然（待处理 → 处理中 → 已完成），跨设备同步。
+把 Chrome 书签变成本机处理流水线：文章放进「收藏文章」自动翻译成中文
+Markdown；播客 / YouTube 访谈放进「收藏播客」自动生成 TLDR、深度总结和
+全文稿。处理状态在扩展的 Dashboard 里一目了然（待处理 → 处理中 → 已完成），
+跨设备同步。
 
 Dashboard 长这样：状态卡片、流水线运行时间、逐篇文章的状态与操作按钮：
 
@@ -10,7 +11,7 @@ Dashboard 长这样：状态卡片、流水线运行时间、逐篇文章的状�
 
 ## 快速上手（普通用户）
 
-只需要一个 DeepSeek API Key（也支持 Anthropic API Key），三步装好，全程约 10 分钟：
+文章翻译只需要一个 DeepSeek API Key（也支持 Anthropic API Key），三步装好，全程约 10 分钟：
 
 1. 获取 API Key
 2. Chrome 加载扩展
@@ -22,12 +23,25 @@ Dashboard 长这样：状态卡片、流水线运行时间、逐篇文章的状�
 安装脚本支持非交互模式（`INFO_COLLECTOR_ENGINE=deepseek INFO_COLLECTOR_API_KEY=sk-... bash scripts/setup.sh`），
 装完可用 `translate-flow.py --check` 自检。
 
+播客流是可选的，需要本机已安装 `pi` CLI。装好文章流后再运行：
+
+```bash
+bash scripts/setup-pi-podcast-flow.sh
+```
+
+之后把 YouTube / 播客页面收藏到 Chrome 书签文件夹「收藏播客」，Dashboard 里选
+`播客 (podcast)` 可以查看状态并点「立即处理」。
+
 ## 工作原理
 
 ```
 Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 翻译流（DeepSeek/Claude API）
                                                               ↓
                                                      ~/Documents/InfoCollector/*.md
+
+Chrome 书签「收藏播客」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 播客流（transcript + pi）
+                                                              ↓
+                                                     Obsidian「播客收集」三件套
 ```
 
 - **扩展**（MV3）是唯一事实来源：从书签只读导入，状态存 `chrome.storage.sync`
@@ -39,6 +53,9 @@ Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥
   `defuddle parse --json` 提取正文与 metadata，再调 OpenAI-compatible
   `/chat/completions`；未安装 defuddle 时退回内置简易抓取器。Claude 路径继续
   使用 Anthropic Messages API 的服务端 `web_fetch`。
+- 播客流由 `scripts/setup-pi-podcast-flow.sh` 注册，消费 `podcast` 队列；
+  YouTube 会优先复用已有字幕 / transcript，记录频道、频道链接和发布日期，再交给
+  `podcast-digest` Pi skill 写入 Obsidian「播客收集」。
 
 ## 开发者
 
@@ -49,6 +66,8 @@ Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥
   `test/`（`npm test`，node --test）
 - 配置文件：`~/.info-collector/config.json`（provider / apiKey / baseUrl / model / outputDir）·
   `~/.info-collector/flows.json`（流程注册表，见 ADR 0004）
+- 内置处理类型：`translate`（书签「收藏文章」，自动入队）· `podcast`
+  （书签「收藏播客」，去重后入队）。
 
 ### 新增一条处理流（文稿、书籍……）
 
