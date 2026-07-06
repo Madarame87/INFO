@@ -22,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import datetime
 from urllib.parse import parse_qs, urlencode, urlparse
 import urllib.error
 import urllib.request
@@ -319,7 +320,38 @@ def firecrawl_transcript(watch_url):
     return None
 
 
+def normalize_publish_date(value):
+    value = clean_text(value)
+    if not value:
+        return ""
+    match = re.match(r"^(\d{4}-\d{2}-\d{2})", value)
+    if match:
+        return match.group(1)
+    value = re.sub(r"(\d+)(st|nd|rd|th)", r"\1", value, flags=re.I)
+    for fmt in ("%b %d, %Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(value, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    return ""
+
+
+def parse_youtube_publish_date(page_html):
+    patterns = [
+        r'"publishDate"\s*:\s*\{\s*"simpleText"\s*:\s*"([^"]+)"',
+        r'"(?:uploadDate|datePublished|publishDate)"\s*:\s*"([^"]+)"',
+        r'"dateText"\s*:\s*\{\s*"simpleText"\s*:\s*"([^"]+)"',
+    ]
+    for pattern in patterns:
+        for match in re.finditer(pattern, page_html or ""):
+            published = normalize_publish_date(match.group(1))
+            if published:
+                return published
+    return ""
+
+
 def fetch_youtube_metadata(watch_url):
+    published = parse_youtube_publish_date(fetch_raw_html(watch_url))
     query = urlencode({"url": watch_url, "format": "json"})
     req = urllib.request.Request(
         f"https://www.youtube.com/oembed?{query}",
@@ -329,11 +361,12 @@ def fetch_youtube_metadata(watch_url):
         with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
             meta = json.loads(resp.read().decode("utf-8"))
     except (OSError, urllib.error.URLError, json.JSONDecodeError):
-        return {}
+        meta = {}
     return {
         "title": meta.get("title") or "",
         "channel": meta.get("author_name") or "",
         "channelUrl": meta.get("author_url") or "",
+        "published": published,
     }
 
 
@@ -602,6 +635,7 @@ def done_meta(result, meta):
         "sourceReliability": current_meta.get("sourceReliability"),
         "channel": current_meta.get("channel"),
         "channelUrl": current_meta.get("channelUrl"),
+        "published": current_meta.get("published"),
     }
 
 

@@ -14,6 +14,7 @@
 - The flow writes `source.md`, `meta.json`, and expects Pi to write `result.json` in `~/.info-collector/work/podcast/<hash>/`.
 - The Pi skill owns final Obsidian export into `播客收集/`.
 - Flow success is only `result.json` with existing `tldrFile`, `deepSummaryFile`, and `transcriptFile`.
+- YouTube `published` is parsed from the watch page's structured date fields; oEmbed only provides title/channel metadata.
 
 ## Deviations
 

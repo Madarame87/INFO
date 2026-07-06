@@ -116,6 +116,7 @@ class PodcastFlowTest(unittest.TestCase):
                 "title": "Video Title",
                 "channel": "Sequoia Capital",
                 "channelUrl": "https://www.youtube.com/@sequoiacapital",
+                "published": "2026-06-16",
             }
 
             resolved = flow.resolve_youtube_transcript("https://youtu.be/abc123", str(home / "tmp"))
@@ -129,6 +130,25 @@ class PodcastFlowTest(unittest.TestCase):
             self.assertEqual(meta["title"], "Video Title")
             self.assertEqual(meta["channel"], "Sequoia Capital")
             self.assertEqual(meta["channelUrl"], "https://www.youtube.com/@sequoiacapital")
+            self.assertEqual(meta["published"], "2026-06-16")
+
+    def test_youtube_publish_date_parsing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+
+            self.assertEqual(
+                flow.parse_youtube_publish_date(
+                    '"publishDate":{"simpleText":"Jun 16, 2026"}'
+                ),
+                "2026-06-16",
+            )
+            self.assertEqual(
+                flow.parse_youtube_publish_date(
+                    '"uploadDate":"2026-06-16T10:30:00-07:00"'
+                ),
+                "2026-06-16",
+            )
+            self.assertEqual(flow.parse_youtube_publish_date('"publishedTimeText":"12 days ago"'), "")
 
     def test_short_webpage_without_media_fails_no_existing_transcript(self):
         with tempfile.TemporaryDirectory() as tmp:
