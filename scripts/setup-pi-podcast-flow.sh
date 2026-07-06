@@ -51,7 +51,26 @@ PY
 
 echo "== 4/4 安装 launchd 定时任务"
 mkdir -p "$(dirname "$PLIST_DST")"
-sed "s|__HOME__|$HOME|g" "$REPO/templates/$PLIST_LABEL.plist" > "$PLIST_DST"
+LAUNCHD_PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:$HOME/.local/bin"
+for exe in pi npx uvx; do
+  if command -v "$exe" >/dev/null 2>&1; then
+    dir="$(dirname "$(command -v "$exe")")"
+    case ":$LAUNCHD_PATH:" in
+      *":$dir:"*) ;;
+      *) LAUNCHD_PATH="$dir:$LAUNCHD_PATH" ;;
+    esac
+  fi
+done
+HOME="$HOME" LAUNCHD_PATH="$LAUNCHD_PATH" \
+  python3 - "$REPO/templates/$PLIST_LABEL.plist" "$PLIST_DST" <<'PY'
+import os, pathlib, sys
+
+src, dst = map(pathlib.Path, sys.argv[1:])
+text = src.read_text(encoding="utf-8")
+text = text.replace("__HOME__", os.environ["HOME"])
+text = text.replace("__PATH__", os.environ["LAUNCHD_PATH"])
+dst.write_text(text, encoding="utf-8")
+PY
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 launchctl load "$PLIST_DST"
 
