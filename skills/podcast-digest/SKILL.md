@@ -70,6 +70,8 @@ source: <原文 URL>
 published: <YYYY-MM-DD，可空>
 date: <date 命令输出>
 authors: <作者，可空>
+channel: <YouTube 频道/Podcast 名称>
+channel_url: <频道 URL，可空>
 category: 播客
 duration: <时长，可空>
 transcript_source: webpage_transcript | youtube_manual_caption | youtube_auto_caption | youtube_unknown_caption
@@ -98,6 +100,15 @@ source_reliability: edited | manual_caption | auto_caption | unknown_caption
 - 源是中文：清理原文，保留说话人结构，去广告推广，不改写不删减。
 - 源是英文：完整翻译成中文。分段翻译、逐段追加，避免输出截断。
 - 人名/术语首次出现保留英文原文。
+
+### 频道信息
+
+YouTube 来源必须记录频道账号：
+
+- `channel` 写频道显示名，例如 `Sequoia Capital`。
+- `channel_url` 写频道主页 URL，例如 `https://www.youtube.com/@sequoiacapital`。
+
+非 YouTube 播客也要尽量记录 podcast / show 名称。找不到时才留空。
 
 完成前自查：全文稿段落数与原文一致或有明确合并理由，无截断。
 
