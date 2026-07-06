@@ -36,6 +36,7 @@ function renderTypeSelects() {
   }
   $('f-type').value = view.type;
   $('s-folders').value = (meta.settings.folders || []).join(', ');
+  $('s-podcast-folders').value = ((meta.settings.typeFolders || {}).podcast || []).join(', ');
 }
 
 function renderTiles() {
@@ -317,7 +318,8 @@ $('f-archived').addEventListener('change', (e) => { view.archived = e.target.che
 
 $('s-folders-save').addEventListener('click', async () => {
   const folders = $('s-folders').value.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
-  const r = await send({ cmd: 'setFolders', folders });
+  const podcastFolders = $('s-podcast-folders').value.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+  const r = await send({ cmd: 'setFolders', folders, podcastFolders });
   if (r?.ok) toast('✓ 已保存文件夹设置');
   refresh();
 });

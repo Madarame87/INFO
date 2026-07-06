@@ -170,8 +170,11 @@ async function handle(msg) {
       return serial(async () => {
         const folders = (msg.folders || []).map((s) => String(s).trim()).filter(Boolean);
         if (!folders.length) return { ok: false, error: '至少保留一个文件夹名' };
+        const podcastFolders = (msg.podcastFolders || []).map((s) => String(s).trim()).filter(Boolean);
         const meta = await store.loadMeta();
         meta.settings.folders = folders;
+        meta.settings.typeFolders ||= {};
+        meta.settings.typeFolders.podcast = podcastFolders.length ? podcastFolders : ['收藏播客'];
         await store.saveMeta(meta);
         return { ok: true };
       });

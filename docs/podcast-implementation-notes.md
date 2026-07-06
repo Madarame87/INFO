@@ -6,6 +6,7 @@
 - Added `skills/podcast-digest/SKILL.md` for Pi-side export of TLDR, deep summary, and transcript files.
 - Added setup script and launchd template for the Pi podcast flow.
 - Added popup `保存为播客` and Dashboard `加入队列` entry points.
+- Added bookmark-folder routing: links under `收藏播客` import as `podcast` jobs.
 - Added focused Node/Python tests for queue semantics and deterministic transcript parsing.
 
 ## Export Notes
@@ -17,3 +18,4 @@
 ## Deviations
 
 - `yt-dlp` manual captions and auto captions are checked in two passes instead of one combined command. This keeps `captionKind` reliable without guessing from ambiguous output filenames.
+- User feedback changed the entry model from button-first to folder-first. The conservative implementation keeps the direct `保存为播客` shortcut, but the default path is now `收藏播客` bookmark folder -> `podcast` job.

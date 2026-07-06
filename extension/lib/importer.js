@@ -18,12 +18,27 @@ function collectUrls(node, folderName, items) {
   }
 }
 
-export async function importFromBookmarks() {
-  const meta = await store.loadMeta();
-  const folders = meta.settings.folders || [];
-  const autoTypes = Object.entries(meta.types)
+export function importFolderNames(meta) {
+  return [...new Set([
+    ...(meta.settings.folders || []),
+    ...Object.values(meta.settings.typeFolders || {}).flat(),
+  ].filter(Boolean))];
+}
+
+export function autoTypesForFolder(meta, folderName) {
+  const routed = Object.entries(meta.settings.typeFolders || {})
+    .filter(([, folders]) => (folders || []).includes(folderName))
+    .map(([type]) => type)
+    .filter((type) => meta.types[type]);
+  if (routed.length) return routed;
+  return Object.entries(meta.types)
     .filter(([, t]) => t.autoEnroll)
     .map(([id]) => id);
+}
+
+export async function importFromBookmarks() {
+  const meta = await store.loadMeta();
+  const folders = importFolderNames(meta);
 
   const tree = await chrome.bookmarks.getTree();
   const found = [];
@@ -52,7 +67,7 @@ export async function importFromBookmarks() {
       url: it.url,
       title: it.title,
       source: { kind: 'bookmark', folderName: it.folderName, bookmarkId: it.id },
-      autoTypes,
+      autoTypes: autoTypesForFolder(meta, it.folderName),
       now,
     });
     if (changed) {
