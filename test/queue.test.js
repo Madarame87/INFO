@@ -97,6 +97,25 @@ test('setJobStatus 可为缺失处理类型创建 pending job', () => {
   assert.equal(rec.jobs.podcast.processedAt, null);
 });
 
+test('收藏播客重复 URL：只保留一条记录和一个 podcast job', () => {
+  let rec = mergeSource(null, {
+    articleKey: KEY, url: KEY, title: 'Podcast',
+    source: { kind: 'bookmark', folderName: '收藏播客', bookmarkId: 'p1' },
+    autoTypes: ['podcast'], now: NOW,
+  }).record;
+  rec = mergeSource(rec, {
+    articleKey: KEY, url: KEY, title: 'Podcast again',
+    source: { kind: 'bookmark', folderName: '收藏播客', bookmarkId: 'p2' },
+    autoTypes: ['podcast'], now: LATER,
+  }).record;
+
+  assert.deepEqual(Object.keys(rec.jobs), ['podcast']);
+  assert.equal(rec.jobs.podcast.status, 'pending');
+  assert.equal(rec.sources.length, 2);
+  assert.equal(outboxEntries(new Map([[KEY, rec]]), 'podcast').length, 1);
+  assert.equal(outboxEntries(new Map([[KEY, rec]]), 'translate').length, 0);
+});
+
 test('processing 认领：pending/failed 可认领，done/ignored 不降级', () => {
   let rec = fresh();
   rec = applyResult(rec, { articleKey: KEY, url: KEY, type: 'translate', status: 'processing', now: NOW }).record;
