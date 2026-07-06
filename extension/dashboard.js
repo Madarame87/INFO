@@ -135,6 +135,7 @@ async function renderRuns() {
 
 function matches(rec) {
   const j = rec.jobs[view.type];
+  if (!j) return false;
   if (view.status && (!j || j.status !== view.status)) return false;
   if (view.q) {
     const q = view.q.toLowerCase();
@@ -187,10 +188,8 @@ function renderTable() {
 
     const tdOps = document.createElement('td');
     tdOps.className = 'ops';
-    if (!archived) {
-      if (!j) {
-        tdOps.append(opBtn('加入队列', 'pending'));
-      } else if (j.status === 'pending' || j.status === 'failed') {
+    if (!archived && j) {
+      if (j.status === 'pending' || j.status === 'failed') {
         if (flows[view.type]?.triggerable) tdOps.append(opBtn('▶ 立即处理', 'trigger'));
         tdOps.append(opBtn('完成', 'done'), opBtn('忽略', 'ignored'));
       } else if (j.status === 'processing') {
