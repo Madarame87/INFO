@@ -186,8 +186,10 @@ function renderTable() {
 
     const tdOps = document.createElement('td');
     tdOps.className = 'ops';
-    if (!archived && j) {
-      if (j.status === 'pending' || j.status === 'failed') {
+    if (!archived) {
+      if (!j) {
+        tdOps.append(opBtn('加入队列', 'pending'));
+      } else if (j.status === 'pending' || j.status === 'failed') {
         if (flows[view.type]?.triggerable) tdOps.append(opBtn('▶ 立即处理', 'trigger'));
         tdOps.append(opBtn('完成', 'done'), opBtn('忽略', 'ignored'));
       } else if (j.status === 'processing') {

@@ -4,7 +4,7 @@
 import * as store from './lib/storage.js';
 import { importFromBookmarks } from './lib/importer.js';
 import { bridgeSync, triggerFlow } from './lib/bridge.js';
-import { mergeSource, setJobStatus, applyResult } from './lib/queue.js';
+import { mergeSource, setJobStatus, applyResult, manualSaveTypes } from './lib/queue.js';
 import { normalizeUrl } from './lib/normalize.js';
 
 chrome.runtime.onInstalled.addListener(init);
@@ -85,7 +85,7 @@ async function handle(msg) {
         const archive = await store.loadArchive();
         if (archive.has(key)) return { ok: true, articleKey: key, existed: true, archived: true };
         const meta = await store.loadMeta();
-        const autoTypes = Object.entries(meta.types).filter(([, t]) => t.autoEnroll).map(([id]) => id);
+        const autoTypes = manualSaveTypes(meta, msg.types);
         const prev = await store.getRecord(key);
         const { record, changed } = mergeSource(prev, {
           articleKey: key, url: msg.url, title: msg.title || '',

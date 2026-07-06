@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mergeSource, applyResult, setJobStatus, isFinished, outboxEntries, reclaimIfStale } from '../extension/lib/queue.js';
+import {
+  mergeSource,
+  applyResult,
+  setJobStatus,
+  isFinished,
+  outboxEntries,
+  reclaimIfStale,
+  manualSaveTypes,
+} from '../extension/lib/queue.js';
 
 const NOW = '2026-07-05T10:00:00Z';
 const LATER = '2026-07-05T11:00:00Z';
@@ -83,6 +91,12 @@ test('重新排队清空 processedAt 与 lastError', () => {
   assert.equal(rec.jobs.translate.processedAt, null);
 });
 
+test('setJobStatus 可为缺失处理类型创建 pending job', () => {
+  const rec = setJobStatus(fresh(), 'podcast', 'pending', LATER);
+  assert.equal(rec.jobs.podcast.status, 'pending');
+  assert.equal(rec.jobs.podcast.processedAt, null);
+});
+
 test('processing 认领：pending/failed 可认领，done/ignored 不降级', () => {
   let rec = fresh();
   rec = applyResult(rec, { articleKey: KEY, url: KEY, type: 'translate', status: 'processing', now: NOW }).record;
@@ -148,4 +162,16 @@ test('outbox 含 pending 与 failed，不含 done/ignored，按入队时间排�
 
   const entries = outboxEntries(map, 'translate');
   assert.deepEqual(entries.map((e) => e.articleKey), ['https://a.com/1', 'https://a.com/2']);
+});
+
+test('manualSaveTypes 默认用 autoEnroll，显式 types 覆盖且校验注册表', () => {
+  const meta = {
+    types: {
+      translate: { autoEnroll: true },
+      podcast: { autoEnroll: false },
+    },
+  };
+  assert.deepEqual(manualSaveTypes(meta), ['translate']);
+  assert.deepEqual(manualSaveTypes(meta, ['podcast']), ['podcast']);
+  assert.throws(() => manualSaveTypes(meta, ['missing']), /未注册/);
 });

@@ -10,14 +10,17 @@ async function render() {
   const resp = await chrome.runtime.sendMessage({ cmd: 'getTabStatus', url: tab?.url || '' });
   const box = $('status');
   const save = $('save');
+  const savePodcast = $('save-podcast');
   if (!resp.ok || !resp.queueable) {
     box.textContent = '该页面无法入队（仅支持 http/https）。';
     save.hidden = true;
+    savePodcast.hidden = true;
     return;
   }
   if (!resp.record) {
     box.textContent = '尚未入队。';
     save.hidden = false;
+    savePodcast.hidden = false;
     return;
   }
   const jobs = Object.entries(resp.record.jobs || {});
@@ -40,18 +43,22 @@ async function render() {
     box.appendChild(row);
   }
   save.hidden = true;
+  savePodcast.hidden = resp.archived || !!resp.record.jobs?.podcast;
 }
 
-$('save').addEventListener('click', async () => {
-  $('save').disabled = true;
-  const resp = await chrome.runtime.sendMessage({ cmd: 'saveTab', url: tab.url, title: tab.title });
-  $('save').disabled = false;
+async function save(types, button) {
+  button.disabled = true;
+  const resp = await chrome.runtime.sendMessage({ cmd: 'saveTab', url: tab.url, title: tab.title, types });
+  button.disabled = false;
   if (!resp.ok) {
     $('status').textContent = resp.error || '保存失败';
     return;
   }
   render();
-});
+}
+
+$('save').addEventListener('click', () => save(undefined, $('save')));
+$('save-podcast').addEventListener('click', () => save(['podcast'], $('save-podcast')));
 
 $('dashboard').addEventListener('click', (e) => {
   e.preventDefault();

@@ -1,0 +1,19 @@
+# Podcast Implementation Notes
+
+## Status
+
+- Added `flows/podcast-bookmarks.py` for the `podcast` spool contract.
+- Added `skills/podcast-digest/SKILL.md` for Pi-side export of TLDR, deep summary, and transcript files.
+- Added setup script and launchd template for the Pi podcast flow.
+- Added popup `保存为播客` and Dashboard `加入队列` entry points.
+- Added focused Node/Python tests for queue semantics and deterministic transcript parsing.
+
+## Export Notes
+
+- The flow writes `source.md`, `meta.json`, and expects Pi to write `result.json` in `~/.info-collector/work/podcast/<hash>/`.
+- The Pi skill owns final Obsidian export into `播客收集/`.
+- Flow success is only `result.json` with existing `tldrFile`, `deepSummaryFile`, and `transcriptFile`.
+
+## Deviations
+
+- `yt-dlp` manual captions and auto captions are checked in two passes instead of one combined command. This keeps `captionKind` reliable without guessing from ambiguous output filenames.
