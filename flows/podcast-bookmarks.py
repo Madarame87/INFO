@@ -22,7 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 import urllib.error
 import urllib.request
 
@@ -319,6 +319,24 @@ def firecrawl_transcript(watch_url):
     return None
 
 
+def fetch_youtube_metadata(watch_url):
+    query = urlencode({"url": watch_url, "format": "json"})
+    req = urllib.request.Request(
+        f"https://www.youtube.com/oembed?{query}",
+        headers={"user-agent": "InfoCollector/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+            meta = json.loads(resp.read().decode("utf-8"))
+    except (OSError, urllib.error.URLError, json.JSONDecodeError):
+        return {}
+    return {
+        "title": meta.get("title") or "",
+        "channel": meta.get("author_name") or "",
+        "channelUrl": meta.get("author_url") or "",
+    }
+
+
 def parse_json3(path):
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     lines = []
@@ -425,10 +443,12 @@ def resolve_youtube_transcript(url, workdir):
     watch_url = normalize_youtube_url(url)
     if not watch_url:
         raise ResolutionError("youtube-transcript-unavailable", "invalid YouTube URL")
+    video_meta = fetch_youtube_metadata(watch_url)
     resolved = firecrawl_transcript(watch_url) or yt_dlp_transcript(watch_url, workdir)
     if resolved:
+        resolved.update({k: v for k, v in video_meta.items() if v and not resolved.get(k)})
         return resolved
-    return {
+    fallback = {
         "text": "",
         "resolutionStatus": "needs_browser_resolution",
         "mediaSource": watch_url,
@@ -438,6 +458,8 @@ def resolve_youtube_transcript(url, workdir):
         "sourceReliability": "unknown_caption",
         "captionLanguage": "",
     }
+    fallback.update({k: v for k, v in video_meta.items() if v})
+    return fallback
 
 
 def resolve_article(article, workdir):
@@ -507,6 +529,8 @@ def prepare_workdir(article, resolved):
         "url": article["url"],
         "title": resolved.get("title") or article.get("title") or "",
         "author": resolved.get("author") or "",
+        "channel": resolved.get("channel") or "",
+        "channelUrl": resolved.get("channelUrl") or "",
         "published": resolved.get("published") or "",
         "duration": resolved.get("duration") or "",
         "transcriptSource": resolved.get("transcriptSource"),
@@ -576,6 +600,8 @@ def done_meta(result, meta):
         "captionKind": current_meta.get("captionKind"),
         "transcriptLanguage": current_meta.get("transcriptLanguage"),
         "sourceReliability": current_meta.get("sourceReliability"),
+        "channel": current_meta.get("channel"),
+        "channelUrl": current_meta.get("channelUrl"),
     }
 
 

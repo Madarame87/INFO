@@ -97,6 +97,39 @@ class PodcastFlowTest(unittest.TestCase):
             self.assertEqual(got["mediaSource"], "https://www.youtube.com/watch?v=abc123")
             self.assertEqual(got["transcriptSource"], "youtube_unknown_caption")
 
+    def test_youtube_metadata_is_written_to_workdir_meta(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            flow = import_flow(home)
+            flow.WORK_ROOT = str(home / "work")
+            flow.firecrawl_transcript = lambda _url: {
+                "text": "caption " * 400,
+                "transcriptSource": "youtube_unknown_caption",
+                "transcriptProvider": "firecrawl_youtube",
+                "captionKind": "unknown",
+                "sourceReliability": "unknown_caption",
+                "captionLanguage": "en",
+                "mediaSource": "https://www.youtube.com/watch?v=abc123",
+            }
+            flow.yt_dlp_transcript = lambda _url, _workdir: None
+            flow.fetch_youtube_metadata = lambda _url: {
+                "title": "Video Title",
+                "channel": "Sequoia Capital",
+                "channelUrl": "https://www.youtube.com/@sequoiacapital",
+            }
+
+            resolved = flow.resolve_youtube_transcript("https://youtu.be/abc123", str(home / "tmp"))
+            workdir, _meta = flow.prepare_workdir({
+                "articleKey": "https://www.youtube.com/watch?v=abc123",
+                "url": "https://www.youtube.com/watch?v=abc123",
+                "title": "Bookmark Title",
+            }, resolved)
+            meta = json.loads((Path(workdir) / "meta.json").read_text(encoding="utf-8"))
+
+            self.assertEqual(meta["title"], "Video Title")
+            self.assertEqual(meta["channel"], "Sequoia Capital")
+            self.assertEqual(meta["channelUrl"], "https://www.youtube.com/@sequoiacapital")
+
     def test_short_webpage_without_media_fails_no_existing_transcript(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
