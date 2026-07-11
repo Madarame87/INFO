@@ -35,9 +35,13 @@ class InfoCollectorHostTest(unittest.TestCase):
             old_home = os.environ.get("INFO_COLLECTOR_HOME")
             old_path = os.environ.get("PATH")
             old_appdata = os.environ.get("APPDATA")
+            old_python_utf8 = os.environ.get("PYTHONUTF8")
+            old_python_io_encoding = os.environ.get("PYTHONIOENCODING")
             os.environ["INFO_COLLECTOR_HOME"] = str(home)
             os.environ["APPDATA"] = str(home / "AppData" / "Roaming")
             os.environ["PATH"] = os.pathsep.join(["C:\\Windows\\System32"] if os.name == "nt" else ["/usr/bin", "/bin"])
+            os.environ["PYTHONUTF8"] = "0"
+            os.environ["PYTHONIOENCODING"] = "cp1252"
             try:
                 host = import_host()
                 env = host.trigger_env()
@@ -54,11 +58,21 @@ class InfoCollectorHostTest(unittest.TestCase):
                     os.environ.pop("APPDATA", None)
                 else:
                     os.environ["APPDATA"] = old_appdata
+                if old_python_utf8 is None:
+                    os.environ.pop("PYTHONUTF8", None)
+                else:
+                    os.environ["PYTHONUTF8"] = old_python_utf8
+                if old_python_io_encoding is None:
+                    os.environ.pop("PYTHONIOENCODING", None)
+                else:
+                    os.environ["PYTHONIOENCODING"] = old_python_io_encoding
 
             path_parts = env["PATH"].split(os.pathsep)
             self.assertIn(str(node_bin), path_parts)
             self.assertLess(path_parts.index(str(node_bin)), len(path_parts))
             self.assertEqual(env["HOME"], str(home))
+            self.assertEqual(env["PYTHONUTF8"], "1")
+            self.assertEqual(env["PYTHONIOENCODING"], "utf-8")
 
     def test_native_messaging_ping_uses_binary_protocol(self):
         with tempfile.TemporaryDirectory() as tmp:

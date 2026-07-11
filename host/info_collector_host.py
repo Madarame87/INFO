@@ -62,6 +62,11 @@ def trigger_env():
             path_parts.insert(0, path)
     env["PATH"] = os.pathsep.join(path_parts)
     env["HOME"] = str(HOME)
+    # Chrome launches the native host without a console. On Windows, a Python
+    # child can otherwise inherit a legacy code page (for example cp1252) and
+    # crash as soon as a Chinese log line is written to redirected stdout.
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     return env
 
 

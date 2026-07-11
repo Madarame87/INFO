@@ -4,6 +4,7 @@ import io
 import json
 import os
 import stat
+import subprocess
 import sys
 import tempfile
 import threading
@@ -126,6 +127,36 @@ print(json.dumps({{
             script.write_text(implementation.read_text(encoding="utf-8"), encoding="utf-8")
             script.chmod(script.stat().st_mode | stat.S_IXUSR)
         return bin_dir, marker
+
+    def test_startup_logging_survives_cp1252_stdout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            env = {
+                **os.environ,
+                "INFO_COLLECTOR_HOME": str(home),
+                "PYTHONUTF8": "0",
+                "PYTHONIOENCODING": "cp1252",
+            }
+
+            proc = subprocess.run(
+                [sys.executable, str(FLOW_PATH), "--manual"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+                timeout=10,
+            )
+
+            self.assertEqual(
+                proc.returncode,
+                0,
+                proc.stderr.decode("cp1252", errors="replace"),
+            )
+            self.assertNotIn(b"UnicodeEncodeError", proc.stderr)
+            log_path = home / ".info-collector" / "state" / "translate-flow.log"
+            self.assertTrue(log_path.exists())
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("开始巡检翻译队列（manual）", log_text)
+            self.assertIn("❌", log_text)
 
     def test_deepseek_flow_runs_from_backend_spool_to_inbox(self):
         with tempfile.TemporaryDirectory() as tmp:

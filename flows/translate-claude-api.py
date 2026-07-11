@@ -82,12 +82,31 @@ SYSTEM_PROMPT = (
 )
 
 
+def configure_text_stdio():
+    """Keep all console output alive on legacy Windows code pages."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except (AttributeError, OSError, ValueError):
+            pass
+
+
+def safe_console_print(text):
+    """Print text without allowing a narrow console encoding to abort a run."""
+    try:
+        print(text, flush=True)
+    except UnicodeEncodeError:
+        encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+        safe_text = text.encode(encoding, errors="backslashreplace").decode(encoding)
+        print(safe_text, flush=True)
+
+
 def log(msg):
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{ts}] {msg}\n")
-    print(f"[{ts}] {msg}", flush=True)
+    safe_console_print(f"[{ts}] {msg}")
 
 
 def atomic_write_json(path, obj):
@@ -565,6 +584,7 @@ def run_check():
 # ===== 主流程 =====
 
 def main():
+    configure_text_stdio()
     if "--check" in sys.argv:
         sys.exit(run_check())
 
