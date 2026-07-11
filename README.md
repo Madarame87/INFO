@@ -3,6 +3,10 @@
 </p>
 
 <p align="center">
+  <a href="https://madarame87.github.io/INFO/"><strong>在线体验文章情报库 →</strong></a>
+</p>
+
+<p align="center">
   <a href="SETUP-WINDOWS.md"><img alt="Windows 11" src="https://img.shields.io/badge/Windows_11-supported-2E8B67?style=flat-square"></a>
   <img alt="Chrome Extension" src="https://img.shields.io/badge/Chrome-Manifest_V3-C65F3D?style=flat-square">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-25221E?style=flat-square">
