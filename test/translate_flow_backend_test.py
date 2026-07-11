@@ -385,6 +385,7 @@ print(json.dumps({{
             self.assertEqual(len(final_reports), 1)
             result_meta = final_reports[0]["results"][0]["meta"]
             self.assertEqual(result_meta["savedTo"], str(saved[0]))
+            self.assertEqual(result_meta["title"], "后端 DeepSeek 测试")
             self.assertEqual(result_meta["summary"], "文章说明了为什么应以评估驱动的方式持续改进智能体记忆系统。")
             self.assertEqual(result_meta["tags"], ["智能体", "模型评估", "记忆系统"])
 

@@ -15,6 +15,7 @@ $Spool = Join-Path $HomeDir ".info-collector"
 $BinDir = Join-Path $Spool "bin"
 $NativeHostDir = Join-Path $Spool "native-host"
 $FlowBin = Join-Path $BinDir "translate-flow.py"
+$WeeklyReportBin = Join-Path $BinDir "weekly-report.py"
 $HostBin = Join-Path $BinDir "info-collector-host.py"
 $CompatBin = Join-Path $BinDir "info_collector_platform.py"
 $ConfigPath = Join-Path $Spool "config.json"
@@ -145,6 +146,7 @@ foreach ($dir in @(
 }
 
 Copy-Item -LiteralPath (Join-Path $Repo "flows\translate-claude-api.py") -Destination $FlowBin -Force
+Copy-Item -LiteralPath (Join-Path $Repo "flows\generate-weekly-report.py") -Destination $WeeklyReportBin -Force
 Copy-Item -LiteralPath (Join-Path $Repo "host\info_collector_host.py") -Destination $HostBin -Force
 Copy-Item -LiteralPath (Join-Path $Repo "info_collector_platform.py") -Destination $CompatBin -Force
 
@@ -178,6 +180,7 @@ if ($engine -notin @("deepseek", "claude", "skip")) {
     throw "INFO_COLLECTOR_ENGINE 必须是 deepseek、claude 或 skip"
 }
 
+$flows = Read-JsonMap -Path $FlowsPath
 if ($engine -ne "skip") {
     $provider = if ($engine -eq "claude") { "anthropic" } else { "deepseek" }
     $defaultModel = if ($provider -eq "anthropic") { "claude-opus-4-8" } else { "deepseek-v4-flash" }
@@ -222,19 +225,25 @@ if ($engine -ne "skip") {
     $config["outputDir"] = (Resolve-Path -LiteralPath $outputDir).Path
     Write-Utf8NoBom -Path $ConfigPath -Content ($config | ConvertTo-Json -Depth 10)
 
-    $flows = Read-JsonMap -Path $FlowsPath
     $flows["translate"] = [ordered]@{
         command = @($PythonExe, $FlowBin, "--manual")
         lockFile = (Join-Path $Spool "state\translate.lock")
         intervalSeconds = $null
         label = "manual"
     }
-    Write-Utf8NoBom -Path $FlowsPath -Content ($flows | ConvertTo-Json -Depth 10)
     Write-Host "   已配置 $provider / $model"
 }
 else {
     Write-Host "   已跳过翻译配置；Native Host 仍会安装"
 }
+
+$flows["weekly-report"] = [ordered]@{
+    command = @($PythonExe, $WeeklyReportBin)
+    lockFile = (Join-Path $Spool "state\weekly-report.lock")
+    intervalSeconds = $null
+    label = "manual"
+}
+Write-Utf8NoBom -Path $FlowsPath -Content ($flows | ConvertTo-Json -Depth 10)
 
 Write-Host "== 4/5 注册 Chrome Native Messaging Host"
 $wrapperPath = Join-Path $NativeHostDir "info-collector-host.bat"

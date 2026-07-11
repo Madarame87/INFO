@@ -66,6 +66,7 @@ const OUTCOME_TEXT = {
   success: '✓ 成功', failed: '✕ 失败', empty: '空队列', running: '运行中',
   'no-outbox': 'outbox 缺失', error: '✕ 出错',
 };
+const SPECIAL_FLOW_LABELS = { 'weekly-report': '周报' };
 
 function fmtTime(iso) {
   if (!iso) return '?';
@@ -102,7 +103,7 @@ async function renderRuns() {
   }
 
   for (const [type, f] of Object.entries(flows)) {
-    const label = `${meta.types[type]?.label || type}流`;
+    const label = `${SPECIAL_FLOW_LABELS[type] || meta.types[type]?.label || type}流`;
     const st = f.status || {};
     const lr = st.lastRun;
     let info;
@@ -120,6 +121,10 @@ async function renderRuns() {
       let next = new Date(st.lastScheduledStartAt).getTime() + f.intervalSeconds * 1000;
       while (next < Date.now()) next += f.intervalSeconds * 1000;
       info += `<span class="st-next">下次定时 ≈ ${fmtTime(new Date(next).toISOString())}</span>`;
+    }
+    if (type === 'weekly-report' && lr?.latestReport) {
+      const reportName = lr.latestReport.split(/[\\/]/).pop();
+      info += `<span class="st-next" title="${escapeAttr(lr.latestReport)}">输出：${escapeHtml(reportName)}</span>`;
     }
     stations.push(stationEl(label, info, state));
   }
@@ -346,6 +351,30 @@ $('btn-bridge').addEventListener('click', async () => {
     toast(`✕ 桥接失败：${r?.error || '未知错误'}（native host 是否已安装？运行 scripts/setup.sh）`);
   }
   refresh();
+});
+
+$('btn-weekly').addEventListener('click', async () => {
+  toast('正在生成本周周报…');
+  const r = await send({ cmd: 'triggerFlow', type: 'weekly-report' });
+  if (!r?.ok) {
+    toast(`✕ 周报启动失败：${r?.error || '未知错误'}（请重新运行 scripts/setup.ps1）`);
+    return;
+  }
+  if (r.alreadyRunning) {
+    toast('⏳ 周报流程已在运行中');
+    return;
+  }
+  toast('✓ 周报流程已启动，稍后自动刷新结果');
+  setTimeout(async () => {
+    await send({ cmd: 'bridgeNow' });
+    await refresh();
+    const lastRun = flows['weekly-report']?.status?.lastRun;
+    if (lastRun?.outcome === 'success' || lastRun?.outcome === 'empty') {
+      toast(`✓ 本周周报已生成：${lastRun.count || 0} 篇`);
+    } else if (lastRun?.outcome === 'error') {
+      toast(`✕ 周报生成失败：${lastRun.error || '查看 weekly-report.log'}`);
+    }
+  }, 1500);
 });
 
 $('btn-bulk').addEventListener('click', () => {

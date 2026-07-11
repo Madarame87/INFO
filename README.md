@@ -1,7 +1,7 @@
 # Info Collector
 
 把 Chrome 书签变成本机处理流水线：文章放进「收藏文章」自动翻译成带摘要与
-标签的中文 Markdown；播客 / YouTube 访谈放进「收藏播客」自动生成 TLDR、深度总结和
+标签的中文 Markdown，并可一键汇总为本周技术动态周报；播客 / YouTube 访谈放进「收藏播客」自动生成 TLDR、深度总结和
 全文稿。处理状态在扩展的 Dashboard 里一目了然（待处理 → 处理中 → 已完成），
 跨设备同步。
 
@@ -50,6 +50,8 @@ bash scripts/setup-pi-podcast-flow.sh
 Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 翻译流（DeepSeek/Claude API）
                                                               ↓
                                                      ~/Documents/InfoCollector/*.md
+                                                              ↓
+                                                     周报/技术动态周报-*.md
 
 Chrome 书签「收藏播客」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 播客流（transcript + pi）
                                                               ↓
@@ -66,6 +68,9 @@ Chrome 书签「收藏播客」 → 扩展（队列 + Dashboard） ⇄ 文件桥
   `/chat/completions`；未安装 defuddle 时退回内置简易抓取器。Claude 路径继续
   使用 Anthropic Messages API 的服务端 `web_fetch`。译文 frontmatter 与完成报告
   都包含一段限长摘要和 2–5 个规范化标签；Dashboard 可按标签汇总、筛选同类文章。
+- **周报流**读取本周已完成的 Summary/Tags 报告，按 URL 去重后生成主题排行、
+  同标签归类和每日收录日历。它是确定性本地聚合，不再调用模型；Dashboard 点击
+  “生成本周周报”即可覆盖更新当周同一个 Markdown 文件。
 - 播客流由 `scripts/setup-pi-podcast-flow.sh` 注册，消费 `podcast` 队列；
   YouTube 会优先复用已有字幕 / transcript，记录频道、频道链接和发布日期，再交给
   `podcast-digest` Pi skill 写入 Obsidian「播客收集」。

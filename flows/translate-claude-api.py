@@ -915,9 +915,10 @@ def main():
             try:
                 md = translate_article(url, title, cfg)
                 md, enrichment = prepare_enriched_markdown(md, url, title, cfg)
-                path = save_markdown(md, extract_title(md, title), out_dir)
+                translated_title = extract_title(md, title)
+                path = save_markdown(md, translated_title, out_dir)
                 results.append({"url": url, "status": "done", "processedAt": now_utc,
-                                "meta": {"savedTo": path, **enrichment}})
+                                "meta": {"savedTo": path, "title": translated_title, **enrichment}})
                 state[a.get("articleKey") or url] = now_utc
                 done += 1
                 log(f"  ✅ 已保存: {path}")
