@@ -1,116 +1,149 @@
-# Info Collector
+<p align="center">
+  <img src="docs/images/readme-hero.svg" alt="Info Collector — Local Intelligence OS" width="100%">
+</p>
 
-把 Chrome 书签变成本机处理流水线：文章放进「收藏文章」自动翻译成带摘要与
-标签的中文 Markdown，并可一键汇总为本周技术动态周报；播客 / YouTube 访谈放进「收藏播客」自动生成 TLDR、深度总结和
-全文稿。处理状态在扩展的 Dashboard 里一目了然（待处理 → 处理中 → 已完成），
-跨设备同步。
+<p align="center">
+  <a href="SETUP-WINDOWS.md"><img alt="Windows 11" src="https://img.shields.io/badge/Windows_11-supported-2E8B67?style=flat-square"></a>
+  <img alt="Chrome Extension" src="https://img.shields.io/badge/Chrome-Manifest_V3-C65F3D?style=flat-square">
+  <img alt="Local first" src="https://img.shields.io/badge/data-local--first-25221E?style=flat-square">
+  <img alt="Node tests" src="https://img.shields.io/badge/Node_tests-38_passing-2E8B67?style=flat-square">
+  <img alt="Python tests" src="https://img.shields.io/badge/Python_tests-23_passing-2E8B67?style=flat-square">
+</p>
 
-Dashboard 长这样：状态卡片、流水线运行时间、逐篇文章的状态与操作按钮：
+<p align="center">
+  <strong>收藏文章 → 抓取正文 → 翻译提炼 → 自动归类 → 生成技术动态周报</strong>
+</p>
 
-![Info Collector Dashboard：文章处理台账，显示待处理/已完成状态、来源、更新时间和操作按钮](docs/images/dashboard.png)
+Info Collector 是一套运行在本机的个人技术情报工作台。你只需要把文章加入 Chrome 的「收藏文章」书签文件夹，系统就会把它送入处理队列，生成带有中文翻译、摘要和标签的 Markdown，并在 Dashboard 中持续记录状态。每周还可以一键聚合主题排行、同类文章与收录日历。
 
-## 快速上手（普通用户）
+它不是另一个“稍后读”列表。它把零散阅读转化为一条可追踪、可检索、可复用的研究工作流。
 
-### Windows 11
+## 产品界面
 
-Windows 第一版支持 Chrome Dashboard 手动触发文章翻译，不安装定时任务。运行：
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="Info Collector Windows Dashboard：处理流水线、运行状态和文章情报库" width="100%">
+</p>
+
+<details>
+<summary><strong>查看文章情报库完整列表</strong></summary>
+<br>
+<p align="center">
+  <img src="docs/images/dashboard-library.png" alt="Info Collector 文章情报库：摘要、标签、状态与操作" width="100%">
+</p>
+</details>
+
+## 它能做什么
+
+| 能力 | 结果 |
+|---|---|
+| 书签即入口 | 只读导入 Chrome 书签，不修改原始书签 |
+| AI 翻译与提炼 | 输出中文 Markdown、限长摘要和 2–5 个规范化标签 |
+| 状态可追踪 | 在 Dashboard 查看待处理、处理中、失败、完成与归档状态 |
+| 同类信息归档 | 按标签聚合和筛选文章，快速识别持续出现的技术主题 |
+| 一键生成周报 | 汇总本周主题排行、文章分组和每日收录日历 |
+| 本地优先 | API Key、处理队列和 Markdown 结果保存在本机 |
+| 跨设备状态同步 | 使用 `chrome.storage.sync` 同步轻量任务状态 |
+
+## 从收藏到周报
+
+```text
+Chrome「收藏文章」
+        │
+        ▼
+扩展只读导入 ──→ 任务队列 / Dashboard
+        │
+        ▼
+Native Messaging 文件桥
+        │
+        ▼
+正文抓取 ──→ DeepSeek / Claude ──→ 翻译 + Summary + Tags
+        │
+        ├──→ ~/Documents/InfoCollector/*.md
+        │
+        └──→ 周报/技术动态周报-*.md
+```
+
+扩展是任务状态的唯一事实来源。本地处理流通过 `~/.info-collector/` 下的 outbox / inbox 文件契约与扩展交换数据，因此浏览器界面、模型调用与 Markdown 产物彼此解耦。
+
+## Windows 11 快速开始
+
+### 1. 下载并进入项目
+
+```powershell
+git clone https://github.com/Madarame87/INFO.git
+cd INFO
+```
+
+> 当前 Windows 功能正在 `agent/windows-port` / Draft PR #1 中验收。合并前体验最新版时，请先切换该分支：`git switch agent/windows-port`。
+
+### 2. 运行安装器
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 ```
 
-完整安装与阶段 1 验收步骤见 [SETUP-WINDOWS.md](SETUP-WINDOWS.md)。
+安装器会引导你设置模型、API Key、输出目录以及 Chrome 扩展。完整截图式步骤与故障排查见 **[Windows 安装指南](SETUP-WINDOWS.md)**。
 
-### macOS
+### 3. 收藏并处理文章
 
-文章翻译只需要一个 DeepSeek API Key（也支持 Anthropic API Key），三步装好，全程约 10 分钟：
+1. 在 Chrome 中创建「收藏文章」书签文件夹。
+2. 把想处理的文章保存到该文件夹。
+3. 打开 Info Collector Dashboard，依次点击「导入书签」和「桥接同步」。
+4. 点击「立即处理」，完成后查看摘要、标签和本地 Markdown。
 
-1. 获取 API Key
-2. Chrome 加载扩展
-3. 终端跑 `bash scripts/setup.sh`
+## 当前支持范围
 
-**手把手图文指南（写给非技术用户）：[SETUP.md](SETUP.md)**
+| 平台 / 流程 | 状态 | 说明 |
+|---|---:|---|
+| Windows 11 · 文章处理 | ✅ 已验证 | Dashboard 手动触发，真实文章端到端通过 |
+| Windows 11 · Summary / Tags | ✅ 已验证 | 展示、筛选、同步与异常输出修复已覆盖 |
+| Windows 11 · 技术周报 | ✅ MVP | 本地确定性聚合，不重复调用模型 |
+| Windows 11 · 播客处理 | ◻︎ 计划中 | 界面保留入口，暂未接入 Windows 后端 |
+| macOS · 文章处理 | ✅ 保留 | 支持原有 launchd 定时调度 |
+| macOS · 播客处理 | ✅ 可选 | 需要本机安装 `pi` CLI |
 
-也可以让 AI 替你装：把项目文件夹交给 AI 编程助手，说「按 SETUP.md 装好」。
-安装脚本支持非交互模式（`INFO_COLLECTOR_ENGINE=deepseek INFO_COLLECTOR_API_KEY=sk-... bash scripts/setup.sh`），
-装完可用 `translate-flow.py --check` 自检。
+## 为什么做这个项目
 
-播客流是可选的，需要本机已安装 `pi` CLI。装好文章流后再运行：
+技术信息真正的瓶颈通常不是“找不到文章”，而是读过之后没有形成可以复用的结构。收藏夹会不断增长，重要观点却很难再次被找到，也难以看出某个主题在一周内是否持续升温。
 
-```bash
-bash scripts/setup-pi-podcast-flow.sh
+Info Collector 试图补上中间这一层：保留原文入口，同时生成统一的中文摘要与标签，再把个人阅读记录压缩成可回顾的技术动态周报。它既是个人知识工作流，也是一种轻量的行业技术雷达。
+
+## 技术结构
+
+```text
+extension/   Chrome MV3 扩展、Dashboard、任务队列与同步
+host/        Windows / macOS Native Messaging 文件桥
+flows/       文章翻译、摘要标签、播客和周报生成流程
+scripts/     Windows 与 macOS 安装、自检和测试入口
+test/        Node + Python 回归测试
+docs/        架构设计、ADR 与平台迁移记录
 ```
 
-之后把 YouTube / 播客页面收藏到 Chrome 书签文件夹「收藏播客」，Dashboard 里选
-`播客 (podcast)` 可以查看状态并点「立即处理」。
+- 架构说明：[docs/design.md](docs/design.md)
+- 领域语言：[CONTEXT.md](CONTEXT.md)
+- 关键决策：[docs/adr/](docs/adr/)
+- Windows 迁移清单：[docs/windows-porting-checklist.md](docs/windows-porting-checklist.md)
 
-## 工作原理
+## 开发与验证
 
-```
-Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 翻译流（DeepSeek/Claude API）
-                                                              ↓
-                                                     ~/Documents/InfoCollector/*.md
-                                                              ↓
-                                                     周报/技术动态周报-*.md
-
-Chrome 书签「收藏播客」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 播客流（transcript + pi）
-                                                              ↓
-                                                     Obsidian「播客收集」三件套
+```powershell
+npm.cmd test
 ```
 
-- **扩展**（MV3）是唯一事实来源：从书签只读导入，状态存 `chrome.storage.sync`
-  跨设备同步；书签本身永远不会被修改。
-- **翻译流**是普通本机脚本，经 `~/.info-collector/` 下的文件契约与扩展
-  交换数据（outbox 待处理清单 / inbox 完成报告），由 launchd 每小时调度，
-  也可在 Dashboard 里点「▶ 立即处理」立刻触发。
-- 内置翻译流支持 DeepSeek API 和 Claude API。DeepSeek 路径会优先用本机
-  `defuddle parse --json` 提取正文与 metadata，再调 OpenAI-compatible
-  `/chat/completions`；未安装 defuddle 时退回内置简易抓取器。Claude 路径继续
-  使用 Anthropic Messages API 的服务端 `web_fetch`。译文 frontmatter 与完成报告
-  都包含一段限长摘要和 2–5 个规范化标签；Dashboard 可按标签汇总、筛选同类文章。
-- **周报流**读取本周已完成的 Summary/Tags 报告，按 URL 去重后生成主题排行、
-  同标签归类和每日收录日历。它是确定性本地聚合，不再调用模型；Dashboard 点击
-  “生成本周周报”即可覆盖更新当周同一个 Markdown 文件。
-- 播客流由 `scripts/setup-pi-podcast-flow.sh` 注册，消费 `podcast` 队列；
-  YouTube 会优先复用已有字幕 / transcript，记录频道、频道链接和发布日期，再交给
-  `podcast-digest` Pi skill 写入 Obsidian「播客收集」。
+当前回归基线：**38 个 Node 测试 + 23 个 Python 测试全部通过**，并覆盖 URL 归一化、队列状态机、跨端同步、摘要标签、异常模型输出、周报聚合、Windows UTF-8 输出和页面 ID 契约。
 
-## 开发者
+## Roadmap
 
-- 领域语言：[CONTEXT.md](CONTEXT.md) · 总体设计：[docs/design.md](docs/design.md)
-  · 关键决策：[docs/adr/](docs/adr/)
-- 目录：`extension/`（MV3 扩展）· `host/`（native messaging 文件桥）·
-  `flows/`（处理流脚本）· `templates/`（launchd 模板）· `scripts/`（安装）·
-  `test/`（`npm test`，node --test）
-- 配置文件：`~/.info-collector/config.json`（provider / apiKey / baseUrl / model / outputDir）·
-  `~/.info-collector/flows.json`（流程注册表，见 ADR 0004）
-- 内置处理类型：`translate`（书签「收藏文章」，自动入队）· `podcast`
-  （书签「收藏播客」，去重后入队）。
+- [x] Windows Native Host 与安装器
+- [x] 真实文章抓取、翻译与 Markdown 输出
+- [x] Summary / Tags 提取、展示与同类筛选
+- [x] 本地确定性技术动态周报
+- [ ] 扩大真实文章验收样本并完成阶段门禁
+- [ ] Windows 播客 / YouTube 处理流
+- [ ] 专家、机构、事实与观点的结构化情报层
 
-### 新增一条处理流（文稿、书籍……）
+---
 
-1. Dashboard → 设置 → 新增处理类型（如 `transcript`）。
-2. 写脚本：读 `~/.info-collector/outbox/transcript.json`，处理完写报告到
-   `~/.info-collector/inbox/<reportId>.json`（原子写：临时文件 + rename）：
-
-```json
-{ "reportId": "transcript-20260705T120000-ab12", "processingType": "transcript",
-  "results": [ { "url": "…", "status": "done", "processedAt": "…",
-    "meta": { "summary": "…", "tags": ["智能体", "模型评估"] } } ] }
-```
-
-`status` 支持 `processing`（认领，显示「处理中」）/ `done` / `failed`。
-`flows/translate-claude-api.py` 是完整参考实现（含状态文件、锁、认领报告）。
-
-3. 想要 Dashboard 的「▶ 立即处理」按钮和运行状态，往
-   `~/.info-collector/flows.json` 加一条注册：
-   `{"command": [...启动命令, "--manual"], "lockFile": "…", "intervalSeconds": 3600}`。
-
-## 平台支持
-
-- Windows 11：文章流水线支持手动触发；不安装计划任务，播客/Pi 流暂不支持。
-- macOS：保留原有 launchd 自动调度与文章/可选播客安装方式。
-
-Chrome 需要
-以「加载已解压的扩展程序」方式安装（manifest 内置固定 key，所有设备
-上扩展 ID 一致：`fmdbamjmoabmcggjfgeopaijnbjkjbhm`）。
+<p align="center">
+  <sub>Local-first · Windows-native · Built for repeatable intelligence work</sub>
+</p>
