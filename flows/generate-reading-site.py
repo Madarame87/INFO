@@ -356,13 +356,15 @@ def page_shell(title, description, content, asset_prefix="assets", body_class=""
 <body class="{escape_attr(body_class)}">
   <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
   <header class="site-header">
-    <a class="site-brand" href="{('../' if asset_prefix.startswith('..') else '')}index.html" aria-label="Info Collector 阅读库首页">
-      <span class="brand-mark">IC</span>
-      <span><small>LOCAL INTELLIGENCE OS</small><strong>Info Collector</strong></span>
-    </a>
-    <div class="site-credits" aria-label="项目贡献者">
-      <span class="credit-label">Powered by</span>
-      <span class="credit-people"><a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></span>
+    <div class="site-header-inner">
+      <a class="site-brand" href="{('../' if asset_prefix.startswith('..') else '')}index.html" aria-label="Info Collector 阅读库首页">
+        <span class="brand-signal" aria-hidden="true"></span>
+        <span><small>PERSONAL TECHNOLOGY INTELLIGENCE</small><strong>Info Collector<span class="brand-dot" aria-hidden="true">.</span></strong></span>
+      </a>
+      <div class="site-credits" aria-label="Powered by @Madarame87 × @aswrise">
+        <span class="credit-label">Powered by</span>
+        <span class="credit-people"><a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></span>
+      </div>
     </div>
   </header>
   {content}
@@ -396,15 +398,12 @@ def render_index(articles):
     ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
     cards = []
     for article in articles:
-        searchable = " ".join([
-            article["title"], article["summary"], *article["tags"]
-        ]).lower()
         tag_html = "".join(render_tag(tag) for tag in article["tags"])
         article_href = f"articles/{article['slug']}.html"
         display_date = date_label(article)
         datetime_attr = f' datetime="{escape_attr(display_date)}"' if re.fullmatch(r"\d{4}-\d{2}-\d{2}", display_date) else ""
         cards.append(f"""
-        <a class="article-card reveal" role="article" href="{article_href}" aria-label="打开文章：{escape_attr(article['title'])}" data-search="{escape_attr(searchable)}" data-tags="{escape_attr('|'.join(article['tags']))}">
+        <a class="article-card reveal" href="{article_href}" aria-label="打开文章：{escape_attr(article['title'])}" data-tags="{escape_attr('|'.join(article['tags']))}">
           <div class="card-main">
             <div class="keyword-row">{tag_html}</div>
             <h2 title="{escape_attr(article['title'])}">{html.escape(article['title'])}</h2>
@@ -424,17 +423,16 @@ def render_index(articles):
     <section class="library-hero reveal">
       <p class="eyebrow"><i></i> KNOWLEDGE STREAM</p>
       <div class="hero-grid">
-        <div><h1>文章情报库</h1><p>从关键词进入主题，从摘要判断价值，再沉浸阅读完整中文译文。</p></div>
-        <div class="library-stats"><div><strong>{len(articles)}</strong><span>篇文章</span></div><div><strong>{len(ranked)}</strong><span>个关键词</span></div><div><strong>{html.escape(newest)}</strong><span>最近更新</span></div></div>
+        <div><h1>文章情报库</h1></div>
+        <dl class="library-stats"><div><dt>篇文章</dt><dd>{len(articles)}</dd></div><div><dt>个关键词</dt><dd>{len(ranked)}</dd></div><div><dt>最近更新</dt><dd>{html.escape(newest)}</dd></div></dl>
       </div>
     </section>
-    <section class="discovery-panel reveal" aria-label="搜索和关键词筛选">
-      <label class="search-box" for="article-search"><span>⌕</span><input id="article-search" type="search" placeholder="搜索标题、摘要或关键词" autocomplete="off"></label>
-      <div class="filter-heading"><span>关键词</span><small id="result-count">显示 {len(articles)} 篇</small></div>
-      <div class="tag-filters" id="tag-filters">{all_button}{tag_buttons}</div>
+    <section class="discovery-panel reveal" aria-labelledby="filter-title">
+      <div class="filter-heading"><h2 id="filter-title">按关键词浏览</h2><output id="result-count" aria-live="polite" aria-atomic="true">显示 {len(articles)} 篇</output></div>
+      <div class="tag-filters" id="tag-filters" role="group" aria-label="文章关键词筛选">{all_button}{tag_buttons}</div>
     </section>
     <section class="article-grid" id="article-grid">{''.join(cards)}</section>
-    <section class="empty-state" id="empty-state" hidden><span>⌕</span><h2>没有找到对应文章</h2><p>尝试更换关键词或缩短搜索内容。</p></section>
+    <section class="empty-state" id="empty-state" hidden><span>—</span><h2>没有找到对应文章</h2><p>请选择其他关键词查看文章。</p></section>
   </main>"""
     return page_shell("文章情报库", "Info Collector 本地中文技术文章阅读库", content, body_class="library-page")
 
