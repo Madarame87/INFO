@@ -34,34 +34,15 @@ Info Collector 是一套运行在本机的个人技术情报工作台。你只�
 
 ## 它能做什么
 
-| 能力 | 结果 |
-|---|---|
-| 书签即入口 | 只读导入 Chrome 书签，不修改原始书签 |
-| AI 翻译与提炼 | 输出中文 Markdown、限长摘要和 2–5 个规范化标签 |
-| 状态可追踪 | 在 Dashboard 查看待处理、处理中、失败、完成与归档状态 |
-| 同类信息归档 | 按标签聚合和筛选文章，快速识别持续出现的技术主题 |
-| 一键生成周报 | 汇总本周主题排行、文章分组和每日收录日历 |
-| 本地优先 | API Key、处理队列和 Markdown 结果保存在本机 |
-| 跨设备状态同步 | 使用 `chrome.storage.sync` 同步轻量任务状态 |
+<p align="center">
+  <img src="docs/images/readme-capabilities.svg" alt="Info Collector 六项核心能力：收藏入队、AI 翻译提炼、状态追踪、标签化情报库、本地 Markdown 和技术动态周报" width="100%">
+</p>
 
 ## 从收藏到周报
 
-```text
-Chrome「收藏文章」
-        │
-        ▼
-扩展只读导入 ──→ 任务队列 / Dashboard
-        │
-        ▼
-Native Messaging 文件桥
-        │
-        ▼
-正文抓取 ──→ DeepSeek / Claude ──→ 翻译 + Summary + Tags
-        │
-        ├──→ ~/Documents/InfoCollector/*.md
-        │
-        └──→ 周报/技术动态周报-*.md
-```
+<p align="center">
+  <img src="docs/images/readme-workflow.svg" alt="Info Collector 技术情报流水线：收藏文章、导入桥接、翻译提炼、文章情报库、技术动态周报" width="100%">
+</p>
 
 扩展是任务状态的唯一事实来源。本地处理流通过 `~/.info-collector/` 下的 outbox / inbox 文件契约与扩展交换数据，因此浏览器界面、模型调用与 Markdown 产物彼此解耦。
 
@@ -93,14 +74,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 
 ## 当前支持范围
 
-| 平台 / 流程 | 状态 | 说明 |
-|---|---:|---|
-| Windows 11 · 文章处理 | ✅ 已验证 | Dashboard 手动触发，真实文章端到端通过 |
-| Windows 11 · Summary / Tags | ✅ 已验证 | 展示、筛选、同步与异常输出修复已覆盖 |
-| Windows 11 · 技术周报 | ✅ MVP | 本地确定性聚合，不重复调用模型 |
-| Windows 11 · 播客处理 | ◻︎ 计划中 | 界面保留入口，暂未接入 Windows 后端 |
-| macOS · 文章处理 | ✅ 保留 | 支持原有 launchd 定时调度 |
-| macOS · 播客处理 | ✅ 可选 | 需要本机安装 `pi` CLI |
+<p align="center">
+  <img src="docs/images/readme-scope.svg" alt="Info Collector Windows 11 已验证范围：原生桥接、文章情报处理和技术动态周报" width="100%">
+</p>
+
+这个仓库的产品目标明确限定为 **Windows 11 技术文章情报工作流**：从 Chrome 收藏进入队列，到本机生成结构化文章与技术动态周报。
 
 ## 为什么做这个项目
 
@@ -110,14 +88,9 @@ Info Collector 试图补上中间这一层：保留原文入口，同时生成�
 
 ## 技术结构
 
-```text
-extension/   Chrome MV3 扩展、Dashboard、任务队列与同步
-host/        Windows / macOS Native Messaging 文件桥
-flows/       文章翻译、摘要标签、播客和周报生成流程
-scripts/     Windows 与 macOS 安装、自检和测试入口
-test/        Node + Python 回归测试
-docs/        架构设计、ADR 与平台迁移记录
-```
+<p align="center">
+  <img src="docs/images/readme-architecture.svg" alt="Info Collector 技术结构：Chrome MV3 扩展、Windows 文件桥、文章处理流和本地 Markdown 产物" width="100%">
+</p>
 
 - 架构说明：[docs/design.md](docs/design.md)
 - 领域语言：[CONTEXT.md](CONTEXT.md)
@@ -130,17 +103,13 @@ docs/        架构设计、ADR 与平台迁移记录
 npm.cmd test
 ```
 
-当前回归基线：**38 个 Node 测试 + 23 个 Python 测试全部通过**，并覆盖 URL 归一化、队列状态机、跨端同步、摘要标签、异常模型输出、周报聚合、Windows UTF-8 输出和页面 ID 契约。
+当前回归覆盖 URL 归一化、队列状态机、跨端同步、摘要标签、异常模型输出、周报聚合、Windows UTF-8 输出和页面 ID 契约。
 
-## Roadmap
+## Roadmap · 已完成
 
-- [x] Windows Native Host 与安装器
-- [x] 真实文章抓取、翻译与 Markdown 输出
-- [x] Summary / Tags 提取、展示与同类筛选
-- [x] 本地确定性技术动态周报
-- [ ] 扩大真实文章验收样本并完成阶段门禁
-- [ ] Windows 播客 / YouTube 处理流
-- [ ] 专家、机构、事实与观点的结构化情报层
+<p align="center">
+  <img src="docs/images/readme-validation.svg" alt="Info Collector 验证结果与已完成 Roadmap：38 个 Node 测试、23 个 Python 测试、Windows Native Host 与四项已交付能力" width="100%">
+</p>
 
 ---
 
