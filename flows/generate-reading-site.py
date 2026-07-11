@@ -360,13 +360,13 @@ def page_shell(title, description, content, asset_prefix="assets", body_class=""
       <span class="brand-mark">IC</span>
       <span><small>LOCAL INTELLIGENCE OS</small><strong>Info Collector</strong></span>
     </a>
-    <nav aria-label="主导航">
-      <a href="{('../' if asset_prefix.startswith('..') else '')}index.html">文章库</a>
-      <span class="system-label">WINDOWS 11 · LOCAL-FIRST</span>
-    </nav>
+    <div class="site-credits" aria-label="项目贡献者">
+      <span class="credit-label">Powered by</span>
+      <span class="credit-people"><a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a><i aria-hidden="true">×</i><a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></span>
+    </div>
   </header>
   {content}
-  <footer class="site-footer"><span><i></i> LOCAL-FIRST · WINDOWS 11</span><span>INFO COLLECTOR / READING DESK</span></footer>
+  <footer class="site-footer">Powered by <strong>@THEO</strong> &amp; <strong>@AQUA</strong><span>·</span>2026</footer>
   <script src="{asset_prefix}/app.js" defer></script>
 </body>
 </html>
@@ -374,11 +374,11 @@ def page_shell(title, description, content, asset_prefix="assets", body_class=""
 
 
 def date_label(article):
-    published = article["published"]
-    if published:
-        return published[:10]
-    collected = article["collected"]
-    return collected[:10] if collected else "已收录"
+    for candidate in (article["published"], article["collected"]):
+        match = re.search(r"(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)", str(candidate or ""))
+        if match:
+            return match.group(0)
+    return "已收录"
 
 
 def render_tag(tag, active=False, button=False, count=None):
@@ -386,7 +386,7 @@ def render_tag(tag, active=False, button=False, count=None):
     if button:
         return (
             f'<button class="tag-filter{" is-active" if active else ""}" type="button" '
-            f'data-tag="{escape_attr(tag)}">{html.escape(tag)}{count_html}</button>'
+            f'data-tag="{escape_attr(tag)}" aria-pressed="{"true" if active else "false"}">{html.escape(tag)}{count_html}</button>'
         )
     return f'<span class="keyword">{html.escape(tag)}</span>'
 
@@ -397,19 +397,27 @@ def render_index(articles):
     cards = []
     for article in articles:
         searchable = " ".join([
-            article["title"], article["summary"], article["authors"], *article["tags"]
+            article["title"], article["summary"], *article["tags"]
         ]).lower()
         tag_html = "".join(render_tag(tag) for tag in article["tags"])
-        author = f'<span>{html.escape(article["authors"])}</span>' if article["authors"] else ""
+        article_href = f"articles/{article['slug']}.html"
+        display_date = date_label(article)
+        datetime_attr = f' datetime="{escape_attr(display_date)}"' if re.fullmatch(r"\d{4}-\d{2}-\d{2}", display_date) else ""
         cards.append(f"""
-        <article class="article-card reveal" data-search="{escape_attr(searchable)}" data-tags="{escape_attr('|'.join(article['tags']))}">
-          <div class="card-top"><div class="keyword-row">{tag_html}</div><span class="card-date">{html.escape(date_label(article))}</span></div>
-          <h2><a href="articles/{article['slug']}.html">{html.escape(article['title'])}</a></h2>
-          <p>{html.escape(article['summary'])}</p>
-          <div class="card-foot">{author}<a href="articles/{article['slug']}.html" aria-label="阅读 {escape_attr(article['title'])}">阅读中文全文 <b>↗</b></a></div>
-        </article>""")
-    all_button = render_tag("全部", active=True, button=True, count=len(articles))
-    tag_buttons = "".join(render_tag(tag, button=True, count=count) for tag, count in ranked)
+        <a class="article-card reveal" role="article" href="{article_href}" aria-label="打开文章：{escape_attr(article['title'])}" data-search="{escape_attr(searchable)}" data-tags="{escape_attr('|'.join(article['tags']))}">
+          <div class="card-main">
+            <div class="keyword-row">{tag_html}</div>
+            <h2 title="{escape_attr(article['title'])}">{html.escape(article['title'])}</h2>
+            <p>{html.escape(article['summary'])}</p>
+          </div>
+          <div class="card-meta">
+            <span>DATE</span>
+            <time class="card-date"{datetime_attr}>{html.escape(display_date)}</time>
+            <b aria-hidden="true">↗</b>
+          </div>
+        </a>""")
+    all_button = render_tag("全部", active=True, button=True)
+    tag_buttons = "".join(render_tag(tag, button=True) for tag, _count in ranked)
     newest = date_label(articles[0]) if articles else "—"
     content = f"""
   <main class="library-shell">
@@ -421,7 +429,7 @@ def render_index(articles):
       </div>
     </section>
     <section class="discovery-panel reveal" aria-label="搜索和关键词筛选">
-      <label class="search-box" for="article-search"><span>⌕</span><input id="article-search" type="search" placeholder="搜索标题、摘要、作者或关键词" autocomplete="off"></label>
+      <label class="search-box" for="article-search"><span>⌕</span><input id="article-search" type="search" placeholder="搜索标题、摘要或关键词" autocomplete="off"></label>
       <div class="filter-heading"><span>关键词</span><small id="result-count">显示 {len(articles)} 篇</small></div>
       <div class="tag-filters" id="tag-filters">{all_button}{tag_buttons}</div>
     </section>

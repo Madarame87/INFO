@@ -11,7 +11,7 @@
   <img alt="Chrome Extension" src="https://img.shields.io/badge/Chrome-Manifest_V3-C65F3D?style=flat-square">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-25221E?style=flat-square">
   <img alt="Node tests" src="https://img.shields.io/badge/Node_tests-38_passing-2E8B67?style=flat-square">
-  <img alt="Python tests" src="https://img.shields.io/badge/Python_tests-26_passing-2E8B67?style=flat-square">
+  <img alt="Python tests" src="https://img.shields.io/badge/Python_tests-27_passing-2E8B67?style=flat-square">
 </p>
 
 <p align="center">
@@ -124,7 +124,7 @@ npm.cmd test
 ## Roadmap · 已完成
 
 <p align="center">
-  <img src="docs/images/readme-validation.svg" alt="Info Collector 验证结果与已完成 Roadmap：38 个 Node 测试、26 个 Python 测试、Windows Native Host 与五项已交付能力" width="100%">
+  <img src="docs/images/readme-validation.svg" alt="Info Collector 验证结果与已完成 Roadmap：38 个 Node 测试、27 个 Python 测试、Windows Native Host 与五项已交付能力" width="100%">
 </p>
 
 ---
