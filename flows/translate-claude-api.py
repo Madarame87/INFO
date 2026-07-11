@@ -68,6 +68,24 @@ FETCH_TIMEOUT = 45
 DEFUDDLE_TIMEOUT = 90
 MAX_FETCH_BYTES = 2_000_000
 MAX_DEEPSEEK_INPUT_CHARS = 180_000
+MAX_SUMMARY_CHARS = 240
+MAX_TAGS = 5
+
+CANONICAL_TAGS = (
+    "人工智能", "世界模型", "机器人", "具身智能", "大模型", "智能体", "多模态",
+    "模型评估", "记忆系统", "推理", "训练", "数据", "芯片", "开源", "产品",
+    "产业动态", "学术研究",
+)
+
+ENRICHMENT_RULES = (
+    "除翻译外，还要完成信息提炼：frontmatter 必须包含一行 summary，"
+    "用 80-160 个简体中文字符概括文章的核心事实或主张；必须包含一行 tags，"
+    "格式严格为 JSON 风格数组，例如 tags: [\"智能体\", \"模型评估\"]。"
+    "给出 2-5 个简短标签，优先复用以下规范标签："
+    + "、".join(CANONICAL_TAGS)
+    + "。确有必要时才创建新标签。frontmatter 后、完整译文前加入「## 摘要」小节，"
+      "正文使用与 summary 相同的摘要。"
+)
 
 TRIGGER = "manual" if "--manual" in sys.argv else "scheduled"
 
@@ -76,6 +94,7 @@ SYSTEM_PROMPT = (
     "把正文完整翻译成自然通顺的简体中文 Markdown。规则："
     "代码块、命令、路径原样保留不翻译；图片保留原远程链接；"
     "文章主标题用「中文（English）」双语形式。"
+    + ENRICHMENT_RULES +
     "你的最终回复必须只包含完成的 Markdown 文档本身"
     "（以 --- 开头的 YAML frontmatter 开始），"
     "不要有任何解释、前言或代码围栏。"
@@ -254,7 +273,7 @@ def translate_article_anthropic(url, title, cfg):
         f"frontmatter 需包含：title（中文标题）、source（原文 URL）、"
         f"published（原文发布日期，YYYY-MM-DD，找不到就留空）、"
         f"date: {now_local}（收录时间，原样使用这个值）、"
-        f"authors（作者，找不到就留空）。"
+        f"authors（作者，找不到就留空）、summary 和 tags。"
     )
     messages = [{"role": "user", "content": user_prompt}]
     payload = {
@@ -447,6 +466,7 @@ def translate_article_deepseek(url, title, cfg):
         "请把正文完整翻译成自然通顺的简体中文 Markdown。规则："
         "代码块、命令、路径原样保留不翻译；图片链接如正文中出现则保留；"
         "文章主标题用「中文（English）」双语形式。"
+        + ENRICHMENT_RULES +
         "你的最终回复必须只包含完成的 Markdown 文档本身"
         "（以 --- 开头的 YAML frontmatter 开始），"
         "不要有任何解释、前言或代码围栏。"
@@ -461,7 +481,7 @@ def translate_article_deepseek(url, title, cfg):
         f"frontmatter 需包含：title（中文标题）、source（原文 URL）、"
         f"published（优先使用上面的原文发布日期，YYYY-MM-DD，找不到就留空）、"
         f"date: {now_local}（收录时间，原样使用这个值）、"
-        f"authors（优先使用上面的作者，找不到就留空）。{truncated}\n\n"
+        f"authors（优先使用上面的作者，找不到就留空）、summary 和 tags。{truncated}\n\n"
         f"原文提取文本：\n\n{article_text}"
     )
     payload = {
@@ -490,6 +510,102 @@ def translate_article_deepseek(url, title, cfg):
 def strip_code_fence(text):
     m = re.match(r"^```(?:markdown|md)?\n(.*)\n```$", text, re.DOTALL)
     return m.group(1) if m else text
+
+
+TAG_ALIASES = {
+    "ai": "人工智能",
+    "artificial intelligence": "人工智能",
+    "llm": "大模型",
+    "llms": "大模型",
+    "large language model": "大模型",
+    "large language models": "大模型",
+    "大语言模型": "大模型",
+    "agent": "智能体",
+    "agents": "智能体",
+    "ai agent": "智能体",
+    "ai agents": "智能体",
+    "eval": "模型评估",
+    "evals": "模型评估",
+    "evaluation": "模型评估",
+    "model evaluation": "模型评估",
+    "memory": "记忆系统",
+    "memory system": "记忆系统",
+    "memory systems": "记忆系统",
+    "robotics": "机器人",
+    "embodied ai": "具身智能",
+    "world model": "世界模型",
+    "world models": "世界模型",
+}
+
+
+def parse_frontmatter_scalar(raw):
+    raw = raw.strip()
+    if not raw:
+        return ""
+    try:
+        value = json.loads(raw)
+        return value if isinstance(value, str) else str(value)
+    except json.JSONDecodeError:
+        return raw.strip("'\"")
+
+
+def normalize_tag(tag):
+    tag = re.sub(r"\s+", " ", str(tag)).strip().lstrip("#＃").strip()
+    tag = TAG_ALIASES.get(tag.casefold(), tag)
+    return tag[:24].strip()
+
+
+def extract_enrichment(markdown):
+    """Extract the bounded Summary/Tags contract from Markdown frontmatter."""
+    match = re.match(r"\A---\s*\r?\n(.*?)\r?\n---(?:\r?\n|\Z)", markdown, re.DOTALL)
+    if not match:
+        raise RuntimeError("译文缺少 YAML frontmatter")
+    frontmatter = match.group(1)
+
+    summary_match = re.search(r"(?m)^summary:\s*(.*)$", frontmatter)
+    summary = parse_frontmatter_scalar(summary_match.group(1)) if summary_match else ""
+    summary = re.sub(r"\s+", " ", summary).strip()
+    if len(summary) > MAX_SUMMARY_CHARS:
+        summary = summary[:MAX_SUMMARY_CHARS - 1].rstrip() + "…"
+    if not summary:
+        raise RuntimeError("译文 frontmatter 缺少 summary")
+
+    tags = []
+    tags_match = re.search(r"(?m)^tags:\s*(.*)$", frontmatter)
+    if tags_match:
+        raw_tags = tags_match.group(1).strip()
+        if raw_tags:
+            try:
+                parsed = json.loads(raw_tags)
+                tags = parsed if isinstance(parsed, list) else [parsed]
+            except json.JSONDecodeError:
+                tags = [part.strip(" '\"") for part in re.split(r"[,，]", raw_tags.strip("[]"))]
+        else:
+            tail = frontmatter[tags_match.end():]
+            tags = re.findall(r"(?m)^\s*-\s*(.+?)\s*$", tail)
+
+    normalized = []
+    seen = set()
+    for tag in tags:
+        clean = normalize_tag(tag)
+        key = clean.casefold()
+        if clean and key not in seen:
+            normalized.append(clean)
+            seen.add(key)
+        if len(normalized) == MAX_TAGS:
+            break
+    if len(normalized) < 2:
+        raise RuntimeError("译文 frontmatter 至少需要 2 个有效 tags")
+    return {"summary": summary, "tags": normalized}
+
+
+def ensure_summary_section(markdown, summary):
+    if re.search(r"(?m)^##\s+摘要\s*$", markdown):
+        return markdown
+    match = re.match(r"\A---\s*\r?\n.*?\r?\n---\s*", markdown, re.DOTALL)
+    if not match:
+        return markdown
+    return markdown[:match.end()].rstrip() + f"\n\n## 摘要\n\n{summary}\n\n" + markdown[match.end():].lstrip()
 
 
 # ===== 落盘 =====
@@ -644,9 +760,11 @@ def main():
             now_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             try:
                 md = translate_article(url, title, cfg)
+                enrichment = extract_enrichment(md)
+                md = ensure_summary_section(md, enrichment["summary"])
                 path = save_markdown(md, extract_title(md, title), out_dir)
                 results.append({"url": url, "status": "done", "processedAt": now_utc,
-                                "meta": {"savedTo": path}})
+                                "meta": {"savedTo": path, **enrichment}})
                 state[a.get("articleKey") or url] = now_utc
                 done += 1
                 log(f"  ✅ 已保存: {path}")

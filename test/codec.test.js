@@ -24,6 +24,17 @@ test('encode → decode 完整往返', () => {
   assert.deepEqual(dec, sample);
 });
 
+test('Summary/Tags 元数据经过 sync 压缩后完整保留', () => {
+  const enriched = structuredClone(sample);
+  enriched.jobs.translate.meta = {
+    savedTo: 'article.md',
+    summary: '这是一段文章摘要。',
+    tags: ['智能体', '模型评估'],
+  };
+  const decoded = decodeRecord(enriched.articleKey, encodeRecord(enriched));
+  assert.deepEqual(decoded.jobs.translate.meta, enriched.jobs.translate.meta);
+});
+
 test('压缩编码显著小于完整形态', () => {
   const enc = JSON.stringify(encodeRecord(sample));
   const full = JSON.stringify(sample);

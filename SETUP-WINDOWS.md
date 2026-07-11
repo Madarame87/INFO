@@ -75,6 +75,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 
 阶段 1 的 3–5 篇未全部验收前，不进入 Summary/Tags 开发。
 
+## 6. 阶段 2 Summary/Tags 验收
+
+阶段 1 通过后，重新运行安装器并在 `chrome://extensions` 重新加载扩展。再处理
+2–3 篇至少共享一个主题的新文章，确认：
+
+1. 每个新 Markdown 的 frontmatter 都有单行 `summary` 和 2–5 个 `tags`；
+2. Markdown 正文开头有“摘要”小节；
+3. Dashboard 的文章行显示摘要与标签；
+4. 标签上方显示文章数量，点击标签或使用“标签”下拉框能筛出同类文章；
+5. 旧的阶段 1 文章没有摘要/标签时仍能正常显示，不报错。
+
+阶段 2 不包含周报、关键词趋势、专家/机构分析。
+
 ## 排错
 
 ### `host 未找到` 或 `host 已断开`
@@ -97,4 +110,3 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 - `%USERPROFILE%\.info-collector\state\translate-trigger.log`
 
 登录墙、付费墙、强 JavaScript 页面可能无法由内置抓取器读取。
-

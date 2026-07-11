@@ -64,6 +64,8 @@ class MockDeepSeekHandler(BaseHTTPRequestHandler):
                         "published: \n"
                         "date: 2026-07-05T12:00\n"
                         "authors: \n"
+                        "summary: \"文章说明了为什么应以评估驱动的方式持续改进智能体记忆系统。\"\n"
+                        "tags: [\"Agents\", \"模型评估\", \"Memory Systems\"]\n"
                         "---\n\n"
                         "# 后端 DeepSeek 测试（Backend DeepSeek Test）\n\n"
                         "这是一篇由 mock DeepSeek 返回的译文。"
@@ -158,6 +160,23 @@ print(json.dumps({{
             self.assertIn("开始巡检翻译队列（manual）", log_text)
             self.assertIn("❌", log_text)
 
+    def test_enrichment_parser_normalizes_aliases_and_inserts_summary_section(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            markdown = (
+                "---\n"
+                "title: 测试\n"
+                "summary: \"这是一段用于测试的摘要。\"\n"
+                "tags: [\"AI\", \"人工智能\", \"Agents\", \"Memory Systems\"]\n"
+                "---\n\n"
+                "# 测试\n\n正文"
+            )
+            enrichment = flow.extract_enrichment(markdown)
+            self.assertEqual(enrichment["summary"], "这是一段用于测试的摘要。")
+            self.assertEqual(enrichment["tags"], ["人工智能", "智能体", "记忆系统"])
+            enriched = flow.ensure_summary_section(markdown, enrichment["summary"])
+            self.assertIn("## 摘要\n\n这是一段用于测试的摘要。", enriched)
+
     def test_deepseek_flow_runs_from_backend_spool_to_inbox(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
@@ -205,10 +224,13 @@ print(json.dumps({{
             self.assertIn("原文提取文本", req["payload"]["messages"][1]["content"])
             self.assertIn("正文提取器: defuddle", req["payload"]["messages"][1]["content"])
             self.assertIn("Ada Lovelace", req["payload"]["messages"][1]["content"])
+            self.assertIn("summary 和 tags", req["payload"]["messages"][1]["content"])
 
             saved = list(out_dir.glob("*.md"))
             self.assertEqual(len(saved), 1)
-            self.assertIn("# 后端 DeepSeek 测试", saved[0].read_text(encoding="utf-8"))
+            saved_text = saved[0].read_text(encoding="utf-8")
+            self.assertIn("## 摘要", saved_text)
+            self.assertIn("# 后端 DeepSeek 测试", saved_text)
 
             reports = [
                 json.loads(p.read_text(encoding="utf-8"))
@@ -219,7 +241,10 @@ print(json.dumps({{
                 if any(item.get("status") == "done" for item in r.get("results", []))
             ]
             self.assertEqual(len(final_reports), 1)
-            self.assertEqual(final_reports[0]["results"][0]["meta"]["savedTo"], str(saved[0]))
+            result_meta = final_reports[0]["results"][0]["meta"]
+            self.assertEqual(result_meta["savedTo"], str(saved[0]))
+            self.assertEqual(result_meta["summary"], "文章说明了为什么应以评估驱动的方式持续改进智能体记忆系统。")
+            self.assertEqual(result_meta["tags"], ["智能体", "模型评估", "记忆系统"])
 
 
 if __name__ == "__main__":

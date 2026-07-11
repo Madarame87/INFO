@@ -1,6 +1,8 @@
 // 队列状态机：纯函数，不碰 chrome API，可在 node 下直接测试。
 // 语义见 CONTEXT.md 与 docs/design.md。
 
+import { normalizeSummaryTags } from './enrichment.js';
+
 export const STATUSES = ['pending', 'processing', 'done', 'failed', 'ignored'];
 
 export function newRecord(articleKey, url, title, now) {
@@ -55,6 +57,7 @@ export function applyResult(record, { articleKey, url, type, status, processedAt
     rec.sources.push({ kind: 'report', folderName: null, bookmarkId: null, importedAt: now });
   }
   const j = rec.jobs[type] ? structuredClone(rec.jobs[type]) : newJob(now);
+  const resultMeta = type === 'translate' && meta ? normalizeSummaryTags(meta) : meta;
   if (status === 'done') {
     if (j.status === 'done') return { record: rec, changed: !record };
     j.status = 'done';
@@ -64,7 +67,7 @@ export function applyResult(record, { articleKey, url, type, status, processedAt
     if (j.status === 'done' || j.status === 'ignored') return { record: rec, changed: !record };
     j.status = 'failed';
     j.attempts = (j.attempts || 0) + 1;
-    j.lastError = (meta && meta.error) || 'failed';
+    j.lastError = (resultMeta && resultMeta.error) || 'failed';
   } else if (status === 'processing') {
     if (j.status === 'done' || j.status === 'ignored' || j.status === 'processing') {
       return { record: rec, changed: !record };
@@ -74,7 +77,7 @@ export function applyResult(record, { articleKey, url, type, status, processedAt
     return { record: record ?? rec, changed: !record };
   }
   j.updatedAt = now;
-  if (meta) j.meta = { ...j.meta, ...meta };
+  if (resultMeta) j.meta = { ...j.meta, ...resultMeta };
   rec.jobs[type] = j;
   rec.updatedAt = now;
   return { record: rec, changed: true };

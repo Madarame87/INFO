@@ -1,6 +1,7 @@
 // Dashboard：读操作直接走 storage 层，全部写操作发消息给 service worker 串行执行。
 
 import * as store from './lib/storage.js';
+import { collectTagCounts, jobSummary, jobTags } from './lib/enrichment.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -10,7 +11,7 @@ let meta;
 let active = new Map();
 let archive = new Map();
 let flows = {};
-const view = { type: '', status: '', q: '', archived: false };
+const view = { type: '', status: '', tag: '', q: '', archived: false };
 
 async function refresh() {
   meta = await store.loadMeta();
@@ -21,6 +22,7 @@ async function refresh() {
   renderTypeSelects();
   renderTiles();
   renderRuns();
+  renderTagControls();
   renderTable();
 }
 
@@ -137,11 +139,42 @@ function matches(rec) {
   const j = rec.jobs[view.type];
   if (!j) return false;
   if (view.status && (!j || j.status !== view.status)) return false;
+  const tags = jobTags(j);
+  if (view.tag && !tags.includes(view.tag)) return false;
   if (view.q) {
     const q = view.q.toLowerCase();
-    if (!rec.title.toLowerCase().includes(q) && !rec.url.toLowerCase().includes(q)) return false;
+    const haystack = [rec.title, rec.url, jobSummary(j), ...tags].join('\n').toLowerCase();
+    if (!haystack.includes(q)) return false;
   }
   return true;
+}
+
+function renderTagControls() {
+  const records = [...active.values()];
+  if (view.archived) records.push(...archive.values());
+  const counts = collectTagCounts(records, view.type);
+  if (view.tag && !counts.has(view.tag)) view.tag = '';
+
+  const select = $('f-tag');
+  select.innerHTML = '<option value="">全部标签</option>';
+  for (const [tag, count] of counts) {
+    const opt = document.createElement('option');
+    opt.value = tag;
+    opt.textContent = `${tag}（${count}）`;
+    select.appendChild(opt);
+  }
+  select.value = view.tag;
+
+  const groups = $('tag-groups');
+  groups.innerHTML = '';
+  groups.hidden = counts.size === 0;
+  for (const [tag, count] of counts) {
+    const button = document.createElement('button');
+    button.className = 'tag-chip' + (tag === view.tag ? ' active' : '');
+    button.dataset.tag = tag;
+    button.textContent = `${tag} ${count}`;
+    groups.appendChild(button);
+  }
 }
 
 function renderTable() {
@@ -162,6 +195,26 @@ function renderTable() {
 
     const tdA = document.createElement('td');
     tdA.innerHTML = `<div class="title"><a href="${escapeAttr(rec.url)}" target="_blank" rel="noopener">${escapeHtml(rec.title || '(无标题)')}</a>${archived ? '<span class="badge-archived">归档</span>' : ''}</div><div class="url">${escapeHtml(rec.articleKey)}</div>`;
+    const summary = jobSummary(rec.jobs[view.type]);
+    if (summary) {
+      const div = document.createElement('div');
+      div.className = 'article-summary';
+      div.textContent = summary;
+      tdA.appendChild(div);
+    }
+    const tags = jobTags(rec.jobs[view.type]);
+    if (tags.length) {
+      const div = document.createElement('div');
+      div.className = 'article-tags';
+      for (const tag of tags) {
+        const button = document.createElement('button');
+        button.className = 'tag-chip';
+        button.dataset.tag = tag;
+        button.textContent = tag;
+        div.appendChild(button);
+      }
+      tdA.appendChild(div);
+    }
 
     const tdS = document.createElement('td');
     const j = rec.jobs[view.type];
@@ -213,6 +266,13 @@ function opBtn(label, op) {
 }
 
 $('rows').addEventListener('click', async (e) => {
+  const tagButton = e.target.closest('button[data-tag]');
+  if (tagButton) {
+    view.tag = tagButton.dataset.tag;
+    renderTagControls();
+    renderTable();
+    return;
+  }
   const btn = e.target.closest('button[data-op]');
   if (!btn) return;
   const key = btn.closest('tr').dataset.key;
@@ -242,6 +302,14 @@ $('rows').addEventListener('click', async (e) => {
     await send({ cmd: 'setJobStatus', keys: [key], type: view.type, status: op });
   }
   refresh();
+});
+
+$('tag-groups').addEventListener('click', (e) => {
+  const button = e.target.closest('button[data-tag]');
+  if (!button) return;
+  view.tag = view.tag === button.dataset.tag ? '' : button.dataset.tag;
+  renderTagControls();
+  renderTable();
 });
 
 async function send(msg) {
@@ -310,10 +378,21 @@ $('btn-export').addEventListener('click', () => {
   URL.revokeObjectURL(a.href);
 });
 
-$('f-type').addEventListener('change', (e) => { view.type = e.target.value; renderTiles(); renderTable(); });
+$('f-type').addEventListener('change', (e) => {
+  view.type = e.target.value;
+  view.tag = '';
+  renderTiles();
+  renderTagControls();
+  renderTable();
+});
 $('f-status').addEventListener('change', (e) => { view.status = e.target.value; renderTable(); });
+$('f-tag').addEventListener('change', (e) => { view.tag = e.target.value; renderTagControls(); renderTable(); });
 $('f-q').addEventListener('input', (e) => { view.q = e.target.value.trim(); renderTable(); });
-$('f-archived').addEventListener('change', (e) => { view.archived = e.target.checked; renderTable(); });
+$('f-archived').addEventListener('change', (e) => {
+  view.archived = e.target.checked;
+  renderTagControls();
+  renderTable();
+});
 
 $('s-folders-save').addEventListener('click', async () => {
   const folders = $('s-folders').value.split(/[,，]/).map((s) => s.trim()).filter(Boolean);

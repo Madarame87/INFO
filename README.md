@@ -1,7 +1,7 @@
 # Info Collector
 
-把 Chrome 书签变成本机处理流水线：文章放进「收藏文章」自动翻译成中文
-Markdown；播客 / YouTube 访谈放进「收藏播客」自动生成 TLDR、深度总结和
+把 Chrome 书签变成本机处理流水线：文章放进「收藏文章」自动翻译成带摘要与
+标签的中文 Markdown；播客 / YouTube 访谈放进「收藏播客」自动生成 TLDR、深度总结和
 全文稿。处理状态在扩展的 Dashboard 里一目了然（待处理 → 处理中 → 已完成），
 跨设备同步。
 
@@ -64,7 +64,8 @@ Chrome 书签「收藏播客」 → 扩展（队列 + Dashboard） ⇄ 文件桥
 - 内置翻译流支持 DeepSeek API 和 Claude API。DeepSeek 路径会优先用本机
   `defuddle parse --json` 提取正文与 metadata，再调 OpenAI-compatible
   `/chat/completions`；未安装 defuddle 时退回内置简易抓取器。Claude 路径继续
-  使用 Anthropic Messages API 的服务端 `web_fetch`。
+  使用 Anthropic Messages API 的服务端 `web_fetch`。译文 frontmatter 与完成报告
+  都包含一段限长摘要和 2–5 个规范化标签；Dashboard 可按标签汇总、筛选同类文章。
 - 播客流由 `scripts/setup-pi-podcast-flow.sh` 注册，消费 `podcast` 队列；
   YouTube 会优先复用已有字幕 / transcript，记录频道、频道链接和发布日期，再交给
   `podcast-digest` Pi skill 写入 Obsidian「播客收集」。
@@ -89,7 +90,8 @@ Chrome 书签「收藏播客」 → 扩展（队列 + Dashboard） ⇄ 文件桥
 
 ```json
 { "reportId": "transcript-20260705T120000-ab12", "processingType": "transcript",
-  "results": [ { "url": "…", "status": "done", "processedAt": "…" } ] }
+  "results": [ { "url": "…", "status": "done", "processedAt": "…",
+    "meta": { "summary": "…", "tags": ["智能体", "模型评估"] } } ] }
 ```
 
 `status` 支持 `processing`（认领，显示「处理中」）/ `done` / `failed`。

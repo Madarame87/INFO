@@ -51,9 +51,12 @@
       <option value="ignored">已忽略</option>
     </select>
   </label>
-  <label class="grow">搜索 <input id="f-q" type="search" placeholder="标题或 URL"></label>
+  <label>标签 <select id="f-tag"><option value="">全部标签</option></select></label>
+  <label class="grow">搜索 <input id="f-q" type="search" placeholder="标题、摘要、标签或 URL"></label>
   <label class="check"><input id="f-archived" type="checkbox"> 含归档</label>
 </section>
+
+<section class="tag-groups" id="tag-groups" hidden></section>
 
 <table>
   <thead>
