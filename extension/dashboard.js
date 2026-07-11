@@ -53,6 +53,22 @@ function renderTiles() {
   $('n-done').textContent = counts.done;
   $('n-ignored').textContent = counts.ignored;
   $('n-archived').textContent = archive.size;
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  const status = $('hero-status');
+  const substatus = $('hero-substatus');
+  if (counts.failed) {
+    document.body.dataset.health = 'alert';
+    status.textContent = `${counts.failed} 条任务需要关注`;
+    substatus.textContent = `其余 ${Math.max(total - counts.failed, 0)} 条记录保持正常`;
+  } else if (counts.processing) {
+    document.body.dataset.health = 'busy';
+    status.textContent = `${counts.processing} 条任务正在处理中`;
+    substatus.textContent = `本地流程运行中 · 已完成 ${counts.done} 条`;
+  } else {
+    document.body.dataset.health = 'healthy';
+    status.textContent = counts.pending ? `${counts.pending} 条情报等待处理` : '本地情报系统运行正常';
+    substatus.textContent = `当前视图 ${total} 条 · 已完成 ${counts.done} 条 · 无运行故障`;
+  }
   store.quotaUsage().then(({ bytes, total }) => {
     const pct = Math.round((bytes / total) * 100);
     $('quota-text').textContent = `${(bytes / 1024).toFixed(1)} / ${(total / 1024).toFixed(0)} KB（${pct}%）`;
@@ -173,6 +189,7 @@ function renderTagControls() {
   const groups = $('tag-groups');
   groups.innerHTML = '';
   groups.hidden = counts.size === 0;
+  $('tag-cloud-wrap').hidden = counts.size === 0;
   for (const [tag, count] of counts) {
     const button = document.createElement('button');
     button.className = 'tag-chip' + (tag === view.tag ? ' active' : '');
@@ -189,6 +206,7 @@ function renderTable() {
     for (const rec of archive.values()) if (matches(rec)) rows.push({ rec, archived: true });
   }
   rows.sort((a, b) => (a.rec.updatedAt < b.rec.updatedAt ? 1 : -1));
+  $('visible-count').textContent = rows.length;
 
   const tbody = $('rows');
   tbody.innerHTML = '';
