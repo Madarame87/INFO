@@ -11,6 +11,18 @@ Dashboard 长这样：状态卡片、流水线运行时间、逐篇文章的状�
 
 ## 快速上手（普通用户）
 
+### Windows 11
+
+Windows 第一版支持 Chrome Dashboard 手动触发文章翻译，不安装定时任务。运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
+```
+
+完整安装与阶段 1 验收步骤见 [SETUP-WINDOWS.md](SETUP-WINDOWS.md)。
+
+### macOS
+
 文章翻译只需要一个 DeepSeek API Key（也支持 Anthropic API Key），三步装好，全程约 10 分钟：
 
 1. 获取 API Key
@@ -89,6 +101,9 @@ Chrome 书签「收藏播客」 → 扩展（队列 + Dashboard） ⇄ 文件桥
 
 ## 平台支持
 
-目前仅 macOS（launchd、Chrome native messaging 路径）。Chrome 需要
+- Windows 11：文章流水线支持手动触发；不安装计划任务，播客/Pi 流暂不支持。
+- macOS：保留原有 launchd 自动调度与文章/可选播客安装方式。
+
+Chrome 需要
 以「加载已解压的扩展程序」方式安装（manifest 内置固定 key，所有设备
 上扩展 ID 一致：`fmdbamjmoabmcggjfgeopaijnbjkjbhm`）。

@@ -14,6 +14,15 @@ Chrome MV3 扩展、队列状态机、JSON spool 契约和文章抓取/API 请�
 - Python 测试：9/9 在导入阶段失败，直接原因均为 Windows 没有 `fcntl`。
 - 当前终端可用 Node/npm，但 `python` 与 `py` 不在 PATH；开发验证可使用 Codex 自带 Python。正式安装脚本必须自行探测用户 Python，不能假设固定命令名。
 
+### 阶段 1 自动验证状态（2026-07-11）
+
+- Node 测试：31/31 通过。
+- Python 测试：12/12 通过，覆盖跨平台锁、Host 二进制 ping、spool sync、注册命令触发和文章 Flow mock 全链路。
+- `setup.ps1`：Windows PowerShell 语法通过；非交互模拟安装通过。
+- 真实用户目录：`skip` 模式安装成功，HKCU 注册表值、manifest、`.bat`、Host/兼容层文件均已核对。
+- 安装后的 `.bat`：二进制 Native Messaging ping 通过。
+- 尚未通过：Chrome UI 与真实 API 的 3–5 篇文章手动验收。因此阶段 1 仍未完成，阶段 2 保持锁定。
+
 ## Unix / macOS 专属依赖点
 
 | 类别 | 当前位置 | Windows 影响 | 阶段 1 处理 |
@@ -137,4 +146,3 @@ Host 名称继续使用 `com.pi.info_collector`，扩展协议和 `extension/lib
 - 阶段 1 手动门禁未通过：禁止修改 Summary/Tags 提示词。
 - 阶段 2 的 5–10 篇 YAML/标签白名单验收未通过：禁止实现周报。
 - 阶段 3 完成至少 12 篇真实分组和链接核验后，才进行最终完成审计。
-

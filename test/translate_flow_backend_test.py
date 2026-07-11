@@ -17,9 +17,9 @@ FLOW_PATH = ROOT / "flows" / "translate-claude-api.py"
 
 
 def import_flow(home):
-    old_home = os.environ.get("HOME")
+    old_home = os.environ.get("INFO_COLLECTOR_HOME")
     old_argv = sys.argv[:]
-    os.environ["HOME"] = str(home)
+    os.environ["INFO_COLLECTOR_HOME"] = str(home)
     sys.argv = ["translate-flow.py"]
     try:
         spec = importlib.util.spec_from_file_location("translate_flow_under_test", FLOW_PATH)
@@ -29,9 +29,9 @@ def import_flow(home):
     finally:
         sys.argv = old_argv
         if old_home is None:
-            os.environ.pop("HOME", None)
+            os.environ.pop("INFO_COLLECTOR_HOME", None)
         else:
-            os.environ["HOME"] = old_home
+            os.environ["INFO_COLLECTOR_HOME"] = old_home
 
 
 class MockDeepSeekHandler(BaseHTTPRequestHandler):
@@ -97,8 +97,8 @@ class TranslateFlowBackendTest(unittest.TestCase):
         bin_dir = home / "bin"
         bin_dir.mkdir()
         marker = home / "defuddle-called.json"
-        script = bin_dir / "defuddle"
-        script.write_text(f"""#!/usr/bin/env python3
+        implementation = bin_dir / "fake_defuddle.py"
+        implementation.write_text(f"""#!/usr/bin/env python3
 import json
 import pathlib
 import sys
@@ -115,7 +115,16 @@ print(json.dumps({{
                 "The translator should preserve URLs and return Markdown with frontmatter."
 }}))
 """, encoding="utf-8")
-        script.chmod(script.stat().st_mode | stat.S_IXUSR)
+        if os.name == "nt":
+            script = bin_dir / "defuddle.cmd"
+            script.write_text(
+                f'@echo off\r\n"{sys.executable}" "{implementation}" %*\r\n',
+                encoding="utf-8",
+            )
+        else:
+            script = bin_dir / "defuddle"
+            script.write_text(implementation.read_text(encoding="utf-8"), encoding="utf-8")
+            script.chmod(script.stat().st_mode | stat.S_IXUSR)
         return bin_dir, marker
 
     def test_deepseek_flow_runs_from_backend_spool_to_inbox(self):

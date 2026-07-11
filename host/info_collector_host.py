@@ -10,43 +10,69 @@ Info Collector 的 Native Messaging host：文件搬运工 + 流程触发器（A
 协议：Chrome Native Messaging 标准（4 字节小端长度前缀 + UTF-8 JSON）。
 """
 
-import fcntl
 import json
 import os
+from pathlib import Path
 import struct
 import subprocess
 import sys
 import tempfile
 
-SPOOL = os.path.expanduser("~/.info-collector")
+try:
+    from info_collector_platform import lock_is_held, user_home
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from info_collector_platform import lock_is_held, user_home
+
+
+HOME = user_home()
+SPOOL = str(HOME / ".info-collector")
 OUTBOX = os.path.join(SPOOL, "outbox")
 INBOX = os.path.join(SPOOL, "inbox")
 PROCESSED = os.path.join(INBOX, "processed")
 STATE = os.path.join(SPOOL, "state")
 FLOWS_FILE = os.path.join(SPOOL, "flows.json")
+_TRIGGERED_PROCESSES = []
 
 
 def trigger_env():
     env = dict(os.environ)
     path_parts = [p for p in env.get("PATH", "").split(os.pathsep) if p]
     candidates = []
-    nvm_root = os.path.expanduser("~/.nvm/versions/node")
-    if os.path.isdir(nvm_root):
-        for name in sorted(os.listdir(nvm_root), reverse=True):
-            candidates.append(os.path.join(nvm_root, name, "bin"))
-    candidates.extend([
-        os.path.expanduser("~/.local/bin"),
-        "/opt/homebrew/bin",
-        "/usr/local/bin",
-        "/usr/bin",
-        "/bin",
-    ])
+    if os.name == "nt":
+        if env.get("APPDATA"):
+            candidates.append(os.path.join(env["APPDATA"], "npm"))
+        if env.get("ProgramFiles"):
+            candidates.append(os.path.join(env["ProgramFiles"], "nodejs"))
+        candidates.append(str(HOME / ".local" / "bin"))
+    else:
+        nvm_root = HOME / ".nvm" / "versions" / "node"
+        if nvm_root.is_dir():
+            for name in sorted(os.listdir(nvm_root), reverse=True):
+                candidates.append(str(nvm_root / name / "bin"))
+        candidates.extend([
+            str(HOME / ".local" / "bin"),
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+        ])
     for path in reversed(candidates):
         if os.path.isdir(path) and path not in path_parts:
             path_parts.insert(0, path)
     env["PATH"] = os.pathsep.join(path_parts)
-    env["HOME"] = os.path.expanduser("~")
+    env["HOME"] = str(HOME)
     return env
+
+
+def configure_native_stdio():
+    """Chrome Native Messaging requires unmodified binary stdin/stdout on Windows."""
+    if os.name != "nt":
+        return
+    import msvcrt
+
+    msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
+    msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
 
 def read_message():
@@ -94,24 +120,6 @@ def load_flows():
         return flows if isinstance(flows, dict) else {}
     except (json.JSONDecodeError, OSError):
         return {}
-
-
-def lock_is_held(lock_path):
-    """探测流程锁：拿得到说明没在跑，拿到后立即释放。"""
-    if not lock_path or not os.path.exists(lock_path):
-        return False
-    try:
-        fd = os.open(lock_path, os.O_RDWR)
-    except OSError:
-        return False
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        fcntl.flock(fd, fcntl.LOCK_UN)
-        return False
-    except BlockingIOError:
-        return True
-    finally:
-        os.close(fd)
 
 
 def flow_statuses():
@@ -178,6 +186,7 @@ def handle_sync(msg):
 
 
 def handle_trigger(msg):
+    _TRIGGERED_PROCESSES[:] = [p for p in _TRIGGERED_PROCESSES if p.poll() is None]
     ptype = msg.get("processingType")
     if not safe_name(ptype):
         return {"ok": False, "error": f"非法类型名: {ptype}"}
@@ -187,19 +196,21 @@ def handle_trigger(msg):
     if lock_is_held(os.path.expanduser(cfg.get("lockFile") or "")):
         return {"ok": True, "started": False, "alreadyRunning": True}
     os.makedirs(STATE, exist_ok=True)
-    logf = open(os.path.join(STATE, f"{ptype}-trigger.log"), "ab")
-    subprocess.Popen(
-        cfg["command"],
-        stdout=logf,
-        stderr=logf,
-        start_new_session=True,
-        cwd=os.path.expanduser("~"),
-        env=trigger_env(),
-    )
+    with open(os.path.join(STATE, f"{ptype}-trigger.log"), "ab") as logf:
+        proc = subprocess.Popen(
+            cfg["command"],
+            stdout=logf,
+            stderr=logf,
+            start_new_session=True,
+            cwd=str(HOME),
+            env=trigger_env(),
+        )
+    _TRIGGERED_PROCESSES.append(proc)
     return {"ok": True, "started": True}
 
 
 def main():
+    configure_native_stdio()
     while True:
         try:
             msg = read_message()

@@ -15,10 +15,10 @@
   translate-flow.py --check    自检：配置、目录、API Key 有效性，不翻译
 """
 
-import fcntl
 from html.parser import HTMLParser
 import json
 import os
+from pathlib import Path
 import random
 import re
 import shutil
@@ -30,7 +30,17 @@ import time
 import urllib.error
 import urllib.request
 
-SPOOL = os.path.expanduser("~/.info-collector")
+try:
+    from info_collector_platform import acquire_lock as acquire_file_lock
+    from info_collector_platform import release_lock, user_home
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from info_collector_platform import acquire_lock as acquire_file_lock
+    from info_collector_platform import release_lock, user_home
+
+
+HOME = user_home()
+SPOOL = str(HOME / ".info-collector")
 CONFIG_FILE = os.path.join(SPOOL, "config.json")
 OUTBOX_FILE = os.path.join(SPOOL, "outbox", "translate.json")
 INBOX_DIR = os.path.join(SPOOL, "inbox")
@@ -111,7 +121,7 @@ def load_config():
                       cfg.get("apiBase") or defaults["baseUrl"]).rstrip("/")
     if not cfg.get("model") or model_looks_like_other_provider(cfg.get("model", ""), provider):
         cfg["model"] = defaults["model"]
-    cfg.setdefault("outputDir", "~/Documents/InfoCollector")
+    cfg.setdefault("outputDir", str(HOME / "Documents" / "InfoCollector"))
     return cfg
 
 
@@ -367,7 +377,7 @@ def fetch_article_with_builtin(url):
     req = urllib.request.Request(
         url,
         headers={
-            "user-agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "user-agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                            "AppleWebKit/537.36 (KHTML, like Gecko) "
                            "Chrome/126.0 Safari/537.36 InfoCollector/1.0"),
             "accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
@@ -513,14 +523,7 @@ def update_status(patch):
 
 
 def acquire_lock():
-    os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
-    fd = os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o644)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        return fd
-    except BlockingIOError:
-        os.close(fd)
-        return None
+    return acquire_file_lock(LOCK_FILE)
 
 
 # ===== 自检 =====
@@ -530,7 +533,8 @@ def run_check():
     ok = True
     cfg = load_config()
     if not os.path.exists(CONFIG_FILE):
-        print(f"✕ 配置文件不存在：{CONFIG_FILE}（运行 scripts/setup.sh）")
+        setup_name = "scripts/setup.ps1" if os.name == "nt" else "scripts/setup.sh"
+        print(f"✕ 配置文件不存在：{CONFIG_FILE}（运行 {setup_name}）")
         ok = False
     elif config_error(cfg):
         print(f"✕ {config_error(cfg)}：{CONFIG_FILE}")
@@ -569,7 +573,8 @@ def main():
 
     cfg = load_config()
     if not config_ok(cfg):
-        log(f"❌ {config_error(cfg)}，跳过（编辑 ~/.info-collector/config.json 或重跑 setup.sh）")
+        setup_name = "setup.ps1" if os.name == "nt" else "setup.sh"
+        log(f"❌ {config_error(cfg)}，跳过（编辑 ~/.info-collector/config.json 或重跑 {setup_name}）")
         return
     log(f"使用翻译引擎：{cfg['provider']} / {cfg['model']}")
 
@@ -641,7 +646,7 @@ def main():
         finish("error", error=str(e)[:300])
         raise
     finally:
-        os.close(lock_fd)
+        release_lock(lock_fd)
 
 
 if __name__ == "__main__":

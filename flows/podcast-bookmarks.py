@@ -7,7 +7,6 @@ flow 只做确定性工作：spool、锁、网页/字幕提取、语言启发式
 不做音频转写，不在 Python 里翻译、总结或写 Obsidian 正文。
 """
 
-import fcntl
 from html.parser import HTMLParser
 import hashlib
 import html
@@ -27,19 +26,28 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import urllib.error
 import urllib.request
 
+try:
+    from info_collector_platform import acquire_lock as acquire_file_lock
+    from info_collector_platform import release_lock, user_home
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from info_collector_platform import acquire_lock as acquire_file_lock
+    from info_collector_platform import release_lock, user_home
 
-SPOOL = os.path.expanduser("~/.info-collector")
+
+HOME = user_home()
+SPOOL = str(HOME / ".info-collector")
 OUTBOX_FILE = os.path.join(SPOOL, "outbox", "podcast.json")
 INBOX_DIR = os.path.join(SPOOL, "inbox")
 STATE_FILE = os.path.join(SPOOL, "state", "podcast-reported.json")
 STATUS_FILE = os.path.join(SPOOL, "state", "podcast-status.json")
 WORK_ROOT = os.path.join(SPOOL, "work", "podcast")
-LOG_FILE = os.path.expanduser("~/.pi/logs/podcast-bookmarks.log")
-LOCK_FILE = os.path.expanduser("~/.pi/logs/podcast-bookmarks.lock")
+LOG_FILE = str(HOME / ".pi" / "logs" / "podcast-bookmarks.log")
+LOCK_FILE = str(HOME / ".pi" / "logs" / "podcast-bookmarks.lock")
 DEFAULT_OUTPUT_DIR = os.path.expanduser(
     os.environ.get(
         "INFO_COLLECTOR_PODCAST_OUTPUT_DIR",
-        "~/D/Documents/ob/obsidian-sync-win-v1/播客收集",
+        str(HOME / "Documents" / "播客收集"),
     )
 )
 
@@ -108,14 +116,7 @@ def update_status(patch):
 
 
 def acquire_lock():
-    os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
-    fd = os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o644)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        return fd
-    except BlockingIOError:
-        os.close(fd)
-        return None
+    return acquire_file_lock(LOCK_FILE)
 
 
 def write_report(results):
@@ -214,7 +215,7 @@ def fetch_raw_html(url):
     req = urllib.request.Request(
         url,
         headers={
-            "user-agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "user-agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                            "AppleWebKit/537.36 (KHTML, like Gecko) "
                            "Chrome/126.0 Safari/537.36 InfoCollector/1.0"),
             "accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
@@ -595,7 +596,7 @@ def call_pi(workdir):
             capture_output=True,
             text=True,
             timeout=PI_TIMEOUT,
-            env={**os.environ, "HOME": os.path.expanduser("~")},
+            env={**os.environ, "HOME": str(HOME)},
         )
     except (OSError, subprocess.TimeoutExpired) as e:
         raise ResolutionError("pi-failed", str(e)) from e
@@ -727,7 +728,7 @@ def main():
         finish("error", error=str(e)[:300])
         raise
     finally:
-        os.close(lock_fd)
+        release_lock(lock_fd)
 
 
 if __name__ == "__main__":
