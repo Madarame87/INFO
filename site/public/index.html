@@ -6,18 +6,20 @@
   <meta name="description" content="Info Collector 本地中文技术文章阅读库">
   <meta name="color-scheme" content="light">
   <title>文章情报库 · Info Collector</title>
-  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/style.css?v=012a5dbc2c6a">
 </head>
 <body class="library-page">
   <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
   <header class="site-header">
-    <a class="site-brand" href="index.html" aria-label="Info Collector 阅读库首页">
-      <span class="brand-mark">IC</span>
-      <span><small>LOCAL INTELLIGENCE OS</small><strong>Info Collector</strong></span>
-    </a>
-    <div class="site-credits" aria-label="项目贡献者">
-      <span class="credit-label">Powered by</span>
-      <span class="credit-people"><a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></span>
+    <div class="site-header-inner">
+      <a class="site-brand" href="index.html" aria-label="Info Collector 阅读库首页">
+        <span class="brand-signal" aria-hidden="true"></span>
+        <span><small>PERSONAL TECHNOLOGY INTELLIGENCE</small><strong>Info Collector<span class="brand-dot" aria-hidden="true">.</span></strong></span>
+      </a>
+      <div class="site-credits" aria-label="Powered by @Madarame87 × @aswrise">
+        <span class="credit-label">Powered by</span>
+        <span class="credit-people"><a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></span>
+      </div>
     </div>
   </header>
   
@@ -25,17 +27,16 @@
     <section class="library-hero reveal">
       <p class="eyebrow"><i></i> KNOWLEDGE STREAM</p>
       <div class="hero-grid">
-        <div><h1>文章情报库</h1><p>从关键词进入主题，从摘要判断价值，再沉浸阅读完整中文译文。</p></div>
-        <div class="library-stats"><div><strong>5</strong><span>篇文章</span></div><div><strong>7</strong><span>个关键词</span></div><div><strong>2026-07-11</strong><span>最近更新</span></div></div>
+        <div><h1>文章情报库</h1></div>
+        <dl class="library-stats"><div><dt>篇文章</dt><dd>5</dd></div><div><dt>个关键词</dt><dd>7</dd></div><div><dt>最近更新</dt><dd>2026-07-11</dd></div></dl>
       </div>
     </section>
-    <section class="discovery-panel reveal" aria-label="搜索和关键词筛选">
-      <label class="search-box" for="article-search"><span>⌕</span><input id="article-search" type="search" placeholder="搜索标题、摘要或关键词" autocomplete="off"></label>
-      <div class="filter-heading"><span>关键词</span><small id="result-count">显示 5 篇</small></div>
-      <div class="tag-filters" id="tag-filters"><button class="tag-filter is-active" type="button" data-tag="全部" aria-pressed="true">全部</button><button class="tag-filter" type="button" data-tag="智能体" aria-pressed="false">智能体</button><button class="tag-filter" type="button" data-tag="模型评估" aria-pressed="false">模型评估</button><button class="tag-filter" type="button" data-tag="产品" aria-pressed="false">产品</button><button class="tag-filter" type="button" data-tag="大模型" aria-pressed="false">大模型</button><button class="tag-filter" type="button" data-tag="推理" aria-pressed="false">推理</button><button class="tag-filter" type="button" data-tag="学术研究" aria-pressed="false">学术研究</button><button class="tag-filter" type="button" data-tag="记忆系统" aria-pressed="false">记忆系统</button></div>
+    <section class="discovery-panel reveal" aria-labelledby="filter-title">
+      <div class="filter-heading"><h2 id="filter-title">按关键词浏览</h2><output id="result-count" aria-live="polite" aria-atomic="true">显示 5 篇</output></div>
+      <div class="tag-filters" id="tag-filters" role="group" aria-label="文章关键词筛选"><button class="tag-filter is-active" type="button" data-tag="全部" aria-pressed="true">全部</button><button class="tag-filter" type="button" data-tag="智能体" aria-pressed="false">智能体</button><button class="tag-filter" type="button" data-tag="模型评估" aria-pressed="false">模型评估</button><button class="tag-filter" type="button" data-tag="产品" aria-pressed="false">产品</button><button class="tag-filter" type="button" data-tag="大模型" aria-pressed="false">大模型</button><button class="tag-filter" type="button" data-tag="推理" aria-pressed="false">推理</button><button class="tag-filter" type="button" data-tag="学术研究" aria-pressed="false">学术研究</button><button class="tag-filter" type="button" data-tag="记忆系统" aria-pressed="false">记忆系统</button></div>
     </section>
     <section class="article-grid" id="article-grid">
-        <a class="article-card reveal" role="article" href="articles/article-6127def8cb5f.html" aria-label="打开文章：Know your unknowns — 示例" data-search="know your unknowns — 示例 本文介绍了11个自包含的html文件，用于在实施前、实施中和实施后发现未知问题。这些文件展示了如何通过盲点扫描、交互式解释器、设计方向探索、原型模拟、头脑风暴、访谈、参考移植、可调整计划、实施笔记、提案文档和合并前测验等方法，低成本地发现并应对项目中的未知因素。 智能体 模型评估 产品 推理" data-tags="智能体|模型评估|产品|推理">
+        <a class="article-card reveal" href="articles/article-6127def8cb5f.html" aria-label="打开文章：Know your unknowns — 示例" data-tags="智能体|模型评估|产品|推理">
           <div class="card-main">
             <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">模型评估</span><span class="keyword">产品</span><span class="keyword">推理</span></div>
             <h2 title="Know your unknowns — 示例">Know your unknowns — 示例</h2>
@@ -47,7 +48,7 @@
             <b aria-hidden="true">↗</b>
           </div>
         </a>
-        <a class="article-card reveal" role="article" href="articles/article-53d7eead7cb1.html" aria-label="打开文章：Fable的判断力" data-search="fable的判断力 赞助商：teleport — 如何确保ai代理在你的预期边界内行动？teleport的《从零信任到代理信任》白皮书详细说明了实现代理设计承诺所需的条件。 周三我在aie上与claude code团队的cat wu和thariq shihipar主持炉边谈话时，得到的最有趣建议之一是：让fable（在某种程度上也包括opus）运用自己的判断力，而不是规定它们应该如何工作。 他们举的例子是测试。你可以告诉fable&quot;只对较大的功能使用自动化测试，不要为小的文案或设计修改更新和运行测试&quot;——但更好的做法是直接告诉fable在决定是否编写测试时运用自己的判断力。 智能体 大模型 推理 模型评估" data-tags="智能体|大模型|推理|模型评估">
+        <a class="article-card reveal" href="articles/article-53d7eead7cb1.html" aria-label="打开文章：Fable的判断力" data-tags="智能体|大模型|推理|模型评估">
           <div class="card-main">
             <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">大模型</span><span class="keyword">推理</span><span class="keyword">模型评估</span></div>
             <h2 title="Fable的判断力">Fable的判断力</h2>
@@ -59,7 +60,7 @@
             <b aria-hidden="true">↗</b>
           </div>
         </a>
-        <a class="article-card reveal" role="article" href="articles/article-a19b2fd84ab7.html" aria-label="打开文章：理解是新的瓶颈（Understanding is the new bottleneck）" data-search="理解是新的瓶颈（understanding is the new bottleneck） 随着ai智能体编写越来越多代码，人类理解代码的能力成为新瓶颈。作者认为理解不是为了验证，而是为了参与创造过程。他提出三种高效理解代码的技术：代码解释文档（含背景知识、直觉引导、交互式图表和测验）、微型世界（通过交互式调试器和游戏化迁移工具直观理解系统）、共享空间（团队在协作平台中共同建立心智模型）。核心主张是ai应增强人类理解而非完全自动化。 智能体 模型评估 产品 学术研究" data-tags="智能体|模型评估|产品|学术研究">
+        <a class="article-card reveal" href="articles/article-a19b2fd84ab7.html" aria-label="打开文章：理解是新的瓶颈（Understanding is the new bottleneck）" data-tags="智能体|模型评估|产品|学术研究">
           <div class="card-main">
             <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">模型评估</span><span class="keyword">产品</span><span class="keyword">学术研究</span></div>
             <h2 title="理解是新的瓶颈（Understanding is the new bottleneck）">理解是新的瓶颈（Understanding is the new bottleneck）</h2>
@@ -71,7 +72,7 @@
             <b aria-hidden="true">↗</b>
           </div>
         </a>
-        <a class="article-card reveal" role="article" href="articles/article-76d0a1c45a34.html" aria-label="打开文章：演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）" data-search="演进中的记忆系统：一种评估优先的方法（evolving memory systems: an eval-first approach） 人们正在为 ai 助手和个人代理构建各种花哨的记忆系统。我的 x 时间线上充斥着诸如向量存储、知识图谱、语义记忆、情景记忆、用户画像、对话摘要、分层检索、记忆整合、记忆衰减等术语…… 毫无疑问，其中许多想法是有用的。有些可能不可或缺。但该领域存在一种奇怪的失衡：我们花费大量精力发明记忆架构，却很少投入精力改进用于评估这些系统是否真正让代理随时间更好地使用记忆的评估方法。 结果是大量的过度工程化。人们基于自己对“良好记忆”应为何样的狭隘定义来构建记忆系统。没有严肃的评估环境，这些大多只是架构上的赌注。 模型评估 记忆系统 智能体 产品" data-tags="模型评估|记忆系统|智能体|产品">
+        <a class="article-card reveal" href="articles/article-76d0a1c45a34.html" aria-label="打开文章：演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）" data-tags="模型评估|记忆系统|智能体|产品">
           <div class="card-main">
             <div class="keyword-row"><span class="keyword">模型评估</span><span class="keyword">记忆系统</span><span class="keyword">智能体</span><span class="keyword">产品</span></div>
             <h2 title="演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）">演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）</h2>
@@ -83,7 +84,7 @@
             <b aria-hidden="true">↗</b>
           </div>
         </a>
-        <a class="article-card reveal" role="article" href="articles/article-9a7b82fbc9a3.html" aria-label="打开文章：循环详解：Claude、GPT、Mira 以及真正有效的方法（Loops explained: Claude, GPT, Mira and what actually works）" data-search="循环详解：claude、gpt、mira 以及真正有效的方法（loops explained: claude, gpt, mira and what actually works） anatoli kopadze 在 x 上：&quot;https://t.co/eq0ol4fiar&quot; / x 人工智能已经掌握在每个人手中多年。大多数每天使用它的人仍然在使用最慢的方式：输入请求，等待，修正，再次提问，全部手动操作。 不是因为更快的方式…… 新用户？ 立即注册，获取专属个性化时间线！ 使用 google 注册 使用 apple 注册 创建账号 注册即表示您同意服务条款、隐私政策及 cookie 使用。 相关人物 anatoli kopadze @anatolikopadze 关注 大模型" data-tags="大模型">
+        <a class="article-card reveal" href="articles/article-9a7b82fbc9a3.html" aria-label="打开文章：循环详解：Claude、GPT、Mira 以及真正有效的方法（Loops explained: Claude, GPT, Mira and what actually works）" data-tags="大模型">
           <div class="card-main">
             <div class="keyword-row"><span class="keyword">大模型</span></div>
             <h2 title="循环详解：Claude、GPT、Mira 以及真正有效的方法（Loops explained: Claude, GPT, Mira and what actually works）">循环详解：Claude、GPT、Mira 以及真正有效的方法（Loops explained: Claude, GPT, Mira and what actually works）</h2>
@@ -95,9 +96,9 @@
             <b aria-hidden="true">↗</b>
           </div>
         </a></section>
-    <section class="empty-state" id="empty-state" hidden><span>⌕</span><h2>没有找到对应文章</h2><p>尝试更换关键词或缩短搜索内容。</p></section>
+    <section class="empty-state" id="empty-state" hidden><span>—</span><h2>没有找到对应文章</h2><p>请选择其他关键词查看文章。</p></section>
   </main>
   <footer class="site-footer" aria-label="Powered by @Madarame87 × @aswrise"><span>Powered by</span> <a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></footer>
-  <script src="assets/app.js" defer></script>
+  <script src="assets/app.js?v=012a5dbc2c6a" defer></script>
 </body>
 </html>

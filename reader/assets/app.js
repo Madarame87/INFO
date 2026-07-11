@@ -18,32 +18,26 @@
   }
 
   function initLibrary() {
-    const search = document.getElementById('article-search');
     const filters = document.getElementById('tag-filters');
     const cards = [...document.querySelectorAll('.article-card')];
     const count = document.getElementById('result-count');
     const empty = document.getElementById('empty-state');
-    if (!search || !filters || !cards.length) return;
+    if (!filters || !cards.length) return;
 
-    let activeTag = '全部';
-    const normalize = (value) => String(value || '').trim().toLocaleLowerCase('zh-CN');
+    let activeTag = filters.querySelector('[data-tag][aria-pressed="true"]')?.dataset.tag || '全部';
 
     function applyFilters() {
-      const query = normalize(search.value);
       let visible = 0;
       for (const card of cards) {
         const tags = (card.dataset.tags || '').split('|');
-        const tagMatch = activeTag === '全部' || tags.includes(activeTag);
-        const searchMatch = !query || normalize(card.dataset.search).includes(query);
-        const show = tagMatch && searchMatch;
+        const show = activeTag === '全部' || tags.includes(activeTag);
         card.hidden = !show;
         if (show) visible += 1;
       }
-      count.textContent = `显示 ${visible} 篇`;
-      empty.hidden = visible !== 0;
+      if (count) count.textContent = `显示 ${visible} 篇`;
+      if (empty) empty.hidden = visible !== 0;
     }
 
-    search.addEventListener('input', applyFilters);
     filters.addEventListener('click', (event) => {
       const button = event.target.closest('[data-tag]');
       if (!button) return;
@@ -54,6 +48,7 @@
       });
       applyFilters();
     });
+    applyFilters();
   }
 
   function initArticle() {
