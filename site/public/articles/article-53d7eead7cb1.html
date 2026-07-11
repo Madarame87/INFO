@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="赞助商：Teleport — 如何确保AI代理在你的预期边界内行动？Teleport的《从零信任到代理信任》白皮书详细说明了实现代理设计承诺所需的条件。 周三我在AIE上与Claude Code团队的Cat Wu和Thariq Shihipar主持炉边谈话时，得到的最有趣建议之一是：让Fable（在某种程度上也包括Opus）运用自己的判断力，而不是规定它们应该如何工作。 他们举的例子是测试。你可以告诉Fable&quot;只对较大的功能使用自动化测试，不要为小的文案或设计修改更新和运行测试&quot;——但更好的做法是直接告诉Fable在决定是否编写测试时运用自己的判断力。">
+  <meta name="color-scheme" content="light">
+  <title>Fable的判断力 · Info Collector</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body class="article-page">
+  <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
+  <header class="site-header">
+    <a class="site-brand" href="../index.html" aria-label="Info Collector 阅读库首页">
+      <span class="brand-mark">IC</span>
+      <span><small>LOCAL INTELLIGENCE OS</small><strong>Info Collector</strong></span>
+    </a>
+    <nav aria-label="主导航">
+      <a href="../index.html">文章库</a>
+      <span class="system-label">WINDOWS 11 · LOCAL-FIRST</span>
+    </nav>
+  </header>
+  
+  <main class="article-shell">
+    <a class="back-link" href="../index.html">← 返回文章情报库</a>
+    <article>
+      <header class="article-hero reveal">
+        <p class="eyebrow"><i></i> TRANSLATED INTELLIGENCE</p>
+        <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">大模型</span><span class="keyword">推理</span><span class="keyword">模型评估</span></div>
+        <h1>Fable的判断力</h1>
+        <div class="article-meta">发布于 2026-07-03<span class="meta-dot"></span>作者 Simon Willison</div>
+      </header>
+      <section class="summary-card reveal" aria-labelledby="summary-title">
+        <div class="summary-label"><span>01</span><p>EXECUTIVE SUMMARY</p></div>
+        <h2 id="summary-title">先读结论</h2>
+        <p>赞助商：Teleport — 如何确保AI代理在你的预期边界内行动？Teleport的《从零信任到代理信任》白皮书详细说明了实现代理设计承诺所需的条件。 周三我在AIE上与Claude Code团队的Cat Wu和Thariq Shihipar主持炉边谈话时，得到的最有趣建议之一是：让Fable（在某种程度上也包括Opus）运用自己的判断力，而不是规定它们应该如何工作。 他们举的例子是测试。你可以告诉Fable&quot;只对较大的功能使用自动化测试，不要为小的文案或设计修改更新和运行测试&quot;——但更好的做法是直接告诉Fable在决定是否编写测试时运用自己的判断力。</p>
+      </section>
+      <div class="reading-layout">
+        <aside class="toc-card" aria-label="文章目录"><p>本页目录</p><nav id="article-toc"><span>正在整理章节…</span></nav></aside>
+        <section class="translated-copy reveal">
+          <div class="section-kicker"><span>02</span><div><p>CHINESE TRANSLATION</p><h2>中文译文</h2></div></div>
+          <div class="prose" id="article-content"><p>Simon Willison的博客</p>
+<p>订阅</p>
+<p>赞助商：Teleport — 如何确保AI代理在你的预期边界内行动？Teleport的《从零信任到代理信任》白皮书详细说明了实现代理设计承诺所需的条件。</p>
+<p>2026年7月3日</p>
+<p>周三我在AIE上与Claude Code团队的Cat Wu和Thariq Shihipar主持炉边谈话时，得到的最有趣建议之一是：让Fable（在某种程度上也包括Opus）运用自己的判断力，而不是规定它们应该如何工作。</p>
+<p>他们举的例子是测试。你可以告诉Fable"只对较大的功能使用自动化测试，不要为小的文案或设计修改更新和运行测试"——但更好的做法是直接告诉Fable在决定是否编写测试时运用自己的判断力。</p>
+<p>Jesse Vincent刚刚给了我一个相关建议，帮助我在涨价前的最后几天里避免消耗太多宝贵的Fable代币。告诉Fable将较小的任务交给其他模型处理，让它自己判断使用哪个模型。</p>
+<p>我刚才向Claude Code输入了以下提示：</p>
+<p>对于所有编码任务，请运用你的判断力决定一个合适的低功耗模型，并在子代理中运行它</p>
+<p>Claude将这段记忆文件保存在了 <code>~/.claude/projects/name-of-project/memory/delegate-coding-to-subagents.md</code>：</p>
+<div class="code-block"><button class="copy-code" type="button">复制</button><pre data-language="markdown"><code>---
+name: delegate-coding-to-subagents
+description: Simon希望将编码任务委托给运行适当低功耗模型的子代理
+metadata: 
+node_type: memory
+type: feedback
+originSessionId: 30068d78-43a9-4fb1-bb29-9799e18c526a
+--- 
+Simon于2026-07-03声明：&quot;对于所有编码任务，请运用你的判断力决定一个合适的低功耗模型，并在子代理中运行它。&quot;
+
+原因：成本/效率——实现工作很少需要顶级模型；判断、审查和综合工作保留在主循环中。
+
+应用方式：当此项目中的任务主要是编写/编辑代码时，生成一个带有模型覆盖（实质性实现用sonnet，琐碎/机械性编辑用haiku）和自包含提示的代理；在主循环中审查结果后再提交。设计、审计、数据综合以及任何需要判断力的工作保留在主模型中。另见[[project-goals]]。</code></pre></div>
+<p>到目前为止效果似乎不错。我完成了大量工作，而我的Fable配额消耗速度比以前慢了不少。</p>
+<p>发布于2026年7月3日下午6:51</p>
+<p>近期文章</p>
+<ul>
+<li>新的GPT-5.6系列：Luna、Terra、Sol - 2026年7月9日</li>
+<li>sqlite-utils 4.0，现已支持数据库模式迁移 - 2026年7月7日</li>
+<li>sqlite-utils 4.0rc2，主要由Claude Fable编写（花费约149.25美元） - 2026年7月5日</li>
+</ul>
+<p>这是Simon Willison的一篇笔记，发布于2026年7月3日。</p>
+<p>ai 2,111 prompt-engineering 191 generative-ai 1,866 llms 1,833 anthropic 307 claude 289 coding-agents 219 claude-code 121 claude-mythos-fable 26</p>
+<p>月度简报</p>
+<p>每月赞助我10美元，即可获得一份精心策划的当月重要LLM发展动态邮件摘要。</p>
+<p>付钱让我给你发更少的邮件！</p>
+<p>赞助与订阅</p>
+<p>披露信息</p>
+<p>版权信息</p>
+<p>© 2002 2003 2004 2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025 2026</p></div>
+        </section>
+      </div>
+      
+      <section class="source-card reveal">
+        <div><p class="eyebrow">ORIGINAL SOURCE</p><h2>继续查看原文</h2><p>中文译文用于高效理解；需要核对语境、图表或引用时，请返回作者原始页面。</p></div>
+        <a href="https://simonwillison.net/2026/Jul/3/judgement/" target="_blank" rel="noopener noreferrer">访问文章原文 <span>↗</span></a>
+      </section>
+    </article>
+  </main>
+  <footer class="site-footer"><span><i></i> LOCAL-FIRST · WINDOWS 11</span><span>INFO COLLECTOR / READING DESK</span></footer>
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

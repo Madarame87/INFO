@@ -7,14 +7,14 @@
   <img alt="Chrome Extension" src="https://img.shields.io/badge/Chrome-Manifest_V3-C65F3D?style=flat-square">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-25221E?style=flat-square">
   <img alt="Node tests" src="https://img.shields.io/badge/Node_tests-38_passing-2E8B67?style=flat-square">
-  <img alt="Python tests" src="https://img.shields.io/badge/Python_tests-23_passing-2E8B67?style=flat-square">
+  <img alt="Python tests" src="https://img.shields.io/badge/Python_tests-26_passing-2E8B67?style=flat-square">
 </p>
 
 <p align="center">
   <strong>收藏文章 → 抓取正文 → 翻译提炼 → 自动归类 → 生成技术动态周报</strong>
 </p>
 
-Info Collector 是一套运行在本机的个人技术情报工作台。你只需要把文章加入 Chrome 的「收藏文章」书签文件夹，系统就会把它送入处理队列，生成带有中文翻译、摘要和标签的 Markdown，并在 Dashboard 中持续记录状态。每周还可以一键聚合主题排行、同类文章与收录日历。
+Info Collector 是一套运行在本机的个人技术情报工作台。你只需要把文章加入 Chrome 的「收藏文章」书签文件夹，系统就会把它送入处理队列，生成带有中文翻译、摘要和标签的 Markdown，并在 Dashboard 中持续记录状态。处理后的文章可以一键生成静态阅读库，每周还可以聚合主题排行、同类文章与收录日历。
 
 它不是另一个“稍后读”列表。它把零散阅读转化为一条可追踪、可检索、可复用的研究工作流。
 
@@ -71,6 +71,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 2. 把想处理的文章保存到该文件夹。
 3. 打开 Info Collector Dashboard，依次点击「导入书签」和「桥接同步」。
 4. 点击「立即处理」，完成后查看摘要、标签和本地 Markdown。
+5. 点击「生成并打开阅读库」，浏览关键词、Summary 与完整中文译文。
+
+## 静态文章阅读前台
+
+阅读站由本地 Markdown 自动生成，默认输出到：
+
+```text
+%USERPROFILE%\Documents\InfoCollector\阅读站\index.html
+```
+
+索引页提供关键词、全文搜索、摘要预览和响应式文章卡片；单篇页面依次展示关键词、Summary、中文译文、章节目录、阅读进度和原文链接。它不需要数据库，也不会上传 API Key 或私人阅读数据。
 
 ## 当前支持范围
 
@@ -78,7 +89,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
   <img src="docs/images/readme-scope.svg" alt="Info Collector Windows 11 已验证范围：原生桥接、文章情报处理和技术动态周报" width="100%">
 </p>
 
-这个仓库的产品目标明确限定为 **Windows 11 技术文章情报工作流**：从 Chrome 收藏进入队列，到本机生成结构化文章与技术动态周报。
+这个仓库的产品目标明确限定为 **Windows 11 技术文章情报工作流**：从 Chrome 收藏进入队列，到本机生成结构化文章、静态阅读站与技术动态周报。
 
 ## 为什么做这个项目
 
@@ -108,7 +119,7 @@ npm.cmd test
 ## Roadmap · 已完成
 
 <p align="center">
-  <img src="docs/images/readme-validation.svg" alt="Info Collector 验证结果与已完成 Roadmap：38 个 Node 测试、23 个 Python 测试、Windows Native Host 与四项已交付能力" width="100%">
+  <img src="docs/images/readme-validation.svg" alt="Info Collector 验证结果与已完成 Roadmap：38 个 Node 测试、26 个 Python 测试、Windows Native Host 与五项已交付能力" width="100%">
 </p>
 
 ---

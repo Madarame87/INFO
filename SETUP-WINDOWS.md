@@ -23,7 +23,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 2. 创建 `%USERPROFILE%\.info-collector\`；
 3. 写入本机配置并复制 Host/Flow；
 4. 生成 `.bat` Native Host 包装器；
-5. 在当前用户注册表注册 Chrome Native Messaging Host。
+5. 安装文章翻译、技术周报和静态阅读站生成流程；
+6. 在当前用户注册表注册 Chrome Native Messaging Host。
 
 如果 Python 已安装但不在 PATH，可先设置：
 
@@ -100,6 +101,26 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 5. 同一周重复生成会覆盖更新同一个文件，不制造重复周报。
 
 阶段 3 的最小范围不包含模型二次综合、趋势预测和专家/机构分析。
+
+## 8. 静态文章阅读站验收
+
+完成至少一篇文章后，在 Dashboard 点击“生成并打开阅读库”。确认：
+
+1. 默认浏览器自动打开本地文章情报库；
+2. 首页显示关键词、文章数量、搜索框、标题和 Summary；
+3. 点击关键词可以筛选同类文章；
+4. 进入单篇文章后，首先看到关键词与“先读结论”；
+5. Summary 下方展示完整中文译文，并自动生成长文目录和阅读进度；
+6. 页面底部的“访问文章原文”能够打开原始 URL；
+7. 输出目录包含 `阅读站\index.html`、`阅读站\articles\` 和 `阅读站\assets\`。
+
+也可以在 PowerShell 手动生成并打开：
+
+```powershell
+& "$env:USERPROFILE\.info-collector\bin\reading-site.py" --open
+```
+
+阅读站完全由本地 Markdown 生成，不上传文章、API Key 或阅读历史。
 
 ## 排错
 

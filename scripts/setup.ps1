@@ -16,6 +16,8 @@ $BinDir = Join-Path $Spool "bin"
 $NativeHostDir = Join-Path $Spool "native-host"
 $FlowBin = Join-Path $BinDir "translate-flow.py"
 $WeeklyReportBin = Join-Path $BinDir "weekly-report.py"
+$ReadingSiteBin = Join-Path $BinDir "reading-site.py"
+$ReaderAssetsDir = Join-Path $BinDir "reader-assets"
 $HostBin = Join-Path $BinDir "info-collector-host.py"
 $CompatBin = Join-Path $BinDir "info_collector_platform.py"
 $ConfigPath = Join-Path $Spool "config.json"
@@ -140,6 +142,7 @@ foreach ($dir in @(
     (Join-Path $Spool "inbox\processed"),
     (Join-Path $Spool "state"),
     $BinDir,
+    $ReaderAssetsDir,
     $NativeHostDir
 )) {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
@@ -147,6 +150,8 @@ foreach ($dir in @(
 
 Copy-Item -LiteralPath (Join-Path $Repo "flows\translate-claude-api.py") -Destination $FlowBin -Force
 Copy-Item -LiteralPath (Join-Path $Repo "flows\generate-weekly-report.py") -Destination $WeeklyReportBin -Force
+Copy-Item -LiteralPath (Join-Path $Repo "flows\generate-reading-site.py") -Destination $ReadingSiteBin -Force
+Copy-Item -Path (Join-Path $Repo "reader\assets\*") -Destination $ReaderAssetsDir -Force
 Copy-Item -LiteralPath (Join-Path $Repo "host\info_collector_host.py") -Destination $HostBin -Force
 Copy-Item -LiteralPath (Join-Path $Repo "info_collector_platform.py") -Destination $CompatBin -Force
 
@@ -243,6 +248,12 @@ $flows["weekly-report"] = [ordered]@{
     intervalSeconds = $null
     label = "manual"
 }
+$flows["reading-site"] = [ordered]@{
+    command = @($PythonExe, $ReadingSiteBin, "--open")
+    lockFile = (Join-Path $Spool "state\reading-site.lock")
+    intervalSeconds = $null
+    label = "manual"
+}
 Write-Utf8NoBom -Path $FlowsPath -Content ($flows | ConvertTo-Json -Depth 10)
 
 Write-Host "== 4/5 注册 Chrome Native Messaging Host"
@@ -281,3 +292,5 @@ Write-Host "自检命令："
 Write-Host "  & `"$PythonExe`" `"$FlowBin`" --check"
 Write-Host "Native Host ping："
 Write-Host "  & `"$PythonExe`" `"$Repo\scripts\check-native-host.py`""
+Write-Host "生成并打开阅读库："
+Write-Host "  & `"$PythonExe`" `"$ReadingSiteBin`" --open"

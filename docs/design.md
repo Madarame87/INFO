@@ -201,13 +201,25 @@ inbox 报告，扩展首次桥接时即把它们记为 done。
 
 - **dashboard.html**：状态计数、sync 配额条、按状态/类型过滤、搜索；
   行内操作：标记完成、忽略、重新排队、删除；全局操作：立即导入、立即同步、
-  批量粘贴已完成 URL（自动化桥失效时的手动兜底）、导出 JSON；
+  生成并打开静态阅读库、生成周报、批量粘贴已完成 URL（自动化桥失效时的手动兜底）、导出 JSON；
   设置区：书签文件夹名、新增 Processing Type（v1 只增不删）。
 - **popup**：显示当前标签页入队状态，一键「保存到队列」，入口到 Dashboard。
+
+## 静态文章阅读前台
+
+`flows/generate-reading-site.py` 读取 `config.json` 中 `outputDir` 根目录的中文
+Markdown，确定性生成 `阅读站/index.html`、`阅读站/articles/*.html` 和前端资源：
+
+- 索引页先展示关键词、Summary、作者与日期，并提供本地搜索和标签筛选；
+- 单篇页按关键词 → Summary → 中文译文 → 原文链接的阅读顺序组织；
+- Markdown 原始 HTML 一律转义，外链只允许 `http` / `https`；
+- 缺少旧版 Summary/Tags 时，用正文首段与固定关键词规则生成展示兜底；
+- 不需要数据库或 Web 服务，输出可通过 `file://` 直接打开；
+- `reading-site` 注册在 `flows.json`，Dashboard 触发后生成并打开默认浏览器。
 
 ## v1 明确不做
 
 - 写书签（归档/删除导入过的书签）。
 - Processing Type 的删除/改名。
-- 文章正文抓取或存储（只存元数据，ADR 0001 的量级约束）。
+- 在扩展存储中保存文章正文（扩展只存元数据；正文由本地流写入 Markdown）。
 - 除 translate 外其他流的脚本实现（只保证契约就绪）。

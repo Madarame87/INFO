@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="随着AI智能体编写越来越多代码，人类理解代码的能力成为新瓶颈。作者认为理解不是为了验证，而是为了参与创造过程。他提出三种高效理解代码的技术：代码解释文档（含背景知识、直觉引导、交互式图表和测验）、微型世界（通过交互式调试器和游戏化迁移工具直观理解系统）、共享空间（团队在协作平台中共同建立心智模型）。核心主张是AI应增强人类理解而非完全自动化。">
+  <meta name="color-scheme" content="light">
+  <title>理解是新的瓶颈（Understanding is the new bottleneck） · Info Collector</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body class="article-page">
+  <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
+  <header class="site-header">
+    <a class="site-brand" href="../index.html" aria-label="Info Collector 阅读库首页">
+      <span class="brand-mark">IC</span>
+      <span><small>LOCAL INTELLIGENCE OS</small><strong>Info Collector</strong></span>
+    </a>
+    <nav aria-label="主导航">
+      <a href="../index.html">文章库</a>
+      <span class="system-label">WINDOWS 11 · LOCAL-FIRST</span>
+    </nav>
+  </header>
+  
+  <main class="article-shell">
+    <a class="back-link" href="../index.html">← 返回文章情报库</a>
+    <article>
+      <header class="article-hero reveal">
+        <p class="eyebrow"><i></i> TRANSLATED INTELLIGENCE</p>
+        <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">模型评估</span><span class="keyword">产品</span><span class="keyword">学术研究</span></div>
+        <h1>理解是新的瓶颈（Understanding is the new bottleneck）</h1>
+        <div class="article-meta">发布于 2026-07<span class="meta-dot"></span>作者 Geoffrey Litt</div>
+      </header>
+      <section class="summary-card reveal" aria-labelledby="summary-title">
+        <div class="summary-label"><span>01</span><p>EXECUTIVE SUMMARY</p></div>
+        <h2 id="summary-title">先读结论</h2>
+        <p>随着AI智能体编写越来越多代码，人类理解代码的能力成为新瓶颈。作者认为理解不是为了验证，而是为了参与创造过程。他提出三种高效理解代码的技术：代码解释文档（含背景知识、直觉引导、交互式图表和测验）、微型世界（通过交互式调试器和游戏化迁移工具直观理解系统）、共享空间（团队在协作平台中共同建立心智模型）。核心主张是AI应增强人类理解而非完全自动化。</p>
+      </section>
+      <div class="reading-layout">
+        <aside class="toc-card" aria-label="文章目录"><p>本页目录</p><nav id="article-toc"><span>正在整理章节…</span></nav></aside>
+        <section class="translated-copy reveal">
+          <div class="section-kicker"><span>02</span><div><p>CHINESE TRANSLATION</p><h2>中文译文</h2></div></div>
+          <div class="prose" id="article-content"><p>Geoffrey Litt Projects Writing Inspirations Subscribe: Newsletter Twitter Mastodon RSS Contact Email me July 2026</p>
+<p><strong>理解是新的瓶颈</strong></p>
+<p>本文是我在2026年7月AI Engineer大会上的演讲文字版，也以推文串形式分享过。</p>
+<p><strong>核心观点：我认为理解智能体编写的代码仍然很重要！</strong></p>
+<p>在这个演讲中，我会解释为什么如此，并展示一些高效理解代码的思路。好了，让我们开始吧。</p>
+<p>智能体正在为我们编写越来越多的代码，我们都知道跟上节奏越来越难。</p>
+<p>但好消息是：理解代码的方法有很多！逐行阅读diff并非唯一方式。</p>
+<p>本次演讲的大部分内容将介绍我发现有助于理解智能体构建系统的技术：</p>
+<ul>
+<li>代码解释文档</li>
+<li>检查理解程度的测验</li>
+<li>可用来理解系统的微型世界</li>
+</ul>
+<p>但首先，我们必须问一个更基本的问题……</p>
+<p><strong>为什么要理解？</strong></p>
+<p>为什么？为什么要理解？</p>
+<p>难道我们现在不应该把自己从循环中抽离出来，让智能体自行循环吗？随着智能体越来越聪明，我们深入细节的重要性不就应该降低吗？</p>
+<p>我认为很多人——即使是支持理解的人——对这个问题的答案也略有偏差！</p>
+<p>一种可能的答案是：我们理解是为了<strong>验证</strong>。我们检查智能体的工作，看它是否正确。</p>
+<p>“正确”可以有很多含义：是否符合规范、架构是否良好……但本质上是一个“通过/不通过”的问题。</p>
+<p>问题是：智能体在验证自身工作方面越来越出色。这很好！我喜欢我的智能体不犯错误。</p>
+<p>但嗯……这把我们人类置于何地呢？</p>
+<p>这就引出了另一个答案：我们理解是为了<strong>参与</strong>。</p>
+<p>你可以了解智能体在做什么，以确保自己能成为创造过程中的积极参与者。以下是为什么这很重要……</p>
+<p><strong>从来就不只有一个循环！</strong> 一个项目是与智能体进行的无数个循环。</p>
+<p>你对系统的理解，是你提出下一个演进想法的能力的一部分。</p>
+<p>你需要在脑海中拥有丰富的概念，才能创造性地、流畅地思考如何推进某件事。如果你缺乏这种流畅性，你参与项目的能力就会受到显著限制。</p>
+<p>顺便说一句，这与Margaret Storey和Simon Willison推广的<strong>认知债务</strong>概念密切相关。</p>
+<p>它就像技术债务：短期内你可以蒙混过关，不去理解发生了什么，但最终它会反噬你。</p>
+<p>好吧，所以理解确实很重要。</p>
+<p>但这引出了下一个问题：<strong>如何</strong>？在与AI合作并快速推进时，我们如何建立这种人类理解？</p>
+<p>嗯，事实证明，这并非人类首次思考如何传达理解。我认为我们可以从教育中汲取灵感。我们能否借鉴教育领域有史以来最好的想法，并将其应用于这个问题？</p>
+<p><strong>技术1：解释</strong></p>
+<p>今天我想分享三种技术，展示我们如何尝试做到这一点。</p>
+<p>首先：<strong>解释</strong>。一个好的解释是什么样的？</p>
+<p>每当智能体完成一些工作时，就是一个解释的机会——一个产物。</p>
+<p>最朴素的方式是，我们可以阅读代码diff：发生变化的原始材料。</p>
+<p>但如果我们问：</p>
+<p>最好的解释会是什么样？如果你有一个团队——无论是人类还是AI——真正花心思把某件事向你解释清楚，那会是什么感觉？</p>
+<p>这里有一个答案。我创建了一个名为<code>/explain-diff</code>的技能，我每天都在使用，许多同事也觉得它很有价值。</p>
+<p>它能输出结构清晰的代码解释器，格式为HTML、Markdown或Notion文档。Notion是一个很好的平台，可以供团队协作和讨论这些解释。（免责声明：我在Notion工作，所以我有偏见。）</p>
+<p>让我们看看其中一个解释器里有什么，以编辑一个视频游戏视角为例。</p>
+<p><strong>第一原则：教我背景信息！</strong></p>
+<p>在讨论发生了什么变化之前，先帮助我理解已有的内容。在这个例子中，先教我关于游戏引擎的知识。</p>
+<p><strong>第二原则：先讲直觉，再讲细节。</strong></p>
+<p>在任何代码之前，它先陈述目标——“用2D绘图技巧让花园感觉是三维的”——并解释相关概念，比如什么是等距投影。</p>
+<p>所有这些都建立了我对变更本质的直觉。它让我这个人类能跟上节奏，从而成为理解的平等参与者。</p>
+<p>你还可以通过<strong>交互式图形</strong>来建立直觉。</p>
+<p>在这里，我通过在花园里拖动岩石并观察它们的坐标移动来理解等距视角。</p>
+<p>（这使用了Notion刚刚发布的新功能：你现在可以在页面内嵌入交互式HTML。）</p>
+<p>我们终于看到了代码。但典型的diff是一堆按字母顺序排列的已编辑文件，没有任何解释。</p>
+<p>我称之为<strong>“文学化diff”</strong>，它以散文形式结构化——以合理的顺序遍历变更，并附有解释和嵌入的代码片段。比原始diff审查起来更快。</p>
+<p>所有这些的最终结果是一个漂亮的解释包。我仍然会阅读代码diff，但我总是先读这个。</p>
+<p>有时我会把它们打印出来，带到咖啡馆去——干扰更少。</p>
+<p>这具有美妙的讽刺意味：AI将一项交互活动变成了一份我可以深度专注的静态纸质报告 :)</p>
+<p>只有一个问题：阅读是件苦差事😅</p>
+<p>正如Andy Matuschak所说：<strong>“书籍不起作用”</strong>！你很容易欺骗自己，以为自己读过了，但实际上并没有记住或理解。</p>
+<p>我们如何解决这个问题？我从Andy和Michael Nielsen在文章中嵌入间隔重复测验的工作中获得了灵感。</p>
+<p>现在，我对我的代码解释器也做了类似的事情。在解释器的底部有一个交互式测验——关于变更的五个问题——我会尝试回答它们。</p>
+<p>我的规则是：在我通过测验之前，我不会将代码发送给其他人；在审查他人代码时，我也会这样做。</p>
+<p>测验是一个<strong>速度调节器</strong>。与AI合作时，循环很容易跑得比人类理解的速度还快。</p>
+<p>测验是一种平衡力量：我机械地问自己“我真的理解了吗？”，这样我才能保持一个完整的创造性参与者身份。</p>
+<p>好了，这就是<code>explain-diff</code>。如果你想要这个技能，这里有：两个变体，分别输出HTML或Notion页面。</p>
+<p><strong>技术2：微型世界</strong></p>
+<p>下一个想法：<strong>微型世界</strong>。这受到了富有远见的教育家Seymour Papert的启发。</p>
+<p>Papert有一个美丽的想法，他称之为<strong>生活在数学国</strong>：如果你想学数学，就生活在数学国——就像如果你想学法语，就去法国生活一样。我们能否构建一个环境，让孩子们出于好奇心而自然地学习数学？</p>
+<p>那么我们如何将其应用于代码呢？我们能否创造出你身临其境、并能自然直觉地理解系统如何运作以及如何变化的世界？</p>
+<p>去年，我在编写一个Prolog解释器，并努力直觉地理解其内部发生了什么。</p>
+<p>我与一个智能体合作构建了这个调试器，它让我能够逐步执行我的逻辑语言——在时间轴上前后拖动，查看堆栈上的内容以及每一步评估了哪些规则。我甚至可以为我自己留下评论（“很好，我们正确地应用了那条规则”）。</p>
+<p>为我制作一个调试工具和让智能体自行调试之间存在着巨大差异——<strong>自己动手</strong>是我在过程中建立理解的方式。</p>
+<p>另一个例子。我正在将我的个人网站从一个框架迁移到另一个框架，Claude编写了一个脚本来完成迁移。但审查起来非常困难：我不熟悉新框架，我只能说“我猜看起来差不多”。</p>
+<p>所以我让Claude为我制作了一个<strong>视频游戏</strong>——一个指挥中心，我可以在其中逐步自己完成移植，观察可见的效果和文件树的演变。它生成了一个UI，我点击按钮逐步运行移植，我的旧网站和新网站并排运行。</p>
+<p>在这个指挥中心里，我目睹了新网站逐步成型。这让我获得了与手动操作相似的理解——但快得多，因为整个体验都为我铺好了。</p>
+<p>这里的要点是，智能体可以编写一些代码来帮助我们人类理解其他代码。</p>
+<p><strong>这意义重大！</strong></p>
+<p><strong>技术3：共享空间</strong></p>
+<p>好了，最后一种技术：<strong>共享空间</strong>。到目前为止，这一切都是关于个人理解……但当你在团队中工作时，你需要<strong>共同理解</strong>。</p>
+<p>当你和另一个人持有相同的心智模型时，你们可以高效地沟通。你们拥有能唤起相同意象的共享词汇，因此你们可以即兴发挥、碰撞想法并进行创造性对话。没有这些共享结构，这些对话就会困难得多。</p>
+<p>我对创建共享环境感到非常兴奋，团队可以在其中共同建立这种理解。这有点像Notion的全部意义所在。</p>
+<p>最近在Notion，我们发布了大量新功能，让人类和智能体可以协同工作，这样你的整个团队就能建立共享理解，而不是各自为战。</p>
+<p>一个小例子：你现在可以在Notion中运行Claude和Cursor智能体。我现在很多编码工作都通过这种方式进行。</p>
+<p>当这些智能体在Notion中制定技术计划时，默认情况下它是在一个协作页面中，因此我可以与我的团队立即评论和讨论。<strong>一起思考，而不是独自思考！</strong></p>
+<p><strong>目标始终是增强</strong></p>
+<p>好了，让我们总结一下。今天我们介绍了一些关于理解代码的技术……但实际上我认为这是一个更大的问题。</p>
+<p><strong>人类理解事物如何运作，在总体上仍然很重要！</strong> 不仅仅是为了验证，更是为了参与。</p>
+<p>而且，惊喜惊喜，这并非新想法。它可以追溯到我们计算领域的起源……</p>
+<p>50年前，Alan Kay就预见到，计算机可以成为一种新的媒介，比书籍更好，用于教人们——尤其是孩子们——如何思考世界。</p>
+<p>在这张图片中，看起来这些孩子可能是在iPad上看YouTube，但他们不是。他们在玩一个交互式游戏，并在玩游戏的同时编辑代码，以便更好地理解物理原理。这是50年前的事了！！</p>
+<p>现在，希望你能理解这个<strong>梗</strong>。</p>
+<p><strong>目标始终是增强，而不仅仅是自动化。</strong></p>
+<p>AI现在让创建模拟变得如此容易，这真是太美好了……让AI教我们，是计算领域有史以来开启的最伟大的可能性之一。</p>
+<p>这让我对未来非常乐观！</p>
+<p>如果我们构建正确的工具，我们现在就能比以往任何时候都更好地理解世界。我们不必仅仅把自己从循环中抽离出来，我们也可以<strong>更深入地融入循环</strong>。这取决于我们。</p>
+<p>完</p>
+<p><strong>相关阅读</strong></p>
+<p>如果你喜欢这个演讲，你可能也会喜欢我写的关于人机协作的其他文章：</p>
+<ul>
+<li><strong>够了，AI副驾驶！我们需要AI平视显示器</strong> —— “任何认真考虑AI设计的人都应该考虑非副驾驶形态，这些形态能更直接地扩展人类思维……”</li>
+<li><strong>AI生成的工具可以让编程更有趣</strong> —— “相反，我使用AI构建了一个自定义调试器UI……这让我自己编码变得更有趣……”</li>
+<li><strong>像外科医生一样编码</strong> —— “识别并委派次要的苦力任务，这样你就可以专注于最重要的事情。”</li>
+</ul></div>
+        </section>
+      </div>
+      
+      <section class="source-card reveal">
+        <div><p class="eyebrow">ORIGINAL SOURCE</p><h2>继续查看原文</h2><p>中文译文用于高效理解；需要核对语境、图表或引用时，请返回作者原始页面。</p></div>
+        <a href="https://www.geoffreylitt.com/2026/07/02/understanding-is-the-new-bottleneck.html" target="_blank" rel="noopener noreferrer">访问文章原文 <span>↗</span></a>
+      </section>
+    </article>
+  </main>
+  <footer class="site-footer"><span><i></i> LOCAL-FIRST · WINDOWS 11</span><span>INFO COLLECTOR / READING DESK</span></footer>
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

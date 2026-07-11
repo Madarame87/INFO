@@ -82,7 +82,7 @@ const OUTCOME_TEXT = {
   success: '✓ 成功', failed: '✕ 失败', empty: '空队列', running: '运行中',
   'no-outbox': 'outbox 缺失', error: '✕ 出错',
 };
-const SPECIAL_FLOW_LABELS = { 'weekly-report': '周报' };
+const SPECIAL_FLOW_LABELS = { 'weekly-report': '周报', 'reading-site': '阅读站' };
 
 function fmtTime(iso) {
   if (!iso) return '?';
@@ -141,6 +141,9 @@ async function renderRuns() {
     if (type === 'weekly-report' && lr?.latestReport) {
       const reportName = lr.latestReport.split(/[\\/]/).pop();
       info += `<span class="st-next" title="${escapeAttr(lr.latestReport)}">输出：${escapeHtml(reportName)}</span>`;
+    }
+    if (type === 'reading-site' && lr?.siteIndex) {
+      info += `<span class="st-next" title="${escapeAttr(lr.siteIndex)}">输出：本地文章阅读库</span>`;
     }
     stations.push(stationEl(label, info, state));
   }
@@ -391,6 +394,30 @@ $('btn-weekly').addEventListener('click', async () => {
       toast(`✓ 本周周报已生成：${lastRun.count || 0} 篇`);
     } else if (lastRun?.outcome === 'error') {
       toast(`✕ 周报生成失败：${lastRun.error || '查看 weekly-report.log'}`);
+    }
+  }, 1500);
+});
+
+$('btn-reader').addEventListener('click', async () => {
+  toast('正在构建文章阅读库…');
+  const r = await send({ cmd: 'triggerFlow', type: 'reading-site' });
+  if (!r?.ok) {
+    toast(`✕ 阅读库启动失败：${r?.error || '未知错误'}（请重新运行 scripts/setup.ps1）`);
+    return;
+  }
+  if (r.alreadyRunning) {
+    toast('⏳ 阅读库正在生成中');
+    return;
+  }
+  toast('✓ 阅读库正在生成，完成后会自动打开');
+  setTimeout(async () => {
+    await send({ cmd: 'bridgeNow' });
+    await refresh();
+    const lastRun = flows['reading-site']?.status?.lastRun;
+    if (lastRun?.outcome === 'success' || lastRun?.outcome === 'empty') {
+      toast(`✓ 阅读库已更新：${lastRun.count || 0} 篇文章`);
+    } else if (lastRun?.outcome === 'error') {
+      toast(`✕ 阅读库生成失败：${lastRun.error || '查看 reading-site.log'}`);
     }
   }, 1500);
 });

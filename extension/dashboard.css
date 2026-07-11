@@ -72,6 +72,8 @@ button:active { transform: translateY(0); }
 .action-btn { display: inline-flex; align-items: center; gap: 7px; }
 .action-primary { margin-left: 4px; border-color: var(--accent); color: #fff; background: var(--accent); }
 .action-primary:hover { border-color: var(--accent-hover); color: #fff; background: var(--accent-hover); }
+.action-primary span { transition: transform 160ms ease; }
+.action-primary:hover span { transform: translate(2px, -2px); }
 .action-quiet { border-color: transparent; color: var(--muted); background: transparent; }
 .action-quiet:hover { border-color: var(--line); color: var(--ink); background: var(--surface-soft); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, a:focus-visible {

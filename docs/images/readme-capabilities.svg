@@ -35,9 +35,9 @@
     <g transform="translate(516 326)">
       <rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/>
       <circle cx="42" cy="40" r="18" fill="#C65F3D"/><text x="42" y="46" fill="white" font-size="13" font-weight="700" text-anchor="middle">05</text>
-      <text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">本地 Markdown</text>
-      <text x="28" y="86" fill="#665E54" font-size="15">API Key、队列与研究产物保存在本机，</text>
-      <text x="28" y="111" fill="#665E54" font-size="15">便于归档和二次使用。</text>
+      <text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">静态阅读前台</text>
+      <text x="28" y="86" fill="#665E54" font-size="15">关键词搜索、Summary 先读、中文全文</text>
+      <text x="28" y="111" fill="#665E54" font-size="15">与原文回溯，全部在本机生成。</text>
     </g>
     <g transform="translate(960 326)">
       <rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/>
