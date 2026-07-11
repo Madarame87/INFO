@@ -523,6 +523,30 @@ def normalize_markdown_document(text):
     """Return a document beginning with real YAML, tolerating model wrappers."""
     text = strip_code_fence(text)
     separators = list(re.finditer(r"(?m)^---[ \t]*\r?$", text))
+
+    # Some models emit a valid opening delimiter and all required fields, then
+    # jump directly to "## 摘要" without the closing delimiter. This is fully
+    # repairable locally and should not discard the translation or spend a
+    # second API request.
+    if len(separators) == 1:
+        start = separators[0]
+        tail = text[start.end():]
+        body_heading = re.search(r"(?m)^#{1,6}[ \t]+\S", tail)
+        if body_heading:
+            header = tail[:body_heading.start()]
+            required = ("title", "source", "summary", "tags")
+            if all(re.search(rf"(?m)^{field}:\s*", header) for field in required):
+                prefix = text[:start.start()]
+                has_outer_fence = bool(re.search(
+                    r"```(?:markdown|md|yaml)?[ \t]*\r?\n[ \t]*\Z",
+                    prefix,
+                    re.IGNORECASE,
+                ))
+                body = tail[body_heading.start():].strip()
+                if has_outer_fence:
+                    body = re.sub(r"\r?\n```[ \t]*\Z", "", body).strip()
+                return "---\n" + header.strip("\r\n") + "\n---\n\n" + body
+
     for index in range(len(separators) - 1):
         start = separators[index]
         end = separators[index + 1]
@@ -717,6 +741,7 @@ def prepare_enriched_markdown(markdown, url, title, cfg):
         enrichment = extract_enrichment(document)
     except RuntimeError as first_error:
         log(f"模型输出格式不合规，执行一次自动修复：{first_error}")
+        repaired = None
         try:
             repaired = repair_markdown_output(markdown, url, title, cfg)
             document = normalize_markdown_document(repaired)
@@ -726,6 +751,11 @@ def prepare_enriched_markdown(markdown, url, title, cfg):
                 "格式修复仍失败；原始输出安全预览："
                 f"{rejected_output_preview(markdown)}"
             )
+            if repaired:
+                log(
+                    "格式修复输出安全预览："
+                    f"{rejected_output_preview(repaired)}"
+                )
             raise RuntimeError(f"模型输出格式修复失败：{repair_error}") from repair_error
         log("模型输出格式自动修复成功")
     document = ensure_summary_section(document, enrichment["summary"])

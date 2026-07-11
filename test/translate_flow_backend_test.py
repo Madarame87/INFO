@@ -211,6 +211,38 @@ print(json.dumps({{
             )
             self.assertTrue(flow.normalize_markdown_document(document).endswith("```"))
 
+    def test_normalizer_inserts_missing_closing_frontmatter_delimiter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            malformed = (
+                "---\n"
+                "title: 理解是新的瓶颈\n"
+                "source: https://example.test/article\n"
+                "published: 2026-07-02\n"
+                "summary: \"一段完整摘要。\"\n"
+                "tags: [\"智能体\", \"产品\"]\n"
+                "## 摘要\n\n"
+                "一段完整摘要。\n\n"
+                "# 正文\n\n完整译文"
+            )
+            document = flow.normalize_markdown_document(malformed)
+            self.assertIn('tags: ["智能体", "产品"]\n---\n\n## 摘要', document)
+            self.assertEqual(flow.extract_enrichment(document)["tags"], ["智能体", "产品"])
+
+            def unexpected_repair(*_args):
+                raise AssertionError("本地可修复的分隔符问题不应调用 API")
+
+            flow.repair_markdown_output = unexpected_repair
+            with contextlib.redirect_stdout(io.StringIO()):
+                prepared, enrichment = flow.prepare_enriched_markdown(
+                    malformed,
+                    "https://example.test/article",
+                    "Understanding",
+                    {"provider": "deepseek"},
+                )
+            self.assertIn("---\n\n## 摘要", prepared)
+            self.assertEqual(enrichment["summary"], "一段完整摘要。")
+
     def test_prepare_repairs_missing_frontmatter_once(self):
         with tempfile.TemporaryDirectory() as tmp:
             flow = import_flow(Path(tmp))
@@ -263,6 +295,7 @@ print(json.dumps({{
                     )
             self.assertEqual(len(calls), 1)
             self.assertIn("原始输出安全预览：原始译文但没有 frontmatter", output.getvalue())
+            self.assertIn("格式修复输出安全预览：仍然没有 frontmatter", output.getvalue())
 
     def test_deepseek_format_repair_uses_one_bounded_request(self):
         with tempfile.TemporaryDirectory() as tmp:
