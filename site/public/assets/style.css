@@ -101,8 +101,10 @@ button { color: inherit; }
 .empty-state p { color: var(--muted); }
 
 .site-footer { display: flex; justify-content: center; align-items: center; gap: 7px; width: min(1320px, calc(100% - 48px)); margin: 0 auto 38px; color: var(--muted); font: 650 9px/1.4 var(--mono); letter-spacing: .1em; }
-.site-footer strong { color: var(--ink-2); font-weight: 750; }
-.site-footer span { color: var(--accent); }
+.site-footer > span { color: var(--muted); }
+.site-footer a { color: var(--ink-2); font-weight: 750; text-decoration: none; transition: color .2s ease; }
+.site-footer a:hover { color: var(--aquatic-dark); }
+.site-footer i { color: var(--accent); font-style: normal; }
 
 .article-shell { max-width: 1180px; margin-top: 38px; }
 .back-link { display: inline-flex; margin: 4px 0 18px; padding: 8px 0; color: var(--muted); font-size: 12px; font-weight: 700; text-decoration: none; transition: color .2s ease, transform .2s ease; }

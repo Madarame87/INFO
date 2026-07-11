@@ -9,9 +9,13 @@ const workerPath = path.join(root, "dist", "server", "index.js");
 const style = await readFile(path.join(root, "public", "assets", "style.css"), "utf8");
 
 await access(workerPath);
-for (const phrase of ["文章情报库", "关键词", "Info Collector", "@Madarame87", "@aswrise", "@THEO", "@AQUA", "DATE"]) {
+for (const phrase of ["文章情报库", "关键词", "Info Collector", "@Madarame87", "@aswrise", "DATE"]) {
   if (!index.includes(phrase)) throw new Error(`Missing index phrase: ${phrase}`);
 }
+if ((index.match(/href="https:\/\/github\.com\/Madarame87"/g) || []).length !== 2 || (index.match(/href="https:\/\/github\.com\/aswrise"/g) || []).length !== 2) {
+  throw new Error("Header and footer contributor credits are not unified");
+}
+if (index.includes("@THEO") || index.includes("@AQUA")) throw new Error("Legacy display-name credits remain");
 if (index.includes("阅读中文全文")) throw new Error("Index still includes the removed reading CTA");
 if (index.includes("WINDOWS 11 · LOCAL-FIRST") || index.includes("INFO COLLECTOR / READING DESK")) {
   throw new Error("Index still includes the retired system labels");
