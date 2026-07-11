@@ -362,11 +362,11 @@ def page_shell(title, description, content, asset_prefix="assets", body_class=""
     </a>
     <div class="site-credits" aria-label="项目贡献者">
       <span class="credit-label">Powered by</span>
-      <span class="credit-people"><a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a><i aria-hidden="true">×</i><a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></span>
+      <span class="credit-people"><a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></span>
     </div>
   </header>
   {content}
-  <footer class="site-footer">Powered by <strong>@THEO</strong> &amp; <strong>@AQUA</strong><span>·</span>2026</footer>
+  <footer class="site-footer" aria-label="Powered by @Madarame87 × @aswrise"><span>Powered by</span> <a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></footer>
   <script src="{asset_prefix}/app.js" defer></script>
 </body>
 </html>
