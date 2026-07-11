@@ -228,9 +228,8 @@ button { color: inherit; }
 }
 
 @media (max-width: 420px) {
-  .site-header { gap: 8px; }
   .site-credits { margin-left: auto; }
-  .credit-people { font-size: 9px; }
+  .credit-people { font-size: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -342,7 +342,8 @@ def render_markdown(body, document_title=""):
     return "\n".join(output)
 
 
-def page_shell(title, description, content, asset_prefix="assets", body_class=""):
+def page_shell(title, description, content, asset_prefix="assets", body_class="", asset_version=""):
+    asset_suffix = f"?v={escape_attr(asset_version)}" if asset_version else ""
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -351,7 +352,7 @@ def page_shell(title, description, content, asset_prefix="assets", body_class=""
   <meta name="description" content="{escape_attr(description)}">
   <meta name="color-scheme" content="light">
   <title>{html.escape(title)} · Info Collector</title>
-  <link rel="stylesheet" href="{asset_prefix}/style.css">
+  <link rel="stylesheet" href="{asset_prefix}/style.css{asset_suffix}">
 </head>
 <body class="{escape_attr(body_class)}">
   <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
@@ -369,7 +370,7 @@ def page_shell(title, description, content, asset_prefix="assets", body_class=""
   </header>
   {content}
   <footer class="site-footer" aria-label="Powered by @Madarame87 × @aswrise"><span>Powered by</span> <a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></footer>
-  <script src="{asset_prefix}/app.js" defer></script>
+  <script src="{asset_prefix}/app.js{asset_suffix}" defer></script>
 </body>
 </html>
 """
@@ -393,7 +394,7 @@ def render_tag(tag, active=False, button=False, count=None):
     return f'<span class="keyword">{html.escape(tag)}</span>'
 
 
-def render_index(articles):
+def render_index(articles, asset_version=""):
     counts = Counter(tag for article in articles for tag in article["tags"])
     ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
     cards = []
@@ -434,10 +435,10 @@ def render_index(articles):
     <section class="article-grid" id="article-grid">{''.join(cards)}</section>
     <section class="empty-state" id="empty-state" hidden><span>—</span><h2>没有找到对应文章</h2><p>请选择其他关键词查看文章。</p></section>
   </main>"""
-    return page_shell("文章情报库", "Info Collector 本地中文技术文章阅读库", content, body_class="library-page")
+    return page_shell("文章情报库", "Info Collector 本地中文技术文章阅读库", content, body_class="library-page", asset_version=asset_version)
 
 
-def render_article_page(article):
+def render_article_page(article, asset_version=""):
     tags = "".join(render_tag(tag) for tag in article["tags"])
     meta_items = [f"发布于 {html.escape(article['published'][:10])}" if article["published"] else ""]
     if article["authors"]:
@@ -476,7 +477,7 @@ def render_article_page(article):
       {original}
     </article>
   </main>"""
-    return page_shell(article["title"], article["summary"], content, asset_prefix="../assets", body_class="article-page")
+    return page_shell(article["title"], article["summary"], content, asset_prefix="../assets", body_class="article-page", asset_version=asset_version)
 
 
 def asset_source_dir():
@@ -490,6 +491,13 @@ def asset_source_dir():
     raise RuntimeError("阅读站前端资源缺失：reader/assets")
 
 
+def frontend_asset_version(source_assets):
+    digest = hashlib.sha256()
+    for name in ("style.css", "app.js"):
+        digest.update((Path(source_assets) / name).read_bytes())
+    return digest.hexdigest()[:12]
+
+
 def build_site(output_dir, site_dir=None):
     output_dir = Path(output_dir).expanduser().resolve()
     site_dir = Path(site_dir or output_dir / "阅读站").expanduser().resolve()
@@ -498,14 +506,15 @@ def build_site(output_dir, site_dir=None):
     assets_target = site_dir / "assets"
     assets_target.mkdir(parents=True, exist_ok=True)
     source_assets = asset_source_dir()
+    asset_version = frontend_asset_version(source_assets)
     shutil.copy2(source_assets / "style.css", assets_target / "style.css")
     shutil.copy2(source_assets / "app.js", assets_target / "app.js")
-    atomic_write_text(site_dir / "index.html", render_index(articles))
+    atomic_write_text(site_dir / "index.html", render_index(articles, asset_version=asset_version))
     expected = set()
     for article in articles:
         name = f"{article['slug']}.html"
         expected.add(name)
-        atomic_write_text(site_dir / "articles" / name, render_article_page(article))
+        atomic_write_text(site_dir / "articles" / name, render_article_page(article, asset_version=asset_version))
     for stale in (site_dir / "articles").glob("article-*.html"):
         if stale.name not in expected:
             stale.unlink()
