@@ -111,6 +111,7 @@ Info Collector 试图补上中间这一层：保留原文入口，同时生成�
 - 领域语言：[CONTEXT.md](CONTEXT.md)
 - 关键决策：[docs/adr/](docs/adr/)
 - Windows 迁移清单：[docs/windows-porting-checklist.md](docs/windows-porting-checklist.md)
+- 原始目标与当前产品方向自查：[docs/goal-audit-2026-07-11.md](docs/goal-audit-2026-07-11.md)
 
 ## 开发与验证
 
