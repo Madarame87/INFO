@@ -1,0 +1,35 @@
+<svg width="1440" height="480" viewBox="0 0 1440 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="480" rx="28" fill="#F4F1EA"/>
+  <rect x="32" y="32" width="1376" height="416" rx="22" fill="#FFFDF8" stroke="#DDD5C8"/>
+  <circle cx="1276" cy="104" r="156" fill="#F3DED3" fill-opacity="0.62"/>
+  <circle cx="1322" cy="410" r="204" fill="#E9E4D8" fill-opacity="0.68"/>
+  <rect x="102" y="100" width="76" height="76" rx="18" fill="#25221E"/>
+  <text x="140" y="149" fill="#FFFDF8" font-family="Georgia, serif" font-size="24" font-weight="700" text-anchor="middle">IC</text>
+  <text x="208" y="122" fill="#8A8175" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="3">LOCAL INTELLIGENCE OS</text>
+  <text x="208" y="183" fill="#25221E" font-family="Georgia, Times New Roman, serif" font-size="58">Info Collector</text>
+  <text x="104" y="247" fill="#514B43" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="23">把分散阅读，转化为可追踪、可检索、可复用的技术情报。</text>
+  <rect x="104" y="304" width="170" height="46" rx="23" fill="#C65F3D"/>
+  <text x="189" y="333" fill="white" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="700" text-anchor="middle">收藏即进入工作流</text>
+  <rect x="290" y="304" width="132" height="46" rx="23" fill="#FFFDF8" stroke="#CFC5B7"/>
+  <text x="356" y="333" fill="#25221E" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="600" text-anchor="middle">Windows 11</text>
+  <rect x="438" y="304" width="145" height="46" rx="23" fill="#FFFDF8" stroke="#CFC5B7"/>
+  <text x="510.5" y="333" fill="#25221E" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600" text-anchor="middle">Local-first</text>
+  <g transform="translate(890 112)">
+    <rect width="372" height="246" rx="18" fill="#F8F5EE" stroke="#D7CFC2"/>
+    <text x="28" y="42" fill="#8A8175" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="2">KNOWLEDGE PIPELINE</text>
+    <rect x="28" y="68" width="316" height="48" rx="12" fill="#FFFDF8" stroke="#D7CFC2"/>
+    <circle cx="50" cy="92" r="5" fill="#2E8B67"/>
+    <text x="67" y="98" fill="#25221E" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="600">书签导入</text>
+    <path d="M186 92H218" stroke="#B7AEA2" stroke-width="2"/>
+    <path d="M214 88L219 92L214 96" stroke="#B7AEA2" stroke-width="2" fill="none"/>
+    <text x="235" y="98" fill="#25221E" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="600">翻译提炼</text>
+    <rect x="28" y="132" width="316" height="84" rx="12" fill="#FFFDF8" stroke="#D7CFC2"/>
+    <text x="48" y="161" fill="#25221E" font-family="Georgia, serif" font-size="18" font-weight="700">Weekly Intelligence</text>
+    <rect x="48" y="178" width="86" height="22" rx="11" fill="#F6E5DC"/>
+    <text x="91" y="193" fill="#9B442A" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" text-anchor="middle">主题排行</text>
+    <rect x="142" y="178" width="86" height="22" rx="11" fill="#F6E5DC"/>
+    <text x="185" y="193" fill="#9B442A" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" text-anchor="middle">同类归档</text>
+    <rect x="236" y="178" width="88" height="22" rx="11" fill="#F6E5DC"/>
+    <text x="280" y="193" fill="#9B442A" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="11" font-weight="700" text-anchor="middle">收录日历</text>
+  </g>
+</svg>

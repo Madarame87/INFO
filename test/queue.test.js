@@ -76,6 +76,24 @@ test('failed 递增 attempts 且记录错误；不降级 done', () => {
   assert.equal(record.jobs.translate.status, 'done');
 });
 
+test('翻译完成报告保留并规范化 summary/tags', () => {
+  const rec = applyResult(fresh(), {
+    articleKey: KEY,
+    url: KEY,
+    type: 'translate',
+    status: 'done',
+    now: NOW,
+    meta: {
+      savedTo: 'article.md',
+      summary: '  一段   摘要  ',
+      tags: ['AI', '人工智能', '#Agent'],
+    },
+  }).record;
+  assert.equal(rec.jobs.translate.meta.summary, '一段 摘要');
+  assert.deepEqual(rec.jobs.translate.meta.tags, ['人工智能', '智能体']);
+  assert.equal(rec.jobs.translate.meta.savedTo, 'article.md');
+});
+
 test('done 覆盖 ignored（外部流已实际完成）', () => {
   let rec = fresh();
   rec = setJobStatus(rec, 'translate', 'ignored', NOW);

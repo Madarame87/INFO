@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="人们正在为 AI 助手和个人代理构建各种花哨的记忆系统。我的 X 时间线上充斥着诸如向量存储、知识图谱、语义记忆、情景记忆、用户画像、对话摘要、分层检索、记忆整合、记忆衰减等术语…… 毫无疑问，其中许多想法是有用的。有些可能不可或缺。但该领域存在一种奇怪的失衡：我们花费大量精力发明记忆架构，却很少投入精力改进用于评估这些系统是否真正让代理随时间更好地使用记忆的评估方法。 结果是大量的过度工程化。人们基于自己对“良好记忆”应为何样的狭隘定义来构建记忆系统。没有严肃的评估环境，这些大多只是架构上的赌注。">
+  <meta name="color-scheme" content="light">
+  <title>演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach） · Info Collector</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body class="article-page">
+  <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
+  <header class="site-header">
+    <a class="site-brand" href="../index.html" aria-label="Info Collector 阅读库首页">
+      <span class="brand-mark">IC</span>
+      <span><small>LOCAL INTELLIGENCE OS</small><strong>Info Collector</strong></span>
+    </a>
+    <nav aria-label="主导航">
+      <a href="../index.html">文章库</a>
+      <span class="system-label">WINDOWS 11 · LOCAL-FIRST</span>
+    </nav>
+  </header>
+  
+  <main class="article-shell">
+    <a class="back-link" href="../index.html">← 返回文章情报库</a>
+    <article>
+      <header class="article-hero reveal">
+        <p class="eyebrow"><i></i> TRANSLATED INTELLIGENCE</p>
+        <div class="keyword-row"><span class="keyword">模型评估</span><span class="keyword">记忆系统</span><span class="keyword">智能体</span><span class="keyword">产品</span></div>
+        <h1>演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）</h1>
+        <div class="article-meta">发布于 2026-06-27<span class="meta-dot"></span>作者 Linghao Zhang</div>
+      </header>
+      <section class="summary-card reveal" aria-labelledby="summary-title">
+        <div class="summary-label"><span>01</span><p>EXECUTIVE SUMMARY</p></div>
+        <h2 id="summary-title">先读结论</h2>
+        <p>人们正在为 AI 助手和个人代理构建各种花哨的记忆系统。我的 X 时间线上充斥着诸如向量存储、知识图谱、语义记忆、情景记忆、用户画像、对话摘要、分层检索、记忆整合、记忆衰减等术语…… 毫无疑问，其中许多想法是有用的。有些可能不可或缺。但该领域存在一种奇怪的失衡：我们花费大量精力发明记忆架构，却很少投入精力改进用于评估这些系统是否真正让代理随时间更好地使用记忆的评估方法。 结果是大量的过度工程化。人们基于自己对“良好记忆”应为何样的狭隘定义来构建记忆系统。没有严肃的评估环境，这些大多只是架构上的赌注。</p>
+      </section>
+      <div class="reading-layout">
+        <aside class="toc-card" aria-label="文章目录"><p>本页目录</p><nav id="article-toc"><span>正在整理章节…</span></nav></aside>
+        <section class="translated-copy reveal">
+          <div class="section-kicker"><span>02</span><div><p>CHINESE TRANSLATION</p><h2>中文译文</h2></div></div>
+          <div class="prose" id="article-content"><p>Jun 27, 2026 · 5 min read 标签：AI 记忆</p>
+<p>人们正在为 AI 助手和个人代理构建各种花哨的记忆系统。我的 X 时间线上充斥着诸如向量存储、知识图谱、语义记忆、情景记忆、用户画像、对话摘要、分层检索、记忆整合、记忆衰减等术语……</p>
+<p>毫无疑问，其中许多想法是有用的。有些可能不可或缺。但该领域存在一种奇怪的失衡：我们花费大量精力发明记忆架构，却很少投入精力改进用于评估这些系统是否真正让代理随时间更好地使用记忆的评估方法。</p>
+<p>结果是大量的过度工程化。人们基于自己对“良好记忆”应为何样的狭隘定义来构建记忆系统。没有严肃的评估环境，这些大多只是架构上的赌注。</p>
+<p>我的观点是，记忆并非系统的首要基础能力。记忆是一种二阶效应，当系统在重复交互中承受压力以表现得更好时，它才会涌现出来。</p>
+<p>构建更好记忆系统的正确方法不是去设计它们。正确的方法是构建一个环境，让没有良好记忆的系统无法在其中生存。</p>
+<h2 id="section-1">静态记忆评估的问题</h2>
+<p>目前大多数记忆评估都过于静态。它们通常看起来像这样：</p>
+<ul>
+<li>给系统一组先前的用户事实或对话历史。</li>
+<li>提出一个当前问题。</li>
+<li>检查系统是否检索到相关记忆。</li>
+<li>根据答案是否使用了正确事实来评分。</li>
+</ul>
+<p>它测试的是记忆系统能否从固定快照中检索到相关事实。它没有测试系统是否会随时间变得更好。</p>
+<p>它没有告诉我们系统在达到这个固定时间快照之前的表现如何，也没有提供多少预测能力来表明它在未来会如何表现。</p>
+<p>从产品角度来看，这令人担忧。记忆系统是其自身反馈循环的一部分：如果感知到的记忆质量很差，或者没有随时间显著改善，用户可能会不愿以需要良好记忆的方式进行交互，或者干脆关闭记忆功能。</p>
+<h2 id="section-2">理想的纵向记忆评估</h2>
+<p>理想的记忆评估应包含以下构建模块：</p>
+<ul>
+<li>可重放的用户交互历史</li>
+<li>依赖该历史的未来交互</li>
+<li>奖励良好记忆使用的评分系统</li>
+</ul>
+<p>为了说明，想象一个如下的合成交互历史：</p>
+<p>交互 1：用户请求帮助撰写一篇技术博客文章。 交互 2：用户表示他们更喜欢简洁、直接的语言。 交互 3：用户因草稿听起来太像推销而拒绝。 交互 4：用户请求推荐洛杉矶市中心附近的餐厅。 交互 5：用户表示他们不喜欢吵闹的餐厅。 交互 6：用户开始一个家居装修规划话题。 交互 7：用户提到预算大约 20 万美元。 ... 交互 200：用户请求帮助起草一封给承包商的邮件。</p>
+<p>在每个时间点，记忆系统可以决定存储、总结、整合什么等等。然后，在选定的检查点，你对其进行测试。</p>
+<p>例如：</p>
+<p>交互 50 后的检查点：用户：你能把这个改得更像我吗？ 一个拥有良好记忆的系统应该从之前的交互中知道用户喜欢简洁、直接、略带干涩的散文，并且不喜欢过度解释。</p>
+<p>或者：</p>
+<p>交互 120 后的检查点：用户：这符合我们讨论过的房屋项目数字吗？ 一个拥有良好记忆的系统应该记得大致的装修背景，但如果数字可能已更改，也应避免过度自信。</p>
+<h2 id="section-3">使其更具体</h2>
+<p>以上只是一个粗略的草图。要使这样的评估真正有用，需要解决许多细节问题。</p>
+<p>在高层面上，我们需要构建一个结合人类和合成数据的数据集，其中每个数据点看起来像这样：</p>
+<p>用户 U</p>
+<ul>
+<li>隐藏画像（仅对模拟用户可见）  </li>
+<li>交互历史  </li>
+<li>检查点（既有自然的也有合成的）  </li>
+<li>评分标准</li>
+</ul>
+<p>例如：</p>
+<div class="code-block"><button class="copy-code" type="button">复制</button><pre data-language="json"><code>{
+  &quot;user_id&quot;: &quot;user_042&quot;,
+  &quot;hidden_profile&quot;: {
+    &quot;style&quot;: {
+      &quot;prefers_concise&quot;: true,
+      &quot;dislikes_hype&quot;: true,
+      &quot;likes_deadpan_humor&quot;: true
+    },
+    &quot;projects&quot;: {
+      &quot;home_renovation&quot;: {
+        &quot;budget&quot;: &quot;$200k&quot;,
+        &quot;location&quot;: &quot;Orange County, CA&quot;
+      }
+    }
+  },
+  &quot;timeline&quot;: [
+    {
+      &quot;turn&quot;: 1,
+      &quot;user&quot;: &quot;你能帮我润色这篇博客文章吗？&quot;,
+      &quot;type&quot;: &quot;normal&quot;
+    },
+    {
+      &quot;turn&quot;: 2,
+      &quot;user&quot;: &quot;你能让这个论点更犀利吗？少点学术腔，更直接点。&quot;,
+      &quot;type&quot;: &quot;normal&quot;
+    },
+    {
+      &quot;turn&quot;: 3,
+      &quot;user&quot;: &quot;以类似的方式重写这份文档。&quot;,
+      &quot;type&quot;: &quot;checkpoint_organic&quot;,
+      &quot;evaluation&quot;: {
+        &quot;scoring_rubric&quot;: &quot;输出应遵循直接的写作风格，避免过于学术化。&quot;
+      }
+    },
+    {
+      &quot;turn&quot;: 4,
+      &quot;user&quot;: &quot;帮我研究一下为我的家居装修项目申请规划许可的步骤。&quot;,
+      &quot;type&quot;: &quot;normal&quot;
+    },
+    // ...
+    {
+      &quot;turn&quot;: 200,
+      &quot;user&quot;: &quot;写一封邮件给总承包商，跟进装修费用。&quot;,
+      // 由模拟用户代理生成。
+      &quot;type&quot;: &quot;checkpoint_synthetic&quot;,
+      &quot;evaluation&quot;: {
+        &quot;scoring_rubric&quot;: &quot;邮件应引入相关背景，如预算、房屋位置等。&quot;
+      }
+    }
+  ]
+}</code></pre></div>
+<p>评估应与实现无关，但也要与真实世界的产品增值和实际约束紧密相连。需要考虑几个关键部分：</p>
+<h3 id="section-4">用户模拟</h3>
+<p>为了扩展评估数据，我们需要构建能够执行以下操作的模拟用户代理：</p>
+<ul>
+<li>基于用户画像和过去的交互，生成逼真的新交互。</li>
+<li>模拟由于过去交互以及感知到的记忆系统质量/效用而导致的纵向行为变化。</li>
+<li>例如，如果过去关于某个主题的交互一直不理想，它可能会避免谈论该主题。</li>
+<li>生成合成新交互的真实情况。在某种意义上，我们需要一个“神谕”，它能基于给定用户的所有可观测数据给出最佳响应，很可能使用比生产环境所能利用的多得多的离线计算资源。</li>
+</ul>
+<h3 id="section-5">评分</h3>
+<p>评分机制和标准需要考虑多个方面：</p>
+<ul>
+<li>需要以与预期产品价值一致的方式，为给定交互的成功/失败分配权重。</li>
+<li>例如，如果糟糕的记忆使用发生在用户交互历史的早期，应该受到更多还是更少的惩罚？</li>
+<li>应涵盖各种类型的演化压力，包括添加、更新、遗忘、冲突解决等场景。</li>
+<li>应在记忆质量与其他指标（如服务延迟和计算成本）之间取得平衡。</li>
+<li>系统可以做任何它想做的事。花费更多计算资源（无论是在线还是离线）通常会导致更好的结果（例如，通过大量调用前沿推理模型来频繁合成和整合记忆）。但得分最高的解决方案并不总是最适合投入生产的方案。</li>
+<li>应支持归因（例如，识别记忆系统的哪个部分导致了损失），以便评估能够实际指导质量提升。</li>
+</ul>
+<h2 id="section-6">结论</h2>
+<p>大多数 AI 记忆系统是基于个人想象自上而下设计的。但这是本末倒置。我们不应该从系统设计开始。相反，我们应该从生存环境开始。</p>
+<p>像这样的评估会迅速暴露许多方法的弱点。胜出的很可能是一个混合体，它结合了若干基于第一性原理的工程组件、巧妙的技巧以及多个变量之间的整体权衡。</p>
+<p>但哪个系统会胜出并不是重点。重点是我们不应该试图设计胜出者，而应该让环境压力促使胜出者涌现。</p>
+<p>生成式 AI 使用声明：由 ChatGPT 优化。</p></div>
+        </section>
+      </div>
+      
+      <section class="source-card reveal">
+        <div><p class="eyebrow">ORIGINAL SOURCE</p><h2>继续查看原文</h2><p>中文译文用于高效理解；需要核对语境、图表或引用时，请返回作者原始页面。</p></div>
+        <a href="https://linghao.io/posts/memory-systems-should-be-evolved" target="_blank" rel="noopener noreferrer">访问文章原文 <span>↗</span></a>
+      </section>
+    </article>
+  </main>
+  <footer class="site-footer"><span><i></i> LOCAL-FIRST · WINDOWS 11</span><span>INFO COLLECTOR / READING DESK</span></footer>
+  <script src="../assets/app.js" defer></script>
+</body>
+</html>

@@ -15,10 +15,10 @@
   translate-flow.py --check    自检：配置、目录、API Key 有效性，不翻译
 """
 
-import fcntl
 from html.parser import HTMLParser
 import json
 import os
+from pathlib import Path
 import random
 import re
 import shutil
@@ -30,7 +30,17 @@ import time
 import urllib.error
 import urllib.request
 
-SPOOL = os.path.expanduser("~/.info-collector")
+try:
+    from info_collector_platform import acquire_lock as acquire_file_lock
+    from info_collector_platform import release_lock, user_home
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from info_collector_platform import acquire_lock as acquire_file_lock
+    from info_collector_platform import release_lock, user_home
+
+
+HOME = user_home()
+SPOOL = str(HOME / ".info-collector")
 CONFIG_FILE = os.path.join(SPOOL, "config.json")
 OUTBOX_FILE = os.path.join(SPOOL, "outbox", "translate.json")
 INBOX_DIR = os.path.join(SPOOL, "inbox")
@@ -58,6 +68,26 @@ FETCH_TIMEOUT = 45
 DEFUDDLE_TIMEOUT = 90
 MAX_FETCH_BYTES = 2_000_000
 MAX_DEEPSEEK_INPUT_CHARS = 180_000
+MAX_REPAIR_INPUT_CHARS = 180_000
+REJECTED_PREVIEW_CHARS = 500
+MAX_SUMMARY_CHARS = 240
+MAX_TAGS = 5
+
+CANONICAL_TAGS = (
+    "人工智能", "世界模型", "机器人", "具身智能", "大模型", "智能体", "多模态",
+    "模型评估", "记忆系统", "推理", "训练", "数据", "芯片", "开源", "产品",
+    "产业动态", "学术研究",
+)
+
+ENRICHMENT_RULES = (
+    "除翻译外，还要完成信息提炼：frontmatter 必须包含一行 summary，"
+    "用 80-160 个简体中文字符概括文章的核心事实或主张；必须包含一行 tags，"
+    "格式严格为 JSON 风格数组，例如 tags: [\"智能体\", \"模型评估\"]。"
+    "给出 2-5 个简短标签，优先复用以下规范标签："
+    + "、".join(CANONICAL_TAGS)
+    + "。确有必要时才创建新标签。frontmatter 后、完整译文前加入「## 摘要」小节，"
+      "正文使用与 summary 相同的摘要。"
+)
 
 TRIGGER = "manual" if "--manual" in sys.argv else "scheduled"
 
@@ -66,10 +96,30 @@ SYSTEM_PROMPT = (
     "把正文完整翻译成自然通顺的简体中文 Markdown。规则："
     "代码块、命令、路径原样保留不翻译；图片保留原远程链接；"
     "文章主标题用「中文（English）」双语形式。"
+    + ENRICHMENT_RULES +
     "你的最终回复必须只包含完成的 Markdown 文档本身"
     "（以 --- 开头的 YAML frontmatter 开始），"
     "不要有任何解释、前言或代码围栏。"
 )
+
+
+def configure_text_stdio():
+    """Keep all console output alive on legacy Windows code pages."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except (AttributeError, OSError, ValueError):
+            pass
+
+
+def safe_console_print(text):
+    """Print text without allowing a narrow console encoding to abort a run."""
+    try:
+        print(text, flush=True)
+    except UnicodeEncodeError:
+        encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+        safe_text = text.encode(encoding, errors="backslashreplace").decode(encoding)
+        print(safe_text, flush=True)
 
 
 def log(msg):
@@ -77,7 +127,7 @@ def log(msg):
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{ts}] {msg}\n")
-    print(f"[{ts}] {msg}", flush=True)
+    safe_console_print(f"[{ts}] {msg}")
 
 
 def atomic_write_json(path, obj):
@@ -111,7 +161,7 @@ def load_config():
                       cfg.get("apiBase") or defaults["baseUrl"]).rstrip("/")
     if not cfg.get("model") or model_looks_like_other_provider(cfg.get("model", ""), provider):
         cfg["model"] = defaults["model"]
-    cfg.setdefault("outputDir", "~/Documents/InfoCollector")
+    cfg.setdefault("outputDir", str(HOME / "Documents" / "InfoCollector"))
     return cfg
 
 
@@ -225,7 +275,7 @@ def translate_article_anthropic(url, title, cfg):
         f"frontmatter 需包含：title（中文标题）、source（原文 URL）、"
         f"published（原文发布日期，YYYY-MM-DD，找不到就留空）、"
         f"date: {now_local}（收录时间，原样使用这个值）、"
-        f"authors（作者，找不到就留空）。"
+        f"authors（作者，找不到就留空）、summary 和 tags。"
     )
     messages = [{"role": "user", "content": user_prompt}]
     payload = {
@@ -367,7 +417,7 @@ def fetch_article_with_builtin(url):
     req = urllib.request.Request(
         url,
         headers={
-            "user-agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "user-agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                            "AppleWebKit/537.36 (KHTML, like Gecko) "
                            "Chrome/126.0 Safari/537.36 InfoCollector/1.0"),
             "accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
@@ -418,6 +468,7 @@ def translate_article_deepseek(url, title, cfg):
         "请把正文完整翻译成自然通顺的简体中文 Markdown。规则："
         "代码块、命令、路径原样保留不翻译；图片链接如正文中出现则保留；"
         "文章主标题用「中文（English）」双语形式。"
+        + ENRICHMENT_RULES +
         "你的最终回复必须只包含完成的 Markdown 文档本身"
         "（以 --- 开头的 YAML frontmatter 开始），"
         "不要有任何解释、前言或代码围栏。"
@@ -432,7 +483,7 @@ def translate_article_deepseek(url, title, cfg):
         f"frontmatter 需包含：title（中文标题）、source（原文 URL）、"
         f"published（优先使用上面的原文发布日期，YYYY-MM-DD，找不到就留空）、"
         f"date: {now_local}（收录时间，原样使用这个值）、"
-        f"authors（优先使用上面的作者，找不到就留空）。{truncated}\n\n"
+        f"authors（优先使用上面的作者，找不到就留空）、summary 和 tags。{truncated}\n\n"
         f"原文提取文本：\n\n{article_text}"
     )
     payload = {
@@ -459,8 +510,256 @@ def translate_article_deepseek(url, title, cfg):
 
 
 def strip_code_fence(text):
-    m = re.match(r"^```(?:markdown|md)?\n(.*)\n```$", text, re.DOTALL)
-    return m.group(1) if m else text
+    text = text.lstrip("\ufeff").strip()
+    match = re.match(
+        r"\A```(?:markdown|md|yaml)?[ \t]*\r?\n(.*?)\r?\n```[ \t]*\Z",
+        text,
+        re.DOTALL | re.IGNORECASE,
+    )
+    return match.group(1).strip() if match else text
+
+
+def normalize_markdown_document(text):
+    """Return a document beginning with real YAML, tolerating model wrappers."""
+    text = strip_code_fence(text)
+    separators = list(re.finditer(r"(?m)^---[ \t]*\r?$", text))
+
+    # Some models emit a valid opening delimiter and all required fields, then
+    # jump directly to "## 摘要" without the closing delimiter. This is fully
+    # repairable locally and should not discard the translation or spend a
+    # second API request.
+    if len(separators) == 1:
+        start = separators[0]
+        tail = text[start.end():]
+        body_heading = re.search(r"(?m)^#{1,6}[ \t]+\S", tail)
+        if body_heading:
+            header = tail[:body_heading.start()]
+            required = ("title", "source", "summary", "tags")
+            if all(re.search(rf"(?m)^{field}:\s*", header) for field in required):
+                prefix = text[:start.start()]
+                has_outer_fence = bool(re.search(
+                    r"```(?:markdown|md|yaml)?[ \t]*\r?\n[ \t]*\Z",
+                    prefix,
+                    re.IGNORECASE,
+                ))
+                body = tail[body_heading.start():].strip()
+                if has_outer_fence:
+                    body = re.sub(r"\r?\n```[ \t]*\Z", "", body).strip()
+                return "---\n" + header.strip("\r\n") + "\n---\n\n" + body
+
+    for index in range(len(separators) - 1):
+        start = separators[index]
+        end = separators[index + 1]
+        header = text[start.end():end.start()]
+        if not re.search(r"(?m)^title:\s*", header):
+            continue
+        if not re.search(r"(?m)^source:\s*", header):
+            continue
+        prefix = text[:start.start()]
+        has_outer_fence = bool(re.search(
+            r"```(?:markdown|md|yaml)?[ \t]*\r?\n[ \t]*\Z",
+            prefix,
+            re.IGNORECASE,
+        ))
+        document = text[start.start():].strip()
+        # Strip the trailing fence only when the discarded prefix contained
+        # the matching outer fence; a real article may legitimately end in a
+        # code block whose closing fence must be preserved.
+        if has_outer_fence:
+            document = re.sub(r"\r?\n```[ \t]*\Z", "", document).strip()
+        return document
+    raise RuntimeError("译文缺少 YAML frontmatter")
+
+
+TAG_ALIASES = {
+    "ai": "人工智能",
+    "artificial intelligence": "人工智能",
+    "llm": "大模型",
+    "llms": "大模型",
+    "large language model": "大模型",
+    "large language models": "大模型",
+    "大语言模型": "大模型",
+    "agent": "智能体",
+    "agents": "智能体",
+    "ai agent": "智能体",
+    "ai agents": "智能体",
+    "eval": "模型评估",
+    "evals": "模型评估",
+    "evaluation": "模型评估",
+    "model evaluation": "模型评估",
+    "memory": "记忆系统",
+    "memory system": "记忆系统",
+    "memory systems": "记忆系统",
+    "robotics": "机器人",
+    "embodied ai": "具身智能",
+    "world model": "世界模型",
+    "world models": "世界模型",
+}
+
+
+def parse_frontmatter_scalar(raw):
+    raw = raw.strip()
+    if not raw:
+        return ""
+    try:
+        value = json.loads(raw)
+        return value if isinstance(value, str) else str(value)
+    except json.JSONDecodeError:
+        return raw.strip("'\"")
+
+
+def normalize_tag(tag):
+    tag = re.sub(r"\s+", " ", str(tag)).strip().lstrip("#＃").strip()
+    tag = TAG_ALIASES.get(tag.casefold(), tag)
+    return tag[:24].strip()
+
+
+def extract_enrichment(markdown):
+    """Extract the bounded Summary/Tags contract from Markdown frontmatter."""
+    match = re.match(r"\A---\s*\r?\n(.*?)\r?\n---(?:\r?\n|\Z)", markdown, re.DOTALL)
+    if not match:
+        raise RuntimeError("译文缺少 YAML frontmatter")
+    frontmatter = match.group(1)
+
+    summary_match = re.search(r"(?m)^summary:\s*(.*)$", frontmatter)
+    summary = parse_frontmatter_scalar(summary_match.group(1)) if summary_match else ""
+    summary = re.sub(r"\s+", " ", summary).strip()
+    if len(summary) > MAX_SUMMARY_CHARS:
+        summary = summary[:MAX_SUMMARY_CHARS - 1].rstrip() + "…"
+    if not summary:
+        raise RuntimeError("译文 frontmatter 缺少 summary")
+
+    tags = []
+    tags_match = re.search(r"(?m)^tags:\s*(.*)$", frontmatter)
+    if tags_match:
+        raw_tags = tags_match.group(1).strip()
+        if raw_tags:
+            try:
+                parsed = json.loads(raw_tags)
+                tags = parsed if isinstance(parsed, list) else [parsed]
+            except json.JSONDecodeError:
+                tags = [part.strip(" '\"") for part in re.split(r"[,，]", raw_tags.strip("[]"))]
+        else:
+            tail = frontmatter[tags_match.end():]
+            tags = re.findall(r"(?m)^\s*-\s*(.+?)\s*$", tail)
+
+    normalized = []
+    seen = set()
+    for tag in tags:
+        clean = normalize_tag(tag)
+        key = clean.casefold()
+        if clean and key not in seen:
+            normalized.append(clean)
+            seen.add(key)
+        if len(normalized) == MAX_TAGS:
+            break
+    if len(normalized) < 2:
+        raise RuntimeError("译文 frontmatter 至少需要 2 个有效 tags")
+    return {"summary": summary, "tags": normalized}
+
+
+def ensure_summary_section(markdown, summary):
+    if re.search(r"(?m)^##\s+摘要\s*$", markdown):
+        return markdown
+    match = re.match(r"\A---\s*\r?\n.*?\r?\n---\s*", markdown, re.DOTALL)
+    if not match:
+        return markdown
+    return markdown[:match.end()].rstrip() + f"\n\n## 摘要\n\n{summary}\n\n" + markdown[match.end():].lstrip()
+
+
+def repair_markdown_output(markdown, url, title, cfg):
+    """Ask the configured model once to repair structure without re-fetching."""
+    if len(markdown) > MAX_REPAIR_INPUT_CHARS:
+        raise RuntimeError("模型输出过长，无法安全执行格式修复")
+    now_local = time.strftime("%Y-%m-%dT%H:%M")
+    system_prompt = (
+        "你是一名 Markdown 格式修复器。保留输入中的中文译文内容与信息，不要删减正文，"
+        "只修复文档结构。输出必须直接以 --- 开头，不要代码围栏、解释或前言。"
+        + ENRICHMENT_RULES
+    )
+    user_prompt = (
+        f"来源 URL: {url}\n"
+        f"书签标题: {title}\n"
+        f"收录时间: {now_local}\n\n"
+        "下面是一次模型生成的译文，但它的文档结构不符合要求。"
+        "请保留全文并修复为完整 Markdown：\n\n"
+        + markdown
+    )
+
+    if cfg["provider"] == "deepseek":
+        payload = {
+            "model": cfg["model"],
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_tokens": MAX_TOKENS,
+            "stream": False,
+            "temperature": 0,
+        }
+        if cfg["model"].startswith("deepseek-v4"):
+            payload["thinking"] = {"type": "disabled"}
+        resp = deepseek_request("/chat/completions", payload, cfg)
+        choice = (resp.get("choices") or [{}])[0]
+        repaired = ((choice.get("message") or {}).get("content") or "").strip()
+        if not repaired:
+            raise RuntimeError("DeepSeek 格式修复响应为空")
+        if choice.get("finish_reason") == "length":
+            raise RuntimeError("格式修复输出超出上限")
+        return repaired
+
+    if cfg["provider"] == "anthropic":
+        resp = anthropic_request("/v1/messages", {
+            "model": cfg["model"],
+            "max_tokens": MAX_TOKENS,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_prompt}],
+        }, cfg)
+        if resp.get("stop_reason") == "max_tokens":
+            raise RuntimeError("格式修复输出超出上限")
+        repaired = "\n".join(
+            block.get("text", "")
+            for block in resp.get("content", [])
+            if block.get("type") == "text"
+        ).strip()
+        if not repaired:
+            raise RuntimeError("Anthropic 格式修复响应为空")
+        return repaired
+
+    raise RuntimeError(f"不支持的 API provider：{cfg['provider']}")
+
+
+def rejected_output_preview(text):
+    preview = re.sub(r"\s+", " ", text).strip()
+    return preview[:REJECTED_PREVIEW_CHARS]
+
+
+def prepare_enriched_markdown(markdown, url, title, cfg):
+    """Normalize, validate, and at most once repair a model-produced document."""
+    try:
+        document = normalize_markdown_document(markdown)
+        enrichment = extract_enrichment(document)
+    except RuntimeError as first_error:
+        log(f"模型输出格式不合规，执行一次自动修复：{first_error}")
+        repaired = None
+        try:
+            repaired = repair_markdown_output(markdown, url, title, cfg)
+            document = normalize_markdown_document(repaired)
+            enrichment = extract_enrichment(document)
+        except Exception as repair_error:
+            log(
+                "格式修复仍失败；原始输出安全预览："
+                f"{rejected_output_preview(markdown)}"
+            )
+            if repaired:
+                log(
+                    "格式修复输出安全预览："
+                    f"{rejected_output_preview(repaired)}"
+                )
+            raise RuntimeError(f"模型输出格式修复失败：{repair_error}") from repair_error
+        log("模型输出格式自动修复成功")
+    document = ensure_summary_section(document, enrichment["summary"])
+    return document, enrichment
 
 
 # ===== 落盘 =====
@@ -513,14 +812,7 @@ def update_status(patch):
 
 
 def acquire_lock():
-    os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
-    fd = os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o644)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        return fd
-    except BlockingIOError:
-        os.close(fd)
-        return None
+    return acquire_file_lock(LOCK_FILE)
 
 
 # ===== 自检 =====
@@ -530,7 +822,8 @@ def run_check():
     ok = True
     cfg = load_config()
     if not os.path.exists(CONFIG_FILE):
-        print(f"✕ 配置文件不存在：{CONFIG_FILE}（运行 scripts/setup.sh）")
+        setup_name = "scripts/setup.ps1" if os.name == "nt" else "scripts/setup.sh"
+        print(f"✕ 配置文件不存在：{CONFIG_FILE}（运行 {setup_name}）")
         ok = False
     elif config_error(cfg):
         print(f"✕ {config_error(cfg)}：{CONFIG_FILE}")
@@ -561,6 +854,7 @@ def run_check():
 # ===== 主流程 =====
 
 def main():
+    configure_text_stdio()
     if "--check" in sys.argv:
         sys.exit(run_check())
 
@@ -569,7 +863,8 @@ def main():
 
     cfg = load_config()
     if not config_ok(cfg):
-        log(f"❌ {config_error(cfg)}，跳过（编辑 ~/.info-collector/config.json 或重跑 setup.sh）")
+        setup_name = "setup.ps1" if os.name == "nt" else "setup.sh"
+        log(f"❌ {config_error(cfg)}，跳过（编辑 ~/.info-collector/config.json 或重跑 {setup_name}）")
         return
     log(f"使用翻译引擎：{cfg['provider']} / {cfg['model']}")
 
@@ -619,9 +914,11 @@ def main():
             now_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             try:
                 md = translate_article(url, title, cfg)
-                path = save_markdown(md, extract_title(md, title), out_dir)
+                md, enrichment = prepare_enriched_markdown(md, url, title, cfg)
+                translated_title = extract_title(md, title)
+                path = save_markdown(md, translated_title, out_dir)
                 results.append({"url": url, "status": "done", "processedAt": now_utc,
-                                "meta": {"savedTo": path}})
+                                "meta": {"savedTo": path, "title": translated_title, **enrichment}})
                 state[a.get("articleKey") or url] = now_utc
                 done += 1
                 log(f"  ✅ 已保存: {path}")
@@ -641,7 +938,7 @@ def main():
         finish("error", error=str(e)[:300])
         raise
     finally:
-        os.close(lock_fd)
+        release_lock(lock_fd)
 
 
 if __name__ == "__main__":

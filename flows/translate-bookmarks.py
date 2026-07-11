@@ -13,9 +13,9 @@
 见 info-collector 仓库 docs/adr/0001、0002、0004。
 """
 
-import fcntl
 import json
 import os
+from pathlib import Path
 import random
 import string
 import subprocess
@@ -23,14 +23,24 @@ import sys
 import tempfile
 import time
 
-SPOOL = os.path.expanduser("~/.info-collector")
+try:
+    from info_collector_platform import acquire_lock as acquire_file_lock
+    from info_collector_platform import release_lock, user_home
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from info_collector_platform import acquire_lock as acquire_file_lock
+    from info_collector_platform import release_lock, user_home
+
+
+HOME = user_home()
+SPOOL = str(HOME / ".info-collector")
 OUTBOX_FILE = os.path.join(SPOOL, "outbox", "translate.json")
 INBOX_DIR = os.path.join(SPOOL, "inbox")
 STATE_FILE = os.path.join(SPOOL, "state", "translate-reported.json")
 STATUS_FILE = os.path.join(SPOOL, "state", "translate-status.json")
-HISTORY_FILE = os.path.expanduser("~/.pi/scripts/action-history.json")
-LOG_FILE = os.path.expanduser("~/.pi/logs/translate-bookmarks.log")
-LOCK_FILE = os.path.expanduser("~/.pi/logs/translate-bookmarks.lock")
+HISTORY_FILE = str(HOME / ".pi" / "scripts" / "action-history.json")
+LOG_FILE = str(HOME / ".pi" / "logs" / "translate-bookmarks.log")
+LOCK_FILE = str(HOME / ".pi" / "logs" / "translate-bookmarks.lock")
 PI_TIMEOUT = 600
 
 TRIGGER = "manual" if "--manual" in sys.argv else "scheduled"
@@ -61,13 +71,7 @@ def append_history(entry):
 
 
 def acquire_lock():
-    fd = os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o644)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        return fd
-    except BlockingIOError:
-        os.close(fd)
-        return None
+    return acquire_file_lock(LOCK_FILE)
 
 
 def atomic_write_json(path, obj):
@@ -195,7 +199,7 @@ def main():
             capture_output=True,
             text=True,
             timeout=PI_TIMEOUT,
-            env={**os.environ, "HOME": os.path.expanduser("~")},
+            env={**os.environ, "HOME": str(HOME)},
         )
         elapsed = time.time() - t_start
         # 退出码 0 还不够：pi 可能子任务失败却仍以 0 退出。要求它按 prompt
@@ -245,7 +249,7 @@ def main():
         finish("error", error=str(e))
         raise
     finally:
-        os.close(lock_fd)
+        release_lock(lock_fd)
 
 
 if __name__ == "__main__":

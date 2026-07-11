@@ -1,94 +1,134 @@
-# Info Collector
+<p align="center">
+  <img src="docs/images/readme-hero.svg" alt="Info Collector — Local Intelligence OS" width="100%">
+</p>
 
-把 Chrome 书签变成本机处理流水线：文章放进「收藏文章」自动翻译成中文
-Markdown；播客 / YouTube 访谈放进「收藏播客」自动生成 TLDR、深度总结和
-全文稿。处理状态在扩展的 Dashboard 里一目了然（待处理 → 处理中 → 已完成），
-跨设备同步。
+<p align="center">
+  <a href="https://madarame87.github.io/INFO/"><strong>在线体验文章情报库 →</strong></a>
+</p>
 
-Dashboard 长这样：状态卡片、流水线运行时间、逐篇文章的状态与操作按钮：
+<p align="center">
+  <a href="SETUP-WINDOWS.md"><img alt="Windows 11" src="https://img.shields.io/badge/Windows_11-supported-2E8B67?style=flat-square"></a>
+  <img alt="Chrome Extension" src="https://img.shields.io/badge/Chrome-Manifest_V3-C65F3D?style=flat-square">
+  <img alt="Local first" src="https://img.shields.io/badge/data-local--first-25221E?style=flat-square">
+  <img alt="Node tests" src="https://img.shields.io/badge/Node_tests-38_passing-2E8B67?style=flat-square">
+  <img alt="Python tests" src="https://img.shields.io/badge/Python_tests-26_passing-2E8B67?style=flat-square">
+</p>
 
-![Info Collector Dashboard：文章处理台账，显示待处理/已完成状态、来源、更新时间和操作按钮](docs/images/dashboard.png)
+<p align="center">
+  <strong>收藏文章 → 抓取正文 → 翻译提炼 → 自动归类 → 生成技术动态周报</strong>
+</p>
 
-## 快速上手（普通用户）
+Info Collector 是一套运行在本机的个人技术情报工作台。你只需要把文章加入 Chrome 的「收藏文章」书签文件夹，系统就会把它送入处理队列，生成带有中文翻译、摘要和标签的 Markdown，并在 Dashboard 中持续记录状态。处理后的文章可以一键生成静态阅读库，每周还可以聚合主题排行、同类文章与收录日历。
 
-文章翻译只需要一个 DeepSeek API Key（也支持 Anthropic API Key），三步装好，全程约 10 分钟：
+它不是另一个“稍后读”列表。它把零散阅读转化为一条可追踪、可检索、可复用的研究工作流。
 
-1. 获取 API Key
-2. Chrome 加载扩展
-3. 终端跑 `bash scripts/setup.sh`
+## 产品界面
 
-**手把手图文指南（写给非技术用户）：[SETUP.md](SETUP.md)**
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="Info Collector Windows Dashboard：处理流水线、运行状态和文章情报库" width="100%">
+</p>
 
-也可以让 AI 替你装：把项目文件夹交给 AI 编程助手，说「按 SETUP.md 装好」。
-安装脚本支持非交互模式（`INFO_COLLECTOR_ENGINE=deepseek INFO_COLLECTOR_API_KEY=sk-... bash scripts/setup.sh`），
-装完可用 `translate-flow.py --check` 自检。
+<details>
+<summary><strong>查看文章情报库完整列表</strong></summary>
+<br>
+<p align="center">
+  <img src="docs/images/dashboard-library.png" alt="Info Collector 文章情报库：摘要、标签、状态与操作" width="100%">
+</p>
+</details>
 
-播客流是可选的，需要本机已安装 `pi` CLI。装好文章流后再运行：
+## 它能做什么
 
-```bash
-bash scripts/setup-pi-podcast-flow.sh
+<p align="center">
+  <img src="docs/images/readme-capabilities.svg" alt="Info Collector 六项核心能力：收藏入队、AI 翻译提炼、状态追踪、标签化情报库、本地 Markdown 和技术动态周报" width="100%">
+</p>
+
+## 从收藏到周报
+
+<p align="center">
+  <img src="docs/images/readme-workflow.svg" alt="Info Collector 技术情报流水线：收藏文章、导入桥接、翻译提炼、文章情报库、技术动态周报" width="100%">
+</p>
+
+扩展是任务状态的唯一事实来源。本地处理流通过 `~/.info-collector/` 下的 outbox / inbox 文件契约与扩展交换数据，因此浏览器界面、模型调用与 Markdown 产物彼此解耦。
+
+## Windows 11 快速开始
+
+### 1. 下载并进入项目
+
+```powershell
+git clone https://github.com/Madarame87/INFO.git
+cd INFO
 ```
 
-之后把 YouTube / 播客页面收藏到 Chrome 书签文件夹「收藏播客」，Dashboard 里选
-`播客 (podcast)` 可以查看状态并点「立即处理」。
+> 当前 Windows 功能正在 `agent/windows-port` / Draft PR #1 中验收。合并前体验最新版时，请先切换该分支：`git switch agent/windows-port`。
 
-## 工作原理
+### 2. 运行安装器
 
-```
-Chrome 书签「收藏文章」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 翻译流（DeepSeek/Claude API）
-                                                              ↓
-                                                     ~/Documents/InfoCollector/*.md
-
-Chrome 书签「收藏播客」 → 扩展（队列 + Dashboard） ⇄ 文件桥 ⇄ 播客流（transcript + pi）
-                                                              ↓
-                                                     Obsidian「播客收集」三件套
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 ```
 
-- **扩展**（MV3）是唯一事实来源：从书签只读导入，状态存 `chrome.storage.sync`
-  跨设备同步；书签本身永远不会被修改。
-- **翻译流**是普通本机脚本，经 `~/.info-collector/` 下的文件契约与扩展
-  交换数据（outbox 待处理清单 / inbox 完成报告），由 launchd 每小时调度，
-  也可在 Dashboard 里点「▶ 立即处理」立刻触发。
-- 内置翻译流支持 DeepSeek API 和 Claude API。DeepSeek 路径会优先用本机
-  `defuddle parse --json` 提取正文与 metadata，再调 OpenAI-compatible
-  `/chat/completions`；未安装 defuddle 时退回内置简易抓取器。Claude 路径继续
-  使用 Anthropic Messages API 的服务端 `web_fetch`。
-- 播客流由 `scripts/setup-pi-podcast-flow.sh` 注册，消费 `podcast` 队列；
-  YouTube 会优先复用已有字幕 / transcript，记录频道、频道链接和发布日期，再交给
-  `podcast-digest` Pi skill 写入 Obsidian「播客收集」。
+安装器会引导你设置模型、API Key、输出目录以及 Chrome 扩展。完整截图式步骤与故障排查见 **[Windows 安装指南](SETUP-WINDOWS.md)**。
 
-## 开发者
+### 3. 收藏并处理文章
 
-- 领域语言：[CONTEXT.md](CONTEXT.md) · 总体设计：[docs/design.md](docs/design.md)
-  · 关键决策：[docs/adr/](docs/adr/)
-- 目录：`extension/`（MV3 扩展）· `host/`（native messaging 文件桥）·
-  `flows/`（处理流脚本）· `templates/`（launchd 模板）· `scripts/`（安装）·
-  `test/`（`npm test`，node --test）
-- 配置文件：`~/.info-collector/config.json`（provider / apiKey / baseUrl / model / outputDir）·
-  `~/.info-collector/flows.json`（流程注册表，见 ADR 0004）
-- 内置处理类型：`translate`（书签「收藏文章」，自动入队）· `podcast`
-  （书签「收藏播客」，去重后入队）。
+1. 在 Chrome 中创建「收藏文章」书签文件夹。
+2. 把想处理的文章保存到该文件夹。
+3. 打开 Info Collector Dashboard，依次点击「导入书签」和「桥接同步」。
+4. 点击「立即处理」，完成后查看摘要、标签和本地 Markdown。
+5. 点击「生成并打开阅读库」，浏览关键词、Summary 与完整中文译文。
 
-### 新增一条处理流（文稿、书籍……）
+## 静态文章阅读前台
 
-1. Dashboard → 设置 → 新增处理类型（如 `transcript`）。
-2. 写脚本：读 `~/.info-collector/outbox/transcript.json`，处理完写报告到
-   `~/.info-collector/inbox/<reportId>.json`（原子写：临时文件 + rename）：
+阅读站由本地 Markdown 自动生成，默认输出到：
 
-```json
-{ "reportId": "transcript-20260705T120000-ab12", "processingType": "transcript",
-  "results": [ { "url": "…", "status": "done", "processedAt": "…" } ] }
+```text
+%USERPROFILE%\Documents\InfoCollector\阅读站\index.html
 ```
 
-`status` 支持 `processing`（认领，显示「处理中」）/ `done` / `failed`。
-`flows/translate-claude-api.py` 是完整参考实现（含状态文件、锁、认领报告）。
+索引页提供关键词、全文搜索、摘要预览和响应式文章卡片；单篇页面依次展示关键词、Summary、中文译文、章节目录、阅读进度和原文链接。它不需要数据库，也不会上传 API Key 或私人阅读数据。
 
-3. 想要 Dashboard 的「▶ 立即处理」按钮和运行状态，往
-   `~/.info-collector/flows.json` 加一条注册：
-   `{"command": [...启动命令, "--manual"], "lockFile": "…", "intervalSeconds": 3600}`。
+## 当前支持范围
 
-## 平台支持
+<p align="center">
+  <img src="docs/images/readme-scope.svg" alt="Info Collector Windows 11 已验证范围：原生桥接、文章情报处理和技术动态周报" width="100%">
+</p>
 
-目前仅 macOS（launchd、Chrome native messaging 路径）。Chrome 需要
-以「加载已解压的扩展程序」方式安装（manifest 内置固定 key，所有设备
-上扩展 ID 一致：`fmdbamjmoabmcggjfgeopaijnbjkjbhm`）。
+这个仓库的产品目标明确限定为 **Windows 11 技术文章情报工作流**：从 Chrome 收藏进入队列，到本机生成结构化文章、静态阅读站与技术动态周报。
+
+## 为什么做这个项目
+
+技术信息真正的瓶颈通常不是“找不到文章”，而是读过之后没有形成可以复用的结构。收藏夹会不断增长，重要观点却很难再次被找到，也难以看出某个主题在一周内是否持续升温。
+
+Info Collector 试图补上中间这一层：保留原文入口，同时生成统一的中文摘要与标签，再把个人阅读记录压缩成可回顾的技术动态周报。它既是个人知识工作流，也是一种轻量的行业技术雷达。
+
+## 技术结构
+
+<p align="center">
+  <img src="docs/images/readme-architecture.svg" alt="Info Collector 技术结构：Chrome MV3 扩展、Windows 文件桥、文章处理流和本地 Markdown 产物" width="100%">
+</p>
+
+- 架构说明：[docs/design.md](docs/design.md)
+- 领域语言：[CONTEXT.md](CONTEXT.md)
+- 关键决策：[docs/adr/](docs/adr/)
+- Windows 迁移清单：[docs/windows-porting-checklist.md](docs/windows-porting-checklist.md)
+- 原始目标与当前产品方向自查：[docs/goal-audit-2026-07-11.md](docs/goal-audit-2026-07-11.md)
+
+## 开发与验证
+
+```powershell
+npm.cmd test
+```
+
+当前回归覆盖 URL 归一化、队列状态机、跨端同步、摘要标签、异常模型输出、周报聚合、Windows UTF-8 输出和页面 ID 契约。
+
+## Roadmap · 已完成
+
+<p align="center">
+  <img src="docs/images/readme-validation.svg" alt="Info Collector 验证结果与已完成 Roadmap：38 个 Node 测试、26 个 Python 测试、Windows Native Host 与五项已交付能力" width="100%">
+</p>
+
+---
+
+<p align="center">
+  <sub>Local-first · Windows-native · Built for repeatable intelligence work</sub>
+</p>

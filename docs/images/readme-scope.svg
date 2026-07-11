@@ -1,0 +1,11 @@
+<svg width="1440" height="390" viewBox="0 0 1440 390" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1440" height="390" rx="28" fill="#F4F1EA"/>
+  <rect x="32" y="32" width="1376" height="326" rx="22" fill="#FFFDF8" stroke="#DDD5C8"/>
+  <text x="72" y="82" fill="#8A8175" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="3">WINDOWS 11 · VERIFIED SCOPE</text>
+  <text x="72" y="122" fill="#25221E" font-family="Georgia, Microsoft YaHei, serif" font-size="30">只做一条完整、可验收的技术情报链路</text>
+  <g font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
+    <g transform="translate(72 164)"><rect width="408" height="142" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/><circle cx="44" cy="42" r="12" fill="#2E8B67"/><path d="M38 42L42 46L50 37" stroke="white" stroke-width="2" fill="none"/><text x="72" y="48" fill="#25221E" font-size="20" font-weight="700">Windows 原生桥接</text><text x="28" y="88" fill="#665E54" font-size="15">安装器、Native Host、UTF-8 子进程</text><text x="28" y="114" fill="#665E54" font-size="15">与 Dashboard 手动触发均已验证。</text></g>
+    <g transform="translate(516 164)"><rect width="408" height="142" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/><circle cx="44" cy="42" r="12" fill="#2E8B67"/><path d="M38 42L42 46L50 37" stroke="white" stroke-width="2" fill="none"/><text x="72" y="48" fill="#25221E" font-size="20" font-weight="700">文章情报处理</text><text x="28" y="88" fill="#665E54" font-size="15">真实文章抓取、翻译、摘要、标签、</text><text x="28" y="114" fill="#665E54" font-size="15">检索与 Markdown 输出已端到端通过。</text></g>
+    <g transform="translate(960 164)"><rect width="408" height="142" rx="16" fill="#EAF3ED" stroke="#AED0BC"/><circle cx="44" cy="42" r="12" fill="#2E8B67"/><path d="M38 42L42 46L50 37" stroke="white" stroke-width="2" fill="none"/><text x="72" y="48" fill="#25221E" font-size="20" font-weight="700">阅读前台与周报</text><text x="28" y="88" fill="#665E54" font-size="15">本机生成静态文章阅读站，并确定性</text><text x="28" y="114" fill="#665E54" font-size="15">聚合主题排行与每日收录日历。</text></g>
+  </g>
+</svg>

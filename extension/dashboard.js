@@ -1,6 +1,7 @@
 // Dashboard：读操作直接走 storage 层，全部写操作发消息给 service worker 串行执行。
 
 import * as store from './lib/storage.js';
+import { collectTagCounts, jobSummary, jobTags } from './lib/enrichment.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -10,7 +11,7 @@ let meta;
 let active = new Map();
 let archive = new Map();
 let flows = {};
-const view = { type: '', status: '', q: '', archived: false };
+const view = { type: '', status: '', tag: '', q: '', archived: false };
 
 async function refresh() {
   meta = await store.loadMeta();
@@ -21,6 +22,7 @@ async function refresh() {
   renderTypeSelects();
   renderTiles();
   renderRuns();
+  renderTagControls();
   renderTable();
 }
 
@@ -51,6 +53,22 @@ function renderTiles() {
   $('n-done').textContent = counts.done;
   $('n-ignored').textContent = counts.ignored;
   $('n-archived').textContent = archive.size;
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  const status = $('hero-status');
+  const substatus = $('hero-substatus');
+  if (counts.failed) {
+    document.body.dataset.health = 'alert';
+    status.textContent = `${counts.failed} 条任务需要关注`;
+    substatus.textContent = `其余 ${Math.max(total - counts.failed, 0)} 条记录保持正常`;
+  } else if (counts.processing) {
+    document.body.dataset.health = 'busy';
+    status.textContent = `${counts.processing} 条任务正在处理中`;
+    substatus.textContent = `本地流程运行中 · 已完成 ${counts.done} 条`;
+  } else {
+    document.body.dataset.health = 'healthy';
+    status.textContent = counts.pending ? `${counts.pending} 条情报等待处理` : '本地情报系统运行正常';
+    substatus.textContent = `当前视图 ${total} 条 · 已完成 ${counts.done} 条 · 无运行故障`;
+  }
   store.quotaUsage().then(({ bytes, total }) => {
     const pct = Math.round((bytes / total) * 100);
     $('quota-text').textContent = `${(bytes / 1024).toFixed(1)} / ${(total / 1024).toFixed(0)} KB（${pct}%）`;
@@ -64,6 +82,7 @@ const OUTCOME_TEXT = {
   success: '✓ 成功', failed: '✕ 失败', empty: '空队列', running: '运行中',
   'no-outbox': 'outbox 缺失', error: '✕ 出错',
 };
+const SPECIAL_FLOW_LABELS = { 'weekly-report': '周报', 'reading-site': '阅读站' };
 
 function fmtTime(iso) {
   if (!iso) return '?';
@@ -100,7 +119,7 @@ async function renderRuns() {
   }
 
   for (const [type, f] of Object.entries(flows)) {
-    const label = `${meta.types[type]?.label || type}流`;
+    const label = `${SPECIAL_FLOW_LABELS[type] || meta.types[type]?.label || type}流`;
     const st = f.status || {};
     const lr = st.lastRun;
     let info;
@@ -118,6 +137,13 @@ async function renderRuns() {
       let next = new Date(st.lastScheduledStartAt).getTime() + f.intervalSeconds * 1000;
       while (next < Date.now()) next += f.intervalSeconds * 1000;
       info += `<span class="st-next">下次定时 ≈ ${fmtTime(new Date(next).toISOString())}</span>`;
+    }
+    if (type === 'weekly-report' && lr?.latestReport) {
+      const reportName = lr.latestReport.split(/[\\/]/).pop();
+      info += `<span class="st-next" title="${escapeAttr(lr.latestReport)}">输出：${escapeHtml(reportName)}</span>`;
+    }
+    if (type === 'reading-site' && lr?.siteIndex) {
+      info += `<span class="st-next" title="${escapeAttr(lr.siteIndex)}">输出：本地文章阅读库</span>`;
     }
     stations.push(stationEl(label, info, state));
   }
@@ -137,11 +163,43 @@ function matches(rec) {
   const j = rec.jobs[view.type];
   if (!j) return false;
   if (view.status && (!j || j.status !== view.status)) return false;
+  const tags = jobTags(j);
+  if (view.tag && !tags.includes(view.tag)) return false;
   if (view.q) {
     const q = view.q.toLowerCase();
-    if (!rec.title.toLowerCase().includes(q) && !rec.url.toLowerCase().includes(q)) return false;
+    const haystack = [rec.title, rec.url, jobSummary(j), ...tags].join('\n').toLowerCase();
+    if (!haystack.includes(q)) return false;
   }
   return true;
+}
+
+function renderTagControls() {
+  const records = [...active.values()];
+  if (view.archived) records.push(...archive.values());
+  const counts = collectTagCounts(records, view.type);
+  if (view.tag && !counts.has(view.tag)) view.tag = '';
+
+  const select = $('f-tag');
+  select.innerHTML = '<option value="">全部标签</option>';
+  for (const [tag, count] of counts) {
+    const opt = document.createElement('option');
+    opt.value = tag;
+    opt.textContent = `${tag}（${count}）`;
+    select.appendChild(opt);
+  }
+  select.value = view.tag;
+
+  const groups = $('tag-groups');
+  groups.innerHTML = '';
+  groups.hidden = counts.size === 0;
+  $('tag-cloud-wrap').hidden = counts.size === 0;
+  for (const [tag, count] of counts) {
+    const button = document.createElement('button');
+    button.className = 'tag-chip' + (tag === view.tag ? ' active' : '');
+    button.dataset.tag = tag;
+    button.textContent = `${tag} ${count}`;
+    groups.appendChild(button);
+  }
 }
 
 function renderTable() {
@@ -151,6 +209,7 @@ function renderTable() {
     for (const rec of archive.values()) if (matches(rec)) rows.push({ rec, archived: true });
   }
   rows.sort((a, b) => (a.rec.updatedAt < b.rec.updatedAt ? 1 : -1));
+  $('visible-count').textContent = rows.length;
 
   const tbody = $('rows');
   tbody.innerHTML = '';
@@ -162,6 +221,26 @@ function renderTable() {
 
     const tdA = document.createElement('td');
     tdA.innerHTML = `<div class="title"><a href="${escapeAttr(rec.url)}" target="_blank" rel="noopener">${escapeHtml(rec.title || '(无标题)')}</a>${archived ? '<span class="badge-archived">归档</span>' : ''}</div><div class="url">${escapeHtml(rec.articleKey)}</div>`;
+    const summary = jobSummary(rec.jobs[view.type]);
+    if (summary) {
+      const div = document.createElement('div');
+      div.className = 'article-summary';
+      div.textContent = summary;
+      tdA.appendChild(div);
+    }
+    const tags = jobTags(rec.jobs[view.type]);
+    if (tags.length) {
+      const div = document.createElement('div');
+      div.className = 'article-tags';
+      for (const tag of tags) {
+        const button = document.createElement('button');
+        button.className = 'tag-chip';
+        button.dataset.tag = tag;
+        button.textContent = tag;
+        div.appendChild(button);
+      }
+      tdA.appendChild(div);
+    }
 
     const tdS = document.createElement('td');
     const j = rec.jobs[view.type];
@@ -213,6 +292,13 @@ function opBtn(label, op) {
 }
 
 $('rows').addEventListener('click', async (e) => {
+  const tagButton = e.target.closest('button[data-tag]');
+  if (tagButton) {
+    view.tag = tagButton.dataset.tag;
+    renderTagControls();
+    renderTable();
+    return;
+  }
   const btn = e.target.closest('button[data-op]');
   if (!btn) return;
   const key = btn.closest('tr').dataset.key;
@@ -242,6 +328,14 @@ $('rows').addEventListener('click', async (e) => {
     await send({ cmd: 'setJobStatus', keys: [key], type: view.type, status: op });
   }
   refresh();
+});
+
+$('tag-groups').addEventListener('click', (e) => {
+  const button = e.target.closest('button[data-tag]');
+  if (!button) return;
+  view.tag = view.tag === button.dataset.tag ? '' : button.dataset.tag;
+  renderTagControls();
+  renderTable();
 });
 
 async function send(msg) {
@@ -280,6 +374,54 @@ $('btn-bridge').addEventListener('click', async () => {
   refresh();
 });
 
+$('btn-weekly').addEventListener('click', async () => {
+  toast('正在生成本周周报…');
+  const r = await send({ cmd: 'triggerFlow', type: 'weekly-report' });
+  if (!r?.ok) {
+    toast(`✕ 周报启动失败：${r?.error || '未知错误'}（请重新运行 scripts/setup.ps1）`);
+    return;
+  }
+  if (r.alreadyRunning) {
+    toast('⏳ 周报流程已在运行中');
+    return;
+  }
+  toast('✓ 周报流程已启动，稍后自动刷新结果');
+  setTimeout(async () => {
+    await send({ cmd: 'bridgeNow' });
+    await refresh();
+    const lastRun = flows['weekly-report']?.status?.lastRun;
+    if (lastRun?.outcome === 'success' || lastRun?.outcome === 'empty') {
+      toast(`✓ 本周周报已生成：${lastRun.count || 0} 篇`);
+    } else if (lastRun?.outcome === 'error') {
+      toast(`✕ 周报生成失败：${lastRun.error || '查看 weekly-report.log'}`);
+    }
+  }, 1500);
+});
+
+$('btn-reader').addEventListener('click', async () => {
+  toast('正在构建文章阅读库…');
+  const r = await send({ cmd: 'triggerFlow', type: 'reading-site' });
+  if (!r?.ok) {
+    toast(`✕ 阅读库启动失败：${r?.error || '未知错误'}（请重新运行 scripts/setup.ps1）`);
+    return;
+  }
+  if (r.alreadyRunning) {
+    toast('⏳ 阅读库正在生成中');
+    return;
+  }
+  toast('✓ 阅读库正在生成，完成后会自动打开');
+  setTimeout(async () => {
+    await send({ cmd: 'bridgeNow' });
+    await refresh();
+    const lastRun = flows['reading-site']?.status?.lastRun;
+    if (lastRun?.outcome === 'success' || lastRun?.outcome === 'empty') {
+      toast(`✓ 阅读库已更新：${lastRun.count || 0} 篇文章`);
+    } else if (lastRun?.outcome === 'error') {
+      toast(`✕ 阅读库生成失败：${lastRun.error || '查看 reading-site.log'}`);
+    }
+  }, 1500);
+});
+
 $('btn-bulk').addEventListener('click', () => {
   $('bulk-type').value = view.type;
   $('bulk-urls').value = '';
@@ -310,10 +452,21 @@ $('btn-export').addEventListener('click', () => {
   URL.revokeObjectURL(a.href);
 });
 
-$('f-type').addEventListener('change', (e) => { view.type = e.target.value; renderTiles(); renderTable(); });
+$('f-type').addEventListener('change', (e) => {
+  view.type = e.target.value;
+  view.tag = '';
+  renderTiles();
+  renderTagControls();
+  renderTable();
+});
 $('f-status').addEventListener('change', (e) => { view.status = e.target.value; renderTable(); });
+$('f-tag').addEventListener('change', (e) => { view.tag = e.target.value; renderTagControls(); renderTable(); });
 $('f-q').addEventListener('input', (e) => { view.q = e.target.value.trim(); renderTable(); });
-$('f-archived').addEventListener('change', (e) => { view.archived = e.target.checked; renderTable(); });
+$('f-archived').addEventListener('change', (e) => {
+  view.archived = e.target.checked;
+  renderTagControls();
+  renderTable();
+});
 
 $('s-folders-save').addEventListener('click', async () => {
   const folders = $('s-folders').value.split(/[,，]/).map((s) => s.trim()).filter(Boolean);

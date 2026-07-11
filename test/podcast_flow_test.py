@@ -13,9 +13,9 @@ FLOW_PATH = ROOT / "flows" / "podcast-bookmarks.py"
 
 
 def import_flow(home):
-    old_home = os.environ.get("HOME")
+    old_home = os.environ.get("INFO_COLLECTOR_HOME")
     old_argv = sys.argv[:]
-    os.environ["HOME"] = str(home)
+    os.environ["INFO_COLLECTOR_HOME"] = str(home)
     sys.argv = ["podcast-bookmarks.py"]
     try:
         spec = importlib.util.spec_from_file_location("podcast_flow_under_test", FLOW_PATH)
@@ -25,20 +25,29 @@ def import_flow(home):
     finally:
         sys.argv = old_argv
         if old_home is None:
-            os.environ.pop("HOME", None)
+            os.environ.pop("INFO_COLLECTOR_HOME", None)
         else:
-            os.environ["HOME"] = old_home
+            os.environ["INFO_COLLECTOR_HOME"] = old_home
 
 
 def install_fake_defuddle(home, payload):
     bin_dir = home / "bin"
     bin_dir.mkdir(exist_ok=True)
-    script = bin_dir / "defuddle"
-    script.write_text(f"""#!/usr/bin/env python3
+    implementation = bin_dir / "fake_defuddle.py"
+    implementation.write_text(f"""#!/usr/bin/env python3
 import json
-print(json.dumps({payload!r}, ensure_ascii=False))
+print(json.dumps({payload!r}))
 """, encoding="utf-8")
-    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    if os.name == "nt":
+        script = bin_dir / "defuddle.cmd"
+        script.write_text(
+            f'@echo off\r\n"{sys.executable}" "{implementation}" %*\r\n',
+            encoding="utf-8",
+        )
+    else:
+        script = bin_dir / "defuddle"
+        script.write_text(implementation.read_text(encoding="utf-8"), encoding="utf-8")
+        script.chmod(script.stat().st_mode | stat.S_IXUSR)
     return bin_dir
 
 
