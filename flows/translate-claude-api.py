@@ -68,6 +68,8 @@ FETCH_TIMEOUT = 45
 DEFUDDLE_TIMEOUT = 90
 MAX_FETCH_BYTES = 2_000_000
 MAX_DEEPSEEK_INPUT_CHARS = 180_000
+MAX_REPAIR_INPUT_CHARS = 180_000
+REJECTED_PREVIEW_CHARS = 500
 MAX_SUMMARY_CHARS = 240
 MAX_TAGS = 5
 
@@ -508,8 +510,41 @@ def translate_article_deepseek(url, title, cfg):
 
 
 def strip_code_fence(text):
-    m = re.match(r"^```(?:markdown|md)?\n(.*)\n```$", text, re.DOTALL)
-    return m.group(1) if m else text
+    text = text.lstrip("\ufeff").strip()
+    match = re.match(
+        r"\A```(?:markdown|md|yaml)?[ \t]*\r?\n(.*?)\r?\n```[ \t]*\Z",
+        text,
+        re.DOTALL | re.IGNORECASE,
+    )
+    return match.group(1).strip() if match else text
+
+
+def normalize_markdown_document(text):
+    """Return a document beginning with real YAML, tolerating model wrappers."""
+    text = strip_code_fence(text)
+    separators = list(re.finditer(r"(?m)^---[ \t]*\r?$", text))
+    for index in range(len(separators) - 1):
+        start = separators[index]
+        end = separators[index + 1]
+        header = text[start.end():end.start()]
+        if not re.search(r"(?m)^title:\s*", header):
+            continue
+        if not re.search(r"(?m)^source:\s*", header):
+            continue
+        prefix = text[:start.start()]
+        has_outer_fence = bool(re.search(
+            r"```(?:markdown|md|yaml)?[ \t]*\r?\n[ \t]*\Z",
+            prefix,
+            re.IGNORECASE,
+        ))
+        document = text[start.start():].strip()
+        # Strip the trailing fence only when the discarded prefix contained
+        # the matching outer fence; a real article may legitimately end in a
+        # code block whose closing fence must be preserved.
+        if has_outer_fence:
+            document = re.sub(r"\r?\n```[ \t]*\Z", "", document).strip()
+        return document
+    raise RuntimeError("译文缺少 YAML frontmatter")
 
 
 TAG_ALIASES = {
@@ -606,6 +641,95 @@ def ensure_summary_section(markdown, summary):
     if not match:
         return markdown
     return markdown[:match.end()].rstrip() + f"\n\n## 摘要\n\n{summary}\n\n" + markdown[match.end():].lstrip()
+
+
+def repair_markdown_output(markdown, url, title, cfg):
+    """Ask the configured model once to repair structure without re-fetching."""
+    if len(markdown) > MAX_REPAIR_INPUT_CHARS:
+        raise RuntimeError("模型输出过长，无法安全执行格式修复")
+    now_local = time.strftime("%Y-%m-%dT%H:%M")
+    system_prompt = (
+        "你是一名 Markdown 格式修复器。保留输入中的中文译文内容与信息，不要删减正文，"
+        "只修复文档结构。输出必须直接以 --- 开头，不要代码围栏、解释或前言。"
+        + ENRICHMENT_RULES
+    )
+    user_prompt = (
+        f"来源 URL: {url}\n"
+        f"书签标题: {title}\n"
+        f"收录时间: {now_local}\n\n"
+        "下面是一次模型生成的译文，但它的文档结构不符合要求。"
+        "请保留全文并修复为完整 Markdown：\n\n"
+        + markdown
+    )
+
+    if cfg["provider"] == "deepseek":
+        payload = {
+            "model": cfg["model"],
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_tokens": MAX_TOKENS,
+            "stream": False,
+            "temperature": 0,
+        }
+        if cfg["model"].startswith("deepseek-v4"):
+            payload["thinking"] = {"type": "disabled"}
+        resp = deepseek_request("/chat/completions", payload, cfg)
+        choice = (resp.get("choices") or [{}])[0]
+        repaired = ((choice.get("message") or {}).get("content") or "").strip()
+        if not repaired:
+            raise RuntimeError("DeepSeek 格式修复响应为空")
+        if choice.get("finish_reason") == "length":
+            raise RuntimeError("格式修复输出超出上限")
+        return repaired
+
+    if cfg["provider"] == "anthropic":
+        resp = anthropic_request("/v1/messages", {
+            "model": cfg["model"],
+            "max_tokens": MAX_TOKENS,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_prompt}],
+        }, cfg)
+        if resp.get("stop_reason") == "max_tokens":
+            raise RuntimeError("格式修复输出超出上限")
+        repaired = "\n".join(
+            block.get("text", "")
+            for block in resp.get("content", [])
+            if block.get("type") == "text"
+        ).strip()
+        if not repaired:
+            raise RuntimeError("Anthropic 格式修复响应为空")
+        return repaired
+
+    raise RuntimeError(f"不支持的 API provider：{cfg['provider']}")
+
+
+def rejected_output_preview(text):
+    preview = re.sub(r"\s+", " ", text).strip()
+    return preview[:REJECTED_PREVIEW_CHARS]
+
+
+def prepare_enriched_markdown(markdown, url, title, cfg):
+    """Normalize, validate, and at most once repair a model-produced document."""
+    try:
+        document = normalize_markdown_document(markdown)
+        enrichment = extract_enrichment(document)
+    except RuntimeError as first_error:
+        log(f"模型输出格式不合规，执行一次自动修复：{first_error}")
+        try:
+            repaired = repair_markdown_output(markdown, url, title, cfg)
+            document = normalize_markdown_document(repaired)
+            enrichment = extract_enrichment(document)
+        except Exception as repair_error:
+            log(
+                "格式修复仍失败；原始输出安全预览："
+                f"{rejected_output_preview(markdown)}"
+            )
+            raise RuntimeError(f"模型输出格式修复失败：{repair_error}") from repair_error
+        log("模型输出格式自动修复成功")
+    document = ensure_summary_section(document, enrichment["summary"])
+    return document, enrichment
 
 
 # ===== 落盘 =====
@@ -760,8 +884,7 @@ def main():
             now_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             try:
                 md = translate_article(url, title, cfg)
-                enrichment = extract_enrichment(md)
-                md = ensure_summary_section(md, enrichment["summary"])
+                md, enrichment = prepare_enriched_markdown(md, url, title, cfg)
                 path = save_markdown(md, extract_title(md, title), out_dir)
                 results.append({"url": url, "status": "done", "processedAt": now_utc,
                                 "meta": {"savedTo": path, **enrichment}})

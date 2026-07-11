@@ -177,6 +177,115 @@ print(json.dumps({{
             enriched = flow.ensure_summary_section(markdown, enrichment["summary"])
             self.assertIn("## 摘要\n\n这是一段用于测试的摘要。", enriched)
 
+    def test_normalizer_accepts_preface_and_markdown_fence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            wrapped = (
+                "下面是整理后的内容：\r\n"
+                "```markdown\r\n"
+                "---\r\n"
+                "title: 测试\r\n"
+                "source: https://example.test/article\r\n"
+                "summary: \"一段摘要。\"\r\n"
+                "tags: [\"智能体\", \"模型评估\"]\r\n"
+                "---\r\n\r\n"
+                "# 测试\r\n\r\n正文\r\n"
+                "```"
+            )
+            document = flow.normalize_markdown_document(wrapped)
+            self.assertTrue(document.startswith("---\r\n"))
+            self.assertFalse(document.endswith("```"))
+            self.assertEqual(flow.extract_enrichment(document)["tags"], ["智能体", "模型评估"])
+
+    def test_normalizer_preserves_article_code_fence_at_end(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            document = (
+                "---\n"
+                "title: 测试\n"
+                "source: https://example.test/article\n"
+                "summary: \"一段摘要。\"\n"
+                "tags: [\"智能体\", \"模型评估\"]\n"
+                "---\n\n"
+                "# 测试\n\n```python\nprint('ok')\n```"
+            )
+            self.assertTrue(flow.normalize_markdown_document(document).endswith("```"))
+
+    def test_prepare_repairs_missing_frontmatter_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            repaired = (
+                "---\n"
+                "title: 修复测试\n"
+                "source: https://example.test/article\n"
+                "summary: \"修复后生成的文章摘要。\"\n"
+                "tags: [\"智能体\", \"模型评估\"]\n"
+                "---\n\n"
+                "# 修复测试\n\n完整译文"
+            )
+            calls = []
+
+            def fake_repair(markdown, url, title, cfg):
+                calls.append((markdown, url, title, cfg))
+                return repaired
+
+            flow.repair_markdown_output = fake_repair
+            with contextlib.redirect_stdout(io.StringIO()):
+                document, enrichment = flow.prepare_enriched_markdown(
+                    "# 没有 frontmatter 的译文",
+                    "https://example.test/article",
+                    "Repair Test",
+                    {"provider": "deepseek"},
+                )
+            self.assertEqual(len(calls), 1)
+            self.assertTrue(document.startswith("---\n"))
+            self.assertIn("## 摘要", document)
+            self.assertEqual(enrichment["tags"], ["智能体", "模型评估"])
+
+    def test_prepare_reports_safe_preview_when_single_repair_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            calls = []
+
+            def bad_repair(*args):
+                calls.append(args)
+                return "仍然没有 frontmatter"
+
+            flow.repair_markdown_output = bad_repair
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                with self.assertRaisesRegex(RuntimeError, "模型输出格式修复失败"):
+                    flow.prepare_enriched_markdown(
+                        "原始译文但没有 frontmatter",
+                        "https://example.test/article",
+                        "Broken",
+                        {"provider": "deepseek"},
+                    )
+            self.assertEqual(len(calls), 1)
+            self.assertIn("原始输出安全预览：原始译文但没有 frontmatter", output.getvalue())
+
+    def test_deepseek_format_repair_uses_one_bounded_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            cfg = {
+                "provider": "deepseek",
+                "apiKey": "sk-test000000000000000000000",
+                "baseUrl": self.base_url,
+                "model": "deepseek-v4-flash",
+            }
+            repaired = flow.repair_markdown_output(
+                "# 已有中文译文",
+                "https://example.test/article",
+                "Repair Test",
+                cfg,
+            )
+            self.assertIn("summary:", repaired)
+            self.assertEqual(len(MockDeepSeekHandler.api_requests), 1)
+            request = MockDeepSeekHandler.api_requests[0]["payload"]
+            self.assertEqual(request["temperature"], 0)
+            self.assertEqual(request["thinking"], {"type": "disabled"})
+            self.assertIn("Markdown 格式修复器", request["messages"][0]["content"])
+
     def test_deepseek_flow_runs_from_backend_spool_to_inbox(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
