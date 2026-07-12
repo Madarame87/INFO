@@ -11,7 +11,7 @@ const style = await readFile(path.join(root, "public", "assets", "style.css"), "
 const app = await readFile(path.join(root, "public", "assets", "app.js"), "utf8");
 
 await access(workerPath);
-for (const phrase of ["文章情报库", "关键词", "Info Collector", "@Madarame87", "@aswrise", "DATE"]) {
+for (const phrase of ["文章情报库", "按关键词浏览", "待整理", "我的收藏", "全部收录", "复制资料卡", "Info Collector", "@Madarame87", "@aswrise"]) {
   if (!index.includes(phrase)) throw new Error(`Missing index phrase: ${phrase}`);
 }
 if ((index.match(/href="https:\/\/github\.com\/Madarame87"/g) || []).length !== 2 || (index.match(/href="https:\/\/github\.com\/aswrise"/g) || []).length !== 2) {
@@ -31,15 +31,23 @@ if (index.includes("阅读中文全文")) throw new Error("Index still includes 
 if (index.includes("WINDOWS 11 · LOCAL-FIRST") || index.includes("INFO COLLECTOR / READING DESK")) {
   throw new Error("Index still includes the retired system labels");
 }
-if (!index.includes('class="article-card reveal" href="articles/')) {
-  throw new Error("Article cards are not full-card links");
+if (!index.includes('<article class="article-card reveal"') || index.includes('<a class="article-card')) {
+  throw new Error("Article cards must be semantic containers, not full-card links");
 }
-if (index.includes('role="article"')) throw new Error("Article links override their native link semantics");
+if (!index.includes('class="article-title-link" href="articles/')) throw new Error("Article title links are missing");
+if (!index.includes('data-article-id="')) throw new Error("Stable article IDs are missing");
+if ((index.match(/data-action="favorite"/g) || []).length < 5 || (index.match(/data-action="review"/g) || []).length < 5 || (index.match(/data-action="copy-card"/g) || []).length < 5) {
+  throw new Error("Second-pass card actions are incomplete");
+}
+if (!index.includes('target="_blank" rel="noopener noreferrer">原文 ↗</a>')) throw new Error("Direct source links are missing");
+if (index.includes(">DATE<")) throw new Error("Generic DATE label remains");
+if (!index.includes("发布于 2026-07-02")) throw new Error("Geoffrey Litt URL date fallback is missing");
+if (!index.includes("发布时间未知")) throw new Error("Unknown publication dates are not explicit");
 const articleGridRule = style.match(/\.article-grid\s*\{([^}]*)\}/)?.[1] || "";
 if (!articleGridRule.includes("grid-template-columns: 1fr") || articleGridRule.includes("repeat(2")) {
   throw new Error("Reading index does not use a one-column article grid");
 }
-for (const cssPhrase of ["--aquatic-soft", "text-overflow: ellipsis", ".card-meta time"]) {
+for (const cssPhrase of ["--aquatic-soft", "text-overflow: ellipsis", ".article-title-link", ".card-action", ".view-filter"]) {
   if (!style.includes(cssPhrase)) throw new Error(`Missing reading-site CSS contract: ${cssPhrase}`);
 }
 if (!/\[hidden\]\s*\{[^}]*display:\s*none\s*!important;?[^}]*\}/.test(style)) {
@@ -58,61 +66,34 @@ for (const [selector, required] of [
   const rule = cssRule(selector);
   if (!rule || required.some((phrase) => !rule.includes(phrase))) throw new Error(`Missing frameless CSS contract for ${selector}`);
 }
-if (app.includes("article-search") || !app.includes("card.hidden = !show") || !app.includes("applyFilters();")) {
-  throw new Error("Keyword-only filtering script contract is incomplete");
+if (app.includes("article-search") || !app.includes("info-collector:reader-state:v1") || !app.includes("buildInfoCardMarkdown")) {
+  throw new Error("Second-pass reader script contract is incomplete");
 }
 
-const makeButton = (tag, pressed = false) => ({
-  dataset: { tag },
-  pressed: String(pressed),
-  classList: { toggle() {} },
-  setAttribute(name, value) {
-    if (name === "aria-pressed") this.pressed = value;
-  },
-});
-const allFilter = makeButton("全部", true);
-const memoryFilter = makeButton("记忆系统");
-const filterButtons = [allFilter, memoryFilter];
-const fakeCards = [
-  { dataset: { tags: "智能体|产品" }, hidden: false },
-  { dataset: { tags: "模型评估|记忆系统" }, hidden: false },
-  { dataset: { tags: "大模型" }, hidden: false },
-];
-const resultCount = { textContent: "" };
-const emptyState = { hidden: true };
-let filterClick;
-const filterGroup = {
-  querySelector() { return filterButtons.find((button) => button.pressed === "true") || null; },
-  querySelectorAll() { return filterButtons; },
-  addEventListener(type, listener) { if (type === "click") filterClick = listener; },
+const fakeWindow = {
+  matchMedia() { return { matches: true }; },
+  addEventListener() {},
+  setTimeout,
+  navigator: {},
+  localStorage: null,
 };
 const fakeDocument = {
   body: { classList: { contains() { return false; } } },
-  querySelectorAll(selector) {
-    if (selector === ".article-card") return fakeCards;
-    return [];
-  },
-  getElementById(id) {
-    return ({ "tag-filters": filterGroup, "result-count": resultCount, "empty-state": emptyState })[id] || null;
-  },
+  querySelectorAll() { return []; },
+  getElementById() { return null; },
 };
-vm.runInNewContext(app, {
-  document: fakeDocument,
-  navigator: {},
-  setTimeout,
-  window: {
-    matchMedia() { return { matches: true }; },
-    addEventListener() {},
-  },
-});
-if (typeof filterClick !== "function") throw new Error("Keyword filter click handler was not registered");
-filterClick({ target: { closest() { return memoryFilter; } } });
-if (resultCount.textContent !== "显示 1 篇" || fakeCards.filter((card) => !card.hidden).length !== 1 || memoryFilter.pressed !== "true") {
-  throw new Error("记忆系统 filter does not leave exactly one visible card");
+vm.runInNewContext(app, { document: fakeDocument, setTimeout, window: fakeWindow });
+const readerApi = fakeWindow.InfoCollectorReader;
+if (!readerApi) throw new Error("Reader state API did not initialize");
+const pendingState = readerApi.stateFor({}, "stable-id");
+const favoriteState = readerApi.toggleFavoriteState(pendingState, "2026-07-12T00:00:00Z");
+if (!readerApi.matchesView(pendingState, "pending") || !readerApi.matchesView(favoriteState, "favorites") || readerApi.matchesView(favoriteState, "pending")) {
+  throw new Error("Reader state view semantics are invalid");
 }
-filterClick({ target: { closest() { return allFilter; } } });
-if (resultCount.textContent !== "显示 3 篇" || fakeCards.some((card) => card.hidden) || allFilter.pressed !== "true") {
-  throw new Error("全部 filter does not restore every article card");
+if (Object.keys(readerApi.parseReaderState("{broken")).length !== 0) throw new Error("Damaged localStorage does not safely reset");
+const infoCard = readerApi.buildInfoCardMarkdown({ title: "Test", tags: "智能体|产品", summary: "Summary" });
+if (!infoCard.includes("原文：未知") || !infoCard.includes("收录时间：未知") || infoCard.includes("undefined") || infoCard.includes("null")) {
+  throw new Error("Portable Markdown info card fallback is invalid");
 }
 const articleLinks = [...index.matchAll(/href="articles\/(article-[^"]+\.html)"/g)].map((match) => match[1]);
 const uniqueLinks = [...new Set(articleLinks)];
@@ -124,5 +105,10 @@ for (const article of uniqueLinks) {
   if (order.some((value) => value < 0) || !(order[0] < order[1] && order[1] < order[2])) {
     throw new Error(`Invalid content order in ${article}`);
   }
+  if (!html.includes('data-article-id="')) throw new Error(`Missing stable article ID in ${article}`);
+}
+const publicText = [index, style, app, ...await Promise.all(uniqueLinks.map((article) => readFile(path.join(articleDir, article), "utf8")))].join("\n");
+if (/sk-[A-Za-z0-9_-]{16,}/.test(publicText) || /[A-Za-z]:\\Users\\/i.test(publicText) || publicText.includes("chrome-extension://")) {
+  throw new Error("Public snapshot contains a secret or local browser/path data");
 }
 console.log(`Verified ${uniqueLinks.length} article pages and production worker output.`);

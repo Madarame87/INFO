@@ -111,9 +111,9 @@ def split_document(text):
         return {}, text
     frontmatter = match.group(1)
     meta = {}
-    for found in re.finditer(r"(?m)^([A-Za-z_][\w-]*):\s*(.*)$", frontmatter):
+    for found in re.finditer(r"(?m)^([A-Za-z_][\w-]*):[ \t]*(.*)$", frontmatter):
         meta[found.group(1)] = parse_scalar(found.group(2))
-    raw_tags = re.search(r"(?m)^tags:\s*(.*)$", frontmatter)
+    raw_tags = re.search(r"(?m)^tags:[ \t]*(.*)$", frontmatter)
     tags = []
     if raw_tags:
         raw = raw_tags.group(1).strip()
@@ -182,6 +182,82 @@ def article_slug(source, title):
     return "article-" + hashlib.sha1(seed.encode("utf-8")).hexdigest()[:12]
 
 
+def normalize_published_at(value, source=""):
+    """Validate published precision and use only an explicit full URL date fallback."""
+    value = parse_scalar(value)
+    normalized = ""
+    match = re.fullmatch(r"(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?", value)
+    if match:
+        year = int(match.group(1))
+        month_text = match.group(2)
+        day_text = match.group(3)
+        if 1000 <= year <= 9999:
+            if month_text is None:
+                normalized = f"{year:04d}"
+            month = int(month_text) if month_text is not None else 0
+            if month_text is not None and 1 <= month <= 12:
+                if day_text is None:
+                    normalized = f"{year:04d}-{month:02d}"
+                else:
+                    try:
+                        dt.date(year, month, int(day_text))
+                        normalized = f"{year:04d}-{month:02d}-{int(day_text):02d}"
+                    except ValueError:
+                        pass
+    path = urlparse(str(source or "")).path
+    for pattern in (
+        r"(?<!\d)(\d{4})/(\d{2})/(\d{2})(?!\d)",
+        r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)",
+    ):
+        found = re.search(pattern, path)
+        if not found:
+            continue
+        try:
+            year, month, day = map(int, found.groups())
+            dt.date(year, month, day)
+            url_date = f"{year:04d}-{month:02d}-{day:02d}"
+            return url_date if not normalized or len(normalized) < 10 else normalized
+        except ValueError:
+            continue
+    return normalized
+
+
+def valid_date_part(value):
+    match = re.search(r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)", str(value or ""))
+    if not match:
+        return ""
+    try:
+        year, month, day = map(int, match.groups())
+        dt.date(year, month, day)
+        return f"{year:04d}-{month:02d}-{day:02d}"
+    except ValueError:
+        return ""
+
+
+def published_label(article):
+    value = article.get("published_at") or ""
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return f"发布于 {value}"
+    if re.fullmatch(r"\d{4}-\d{2}", value):
+        return f"发布于 {value}（精确到月）"
+    if re.fullmatch(r"\d{4}", value):
+        return f"发布于 {value}（精确到年）"
+    return "发布时间未知"
+
+
+def activity_label(article):
+    collected = valid_date_part(article.get("collected_at"))
+    if collected:
+        return f"收录于 {collected}"
+    processed = valid_date_part(article.get("processed_at"))
+    if processed:
+        return f"整理于 {processed}"
+    legacy = valid_date_part(article.get("legacy_date"))
+    if legacy:
+        return f"整理于 {legacy}"
+    return "收录时间未知"
+
+
 def read_article(path):
     text = Path(path).read_text(encoding="utf-8")
     meta, body = split_document(text)
@@ -189,17 +265,25 @@ def read_article(path):
     source = safe_http_url(meta.get("source"))
     summary = str(meta.get("summary") or "").strip() or extract_summary(body)
     tags = list(dict.fromkeys(meta.get("tags") or infer_tags(title, summary, body)))[:5]
+    slug = article_slug(source, title)
+    article_key = str(meta.get("article_key") or "").strip()
     return {
         "title": title,
         "source": source,
-        "published": str(meta.get("published") or "").strip(),
-        "collected": str(meta.get("date") or "").strip(),
+        "article_key": article_key,
+        "article_id": article_key or slug,
+        "published_at": normalize_published_at(
+            meta.get("published_at") or meta.get("published"), source
+        ),
+        "collected_at": str(meta.get("collected_at") or "").strip(),
+        "processed_at": str(meta.get("processed_at") or "").strip(),
+        "legacy_date": str(meta.get("date") or "").strip(),
         "authors": str(meta.get("authors") or "").strip(),
         "summary": summary,
         "tags": tags,
         "body": body,
         "path": Path(path),
-        "slug": article_slug(source, title),
+        "slug": slug,
     }
 
 
@@ -212,7 +296,10 @@ def collect_articles(output_dir):
             log(f"跳过无法读取的文章 {path.name}: {exc}")
     return sorted(
         articles,
-        key=lambda item: (item["published"] or item["collected"], item["title"]),
+        key=lambda item: (
+            item["collected_at"] or item["processed_at"] or item["legacy_date"],
+            item["title"],
+        ),
         reverse=True,
     )
 
@@ -376,14 +463,6 @@ def page_shell(title, description, content, asset_prefix="assets", body_class=""
 """
 
 
-def date_label(article):
-    for candidate in (article["published"], article["collected"]):
-        match = re.search(r"(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)", str(candidate or ""))
-        if match:
-            return match.group(0)
-    return "已收录"
-
-
 def render_tag(tag, active=False, button=False, count=None):
     count_html = f"<span>{count}</span>" if count is not None else ""
     if button:
@@ -401,31 +480,46 @@ def render_index(articles, asset_version=""):
     for article in articles:
         tag_html = "".join(render_tag(tag) for tag in article["tags"])
         article_href = f"articles/{article['slug']}.html"
-        display_date = date_label(article)
-        datetime_attr = f' datetime="{escape_attr(display_date)}"' if re.fullmatch(r"\d{4}-\d{2}-\d{2}", display_date) else ""
+        source_link = (
+            f'<a class="card-source-link" href="{escape_attr(article["source"])}" '
+            'target="_blank" rel="noopener noreferrer">原文 ↗</a>'
+            if article["source"] else ""
+        )
+        author_html = (
+            f'<p class="card-author">作者：{html.escape(article["authors"])}</p>'
+            if article["authors"] else ""
+        )
         cards.append(f"""
-        <a class="article-card reveal" href="{article_href}" aria-label="打开文章：{escape_attr(article['title'])}" data-tags="{escape_attr('|'.join(article['tags']))}">
+        <article class="article-card reveal" data-article-id="{escape_attr(article['article_id'])}" data-tags="{escape_attr('|'.join(article['tags']))}" data-title="{escape_attr(article['title'])}" data-summary="{escape_attr(article['summary'])}" data-authors="{escape_attr(article['authors'])}" data-source="{escape_attr(article['source'])}" data-published-value="{escape_attr(article['published_at'])}" data-collected-value="{escape_attr(article['collected_at'])}" data-processed-value="{escape_attr(article['processed_at'] or article['legacy_date'])}">
           <div class="card-main">
             <div class="keyword-row">{tag_html}</div>
-            <h2 title="{escape_attr(article['title'])}">{html.escape(article['title'])}</h2>
-            <p>{html.escape(article['summary'])}</p>
+            <h2 title="{escape_attr(article['title'])}"><a class="article-title-link" href="{article_href}">{html.escape(article['title'])}</a></h2>
+            <p class="card-summary">{html.escape(article['summary'])}</p>{author_html}
+            <div class="card-actions">
+              <button class="card-action favorite-action" type="button" data-action="favorite" aria-pressed="false">收藏</button>
+              <button class="card-action review-action" type="button" data-action="review">完成整理</button>
+              <button class="card-action copy-card-action" type="button" data-action="copy-card">复制资料卡</button>
+              {source_link}
+            </div>
           </div>
-          <div class="card-meta">
-            <span>DATE</span>
-            <time class="card-date"{datetime_attr}>{html.escape(display_date)}</time>
-            <b aria-hidden="true">↗</b>
+          <div class="card-meta" aria-label="文章时间">
+            <span class="published-label">{html.escape(published_label(article))}</span>
+            <span class="activity-label">{html.escape(activity_label(article))}</span>
           </div>
-        </a>""")
+        </article>""")
     all_button = render_tag("全部", active=True, button=True)
     tag_buttons = "".join(render_tag(tag, button=True) for tag, _count in ranked)
-    newest = date_label(articles[0]) if articles else "—"
     content = f"""
   <main class="library-shell">
     <section class="library-hero reveal">
       <p class="eyebrow"><i></i> KNOWLEDGE STREAM</p>
       <div class="hero-grid">
         <div><h1>文章情报库</h1></div>
-        <dl class="library-stats"><div><dt>篇文章</dt><dd>{len(articles)}</dd></div><div><dt>个关键词</dt><dd>{len(ranked)}</dd></div><div><dt>最近更新</dt><dd>{html.escape(newest)}</dd></div></dl>
+        <div class="library-stats view-filters" id="view-filters" role="group" aria-label="整理视图">
+          <button class="view-filter is-active" type="button" data-view="pending" aria-pressed="true"><strong data-count-view="pending">{len(articles)}</strong><span>待整理</span></button>
+          <button class="view-filter" type="button" data-view="favorites" aria-pressed="false"><strong data-count-view="favorites">0</strong><span>我的收藏</span></button>
+          <button class="view-filter" type="button" data-view="all" aria-pressed="false"><strong data-count-view="all">{len(articles)}</strong><span>全部收录</span></button>
+        </div>
       </div>
     </section>
     <section class="discovery-panel reveal" aria-labelledby="filter-title">
@@ -433,14 +527,17 @@ def render_index(articles, asset_version=""):
       <div class="tag-filters" id="tag-filters" role="group" aria-label="文章关键词筛选">{all_button}{tag_buttons}</div>
     </section>
     <section class="article-grid" id="article-grid">{''.join(cards)}</section>
-    <section class="empty-state" id="empty-state" hidden><span>—</span><h2>没有找到对应文章</h2><p>请选择其他关键词查看文章。</p></section>
+    <section class="empty-state" id="empty-state" hidden><span>—</span><h2 id="empty-title">没有符合条件的文章</h2></section>
   </main>"""
     return page_shell("文章情报库", "Info Collector 本地中文技术文章阅读库", content, body_class="library-page", asset_version=asset_version)
 
 
 def render_article_page(article, asset_version=""):
     tags = "".join(render_tag(tag) for tag in article["tags"])
-    meta_items = [f"发布于 {html.escape(article['published'][:10])}" if article["published"] else ""]
+    meta_items = [
+        html.escape(published_label(article)),
+        html.escape(activity_label(article)),
+    ]
     if article["authors"]:
         meta_items.append(f"作者 {html.escape(article['authors'])}")
     meta_items = [item for item in meta_items if item]
@@ -455,7 +552,7 @@ def render_article_page(article, asset_version=""):
     content = f"""
   <main class="article-shell">
     <a class="back-link" href="../index.html">← 返回文章情报库</a>
-    <article>
+    <article data-article-id="{escape_attr(article['article_id'])}">
       <header class="article-hero reveal">
         <p class="eyebrow"><i></i> TRANSLATED INTELLIGENCE</p>
         <div class="keyword-row">{tags}</div>

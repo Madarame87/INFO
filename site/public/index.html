@@ -6,7 +6,7 @@
   <meta name="description" content="Info Collector 本地中文技术文章阅读库">
   <meta name="color-scheme" content="light">
   <title>文章情报库 · Info Collector</title>
-  <link rel="stylesheet" href="assets/style.css?v=012a5dbc2c6a">
+  <link rel="stylesheet" href="assets/style.css?v=486d9e4e333b">
 </head>
 <body class="library-page">
   <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
@@ -28,7 +28,11 @@
       <p class="eyebrow"><i></i> KNOWLEDGE STREAM</p>
       <div class="hero-grid">
         <div><h1>文章情报库</h1></div>
-        <dl class="library-stats"><div><dt>篇文章</dt><dd>5</dd></div><div><dt>个关键词</dt><dd>7</dd></div><div><dt>最近更新</dt><dd>2026-07-11</dd></div></dl>
+        <div class="library-stats view-filters" id="view-filters" role="group" aria-label="整理视图">
+          <button class="view-filter is-active" type="button" data-view="pending" aria-pressed="true"><strong data-count-view="pending">5</strong><span>待整理</span></button>
+          <button class="view-filter" type="button" data-view="favorites" aria-pressed="false"><strong data-count-view="favorites">0</strong><span>我的收藏</span></button>
+          <button class="view-filter" type="button" data-view="all" aria-pressed="false"><strong data-count-view="all">5</strong><span>全部收录</span></button>
+        </div>
       </div>
     </section>
     <section class="discovery-panel reveal" aria-labelledby="filter-title">
@@ -36,69 +40,94 @@
       <div class="tag-filters" id="tag-filters" role="group" aria-label="文章关键词筛选"><button class="tag-filter is-active" type="button" data-tag="全部" aria-pressed="true">全部</button><button class="tag-filter" type="button" data-tag="智能体" aria-pressed="false">智能体</button><button class="tag-filter" type="button" data-tag="模型评估" aria-pressed="false">模型评估</button><button class="tag-filter" type="button" data-tag="产品" aria-pressed="false">产品</button><button class="tag-filter" type="button" data-tag="大模型" aria-pressed="false">大模型</button><button class="tag-filter" type="button" data-tag="推理" aria-pressed="false">推理</button><button class="tag-filter" type="button" data-tag="学术研究" aria-pressed="false">学术研究</button><button class="tag-filter" type="button" data-tag="记忆系统" aria-pressed="false">记忆系统</button></div>
     </section>
     <section class="article-grid" id="article-grid">
-        <a class="article-card reveal" href="articles/article-6127def8cb5f.html" aria-label="打开文章：Know your unknowns — 示例" data-tags="智能体|模型评估|产品|推理">
-          <div class="card-main">
-            <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">模型评估</span><span class="keyword">产品</span><span class="keyword">推理</span></div>
-            <h2 title="Know your unknowns — 示例">Know your unknowns — 示例</h2>
-            <p>本文介绍了11个自包含的HTML文件，用于在实施前、实施中和实施后发现未知问题。这些文件展示了如何通过盲点扫描、交互式解释器、设计方向探索、原型模拟、头脑风暴、访谈、参考移植、可调整计划、实施笔记、提案文档和合并前测验等方法，低成本地发现并应对项目中的未知因素。</p>
-          </div>
-          <div class="card-meta">
-            <span>DATE</span>
-            <time class="card-date" datetime="2026-07-11">2026-07-11</time>
-            <b aria-hidden="true">↗</b>
-          </div>
-        </a>
-        <a class="article-card reveal" href="articles/article-53d7eead7cb1.html" aria-label="打开文章：Fable的判断力" data-tags="智能体|大模型|推理|模型评估">
-          <div class="card-main">
-            <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">大模型</span><span class="keyword">推理</span><span class="keyword">模型评估</span></div>
-            <h2 title="Fable的判断力">Fable的判断力</h2>
-            <p>赞助商：Teleport — 如何确保AI代理在你的预期边界内行动？Teleport的《从零信任到代理信任》白皮书详细说明了实现代理设计承诺所需的条件。 周三我在AIE上与Claude Code团队的Cat Wu和Thariq Shihipar主持炉边谈话时，得到的最有趣建议之一是：让Fable（在某种程度上也包括Opus）运用自己的判断力，而不是规定它们应该如何工作。 他们举的例子是测试。你可以告诉Fable&quot;只对较大的功能使用自动化测试，不要为小的文案或设计修改更新和运行测试&quot;——但更好的做法是直接告诉Fable在决定是否编写测试时运用自己的判断力。</p>
-          </div>
-          <div class="card-meta">
-            <span>DATE</span>
-            <time class="card-date" datetime="2026-07-03">2026-07-03</time>
-            <b aria-hidden="true">↗</b>
-          </div>
-        </a>
-        <a class="article-card reveal" href="articles/article-a19b2fd84ab7.html" aria-label="打开文章：理解是新的瓶颈（Understanding is the new bottleneck）" data-tags="智能体|模型评估|产品|学术研究">
+        <article class="article-card reveal" data-article-id="article-a19b2fd84ab7" data-tags="智能体|模型评估|产品|学术研究" data-title="理解是新的瓶颈（Understanding is the new bottleneck）" data-summary="随着AI智能体编写越来越多代码，人类理解代码的能力成为新瓶颈。作者认为理解不是为了验证，而是为了参与创造过程。他提出三种高效理解代码的技术：代码解释文档（含背景知识、直觉引导、交互式图表和测验）、微型世界（通过交互式调试器和游戏化迁移工具直观理解系统）、共享空间（团队在协作平台中共同建立心智模型）。核心主张是AI应增强人类理解而非完全自动化。" data-authors="Geoffrey Litt" data-source="https://www.geoffreylitt.com/2026/07/02/understanding-is-the-new-bottleneck.html" data-published-value="2026-07-02" data-collected-value="" data-processed-value="2026-07-11T13:32">
           <div class="card-main">
             <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">模型评估</span><span class="keyword">产品</span><span class="keyword">学术研究</span></div>
-            <h2 title="理解是新的瓶颈（Understanding is the new bottleneck）">理解是新的瓶颈（Understanding is the new bottleneck）</h2>
-            <p>随着AI智能体编写越来越多代码，人类理解代码的能力成为新瓶颈。作者认为理解不是为了验证，而是为了参与创造过程。他提出三种高效理解代码的技术：代码解释文档（含背景知识、直觉引导、交互式图表和测验）、微型世界（通过交互式调试器和游戏化迁移工具直观理解系统）、共享空间（团队在协作平台中共同建立心智模型）。核心主张是AI应增强人类理解而非完全自动化。</p>
+            <h2 title="理解是新的瓶颈（Understanding is the new bottleneck）"><a class="article-title-link" href="articles/article-a19b2fd84ab7.html">理解是新的瓶颈（Understanding is the new bottleneck）</a></h2>
+            <p class="card-summary">随着AI智能体编写越来越多代码，人类理解代码的能力成为新瓶颈。作者认为理解不是为了验证，而是为了参与创造过程。他提出三种高效理解代码的技术：代码解释文档（含背景知识、直觉引导、交互式图表和测验）、微型世界（通过交互式调试器和游戏化迁移工具直观理解系统）、共享空间（团队在协作平台中共同建立心智模型）。核心主张是AI应增强人类理解而非完全自动化。</p><p class="card-author">作者：Geoffrey Litt</p>
+            <div class="card-actions">
+              <button class="card-action favorite-action" type="button" data-action="favorite" aria-pressed="false">收藏</button>
+              <button class="card-action review-action" type="button" data-action="review">完成整理</button>
+              <button class="card-action copy-card-action" type="button" data-action="copy-card">复制资料卡</button>
+              <a class="card-source-link" href="https://www.geoffreylitt.com/2026/07/02/understanding-is-the-new-bottleneck.html" target="_blank" rel="noopener noreferrer">原文 ↗</a>
+            </div>
           </div>
-          <div class="card-meta">
-            <span>DATE</span>
-            <time class="card-date" datetime="2026-07-11">2026-07-11</time>
-            <b aria-hidden="true">↗</b>
+          <div class="card-meta" aria-label="文章时间">
+            <span class="published-label">发布于 2026-07-02</span>
+            <span class="activity-label">整理于 2026-07-11</span>
           </div>
-        </a>
-        <a class="article-card reveal" href="articles/article-76d0a1c45a34.html" aria-label="打开文章：演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）" data-tags="模型评估|记忆系统|智能体|产品">
+        </article>
+        <article class="article-card reveal" data-article-id="article-6127def8cb5f" data-tags="智能体|模型评估|产品|推理" data-title="Know your unknowns — 示例" data-summary="本文介绍了11个自包含的HTML文件，用于在实施前、实施中和实施后发现未知问题。这些文件展示了如何通过盲点扫描、交互式解释器、设计方向探索、原型模拟、头脑风暴、访谈、参考移植、可调整计划、实施笔记、提案文档和合并前测验等方法，低成本地发现并应对项目中的未知因素。" data-authors="" data-source="https://thariqs.github.io/html-effectiveness/unknowns/" data-published-value="" data-collected-value="" data-processed-value="2026-07-11T12:54">
+          <div class="card-main">
+            <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">模型评估</span><span class="keyword">产品</span><span class="keyword">推理</span></div>
+            <h2 title="Know your unknowns — 示例"><a class="article-title-link" href="articles/article-6127def8cb5f.html">Know your unknowns — 示例</a></h2>
+            <p class="card-summary">本文介绍了11个自包含的HTML文件，用于在实施前、实施中和实施后发现未知问题。这些文件展示了如何通过盲点扫描、交互式解释器、设计方向探索、原型模拟、头脑风暴、访谈、参考移植、可调整计划、实施笔记、提案文档和合并前测验等方法，低成本地发现并应对项目中的未知因素。</p>
+            <div class="card-actions">
+              <button class="card-action favorite-action" type="button" data-action="favorite" aria-pressed="false">收藏</button>
+              <button class="card-action review-action" type="button" data-action="review">完成整理</button>
+              <button class="card-action copy-card-action" type="button" data-action="copy-card">复制资料卡</button>
+              <a class="card-source-link" href="https://thariqs.github.io/html-effectiveness/unknowns/" target="_blank" rel="noopener noreferrer">原文 ↗</a>
+            </div>
+          </div>
+          <div class="card-meta" aria-label="文章时间">
+            <span class="published-label">发布时间未知</span>
+            <span class="activity-label">整理于 2026-07-11</span>
+          </div>
+        </article>
+        <article class="article-card reveal" data-article-id="article-76d0a1c45a34" data-tags="模型评估|记忆系统|智能体|产品" data-title="演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）" data-summary="人们正在为 AI 助手和个人代理构建各种花哨的记忆系统。我的 X 时间线上充斥着诸如向量存储、知识图谱、语义记忆、情景记忆、用户画像、对话摘要、分层检索、记忆整合、记忆衰减等术语…… 毫无疑问，其中许多想法是有用的。有些可能不可或缺。但该领域存在一种奇怪的失衡：我们花费大量精力发明记忆架构，却很少投入精力改进用于评估这些系统是否真正让代理随时间更好地使用记忆的评估方法。 结果是大量的过度工程化。人们基于自己对“良好记忆”应为何样的狭隘定义来构建记忆系统。没有严肃的评估环境，这些大多只是架构上的赌注。" data-authors="Linghao Zhang" data-source="https://linghao.io/posts/memory-systems-should-be-evolved" data-published-value="2026-06-27" data-collected-value="" data-processed-value="2026-07-11T12:38">
           <div class="card-main">
             <div class="keyword-row"><span class="keyword">模型评估</span><span class="keyword">记忆系统</span><span class="keyword">智能体</span><span class="keyword">产品</span></div>
-            <h2 title="演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）">演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）</h2>
-            <p>人们正在为 AI 助手和个人代理构建各种花哨的记忆系统。我的 X 时间线上充斥着诸如向量存储、知识图谱、语义记忆、情景记忆、用户画像、对话摘要、分层检索、记忆整合、记忆衰减等术语…… 毫无疑问，其中许多想法是有用的。有些可能不可或缺。但该领域存在一种奇怪的失衡：我们花费大量精力发明记忆架构，却很少投入精力改进用于评估这些系统是否真正让代理随时间更好地使用记忆的评估方法。 结果是大量的过度工程化。人们基于自己对“良好记忆”应为何样的狭隘定义来构建记忆系统。没有严肃的评估环境，这些大多只是架构上的赌注。</p>
+            <h2 title="演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）"><a class="article-title-link" href="articles/article-76d0a1c45a34.html">演进中的记忆系统：一种评估优先的方法（Evolving Memory Systems: An Eval-First Approach）</a></h2>
+            <p class="card-summary">人们正在为 AI 助手和个人代理构建各种花哨的记忆系统。我的 X 时间线上充斥着诸如向量存储、知识图谱、语义记忆、情景记忆、用户画像、对话摘要、分层检索、记忆整合、记忆衰减等术语…… 毫无疑问，其中许多想法是有用的。有些可能不可或缺。但该领域存在一种奇怪的失衡：我们花费大量精力发明记忆架构，却很少投入精力改进用于评估这些系统是否真正让代理随时间更好地使用记忆的评估方法。 结果是大量的过度工程化。人们基于自己对“良好记忆”应为何样的狭隘定义来构建记忆系统。没有严肃的评估环境，这些大多只是架构上的赌注。</p><p class="card-author">作者：Linghao Zhang</p>
+            <div class="card-actions">
+              <button class="card-action favorite-action" type="button" data-action="favorite" aria-pressed="false">收藏</button>
+              <button class="card-action review-action" type="button" data-action="review">完成整理</button>
+              <button class="card-action copy-card-action" type="button" data-action="copy-card">复制资料卡</button>
+              <a class="card-source-link" href="https://linghao.io/posts/memory-systems-should-be-evolved" target="_blank" rel="noopener noreferrer">原文 ↗</a>
+            </div>
           </div>
-          <div class="card-meta">
-            <span>DATE</span>
-            <time class="card-date" datetime="2026-06-27">2026-06-27</time>
-            <b aria-hidden="true">↗</b>
+          <div class="card-meta" aria-label="文章时间">
+            <span class="published-label">发布于 2026-06-27</span>
+            <span class="activity-label">整理于 2026-07-11</span>
           </div>
-        </a>
-        <a class="article-card reveal" href="articles/article-9a7b82fbc9a3.html" aria-label="打开文章：循环详解：Claude、GPT、Mira 以及真正有效的方法（Loops explained: Claude, GPT, Mira and what actually works）" data-tags="大模型">
+        </article>
+        <article class="article-card reveal" data-article-id="article-9a7b82fbc9a3" data-tags="大模型" data-title="循环详解：Claude、GPT、Mira 以及真正有效的方法（Loops explained: Claude, GPT, Mira and what actually works）" data-summary="Anatoli Kopadze 在 X 上：&quot;https://t.co/eq0oL4fIaR&quot; / X 人工智能已经掌握在每个人手中多年。大多数每天使用它的人仍然在使用最慢的方式：输入请求，等待，修正，再次提问，全部手动操作。 不是因为更快的方式…… 新用户？ 立即注册，获取专属个性化时间线！ 使用 Google 注册 使用 Apple 注册 创建账号 注册即表示您同意服务条款、隐私政策及 Cookie 使用。 相关人物 Anatoli Kopadze @AnatoliKopadze 关注" data-authors="Anatoli Kopadze" data-source="https://x.com/AnatoliKopadze/status/2068328135611822149" data-published-value="2026-06-20" data-collected-value="" data-processed-value="2026-07-11T12:38">
           <div class="card-main">
             <div class="keyword-row"><span class="keyword">大模型</span></div>
-            <h2 title="循环详解：Claude、GPT、Mira 以及真正有效的方法（Loops explained: Claude, GPT, Mira and what actually works）">循环详解：Claude、GPT、Mira 以及真正有效的方法（Loops explained: Claude, GPT, Mira and what actually works）</h2>
-            <p>Anatoli Kopadze 在 X 上：&quot;https://t.co/eq0oL4fIaR&quot; / X 人工智能已经掌握在每个人手中多年。大多数每天使用它的人仍然在使用最慢的方式：输入请求，等待，修正，再次提问，全部手动操作。 不是因为更快的方式…… 新用户？ 立即注册，获取专属个性化时间线！ 使用 Google 注册 使用 Apple 注册 创建账号 注册即表示您同意服务条款、隐私政策及 Cookie 使用。 相关人物 Anatoli Kopadze @AnatoliKopadze 关注</p>
+            <h2 title="循环详解：Claude、GPT、Mira 以及真正有效的方法（Loops explained: Claude, GPT, Mira and what actually works）"><a class="article-title-link" href="articles/article-9a7b82fbc9a3.html">循环详解：Claude、GPT、Mira 以及真正有效的方法（Loops explained: Claude, GPT, Mira and what actually works）</a></h2>
+            <p class="card-summary">Anatoli Kopadze 在 X 上：&quot;https://t.co/eq0oL4fIaR&quot; / X 人工智能已经掌握在每个人手中多年。大多数每天使用它的人仍然在使用最慢的方式：输入请求，等待，修正，再次提问，全部手动操作。 不是因为更快的方式…… 新用户？ 立即注册，获取专属个性化时间线！ 使用 Google 注册 使用 Apple 注册 创建账号 注册即表示您同意服务条款、隐私政策及 Cookie 使用。 相关人物 Anatoli Kopadze @AnatoliKopadze 关注</p><p class="card-author">作者：Anatoli Kopadze</p>
+            <div class="card-actions">
+              <button class="card-action favorite-action" type="button" data-action="favorite" aria-pressed="false">收藏</button>
+              <button class="card-action review-action" type="button" data-action="review">完成整理</button>
+              <button class="card-action copy-card-action" type="button" data-action="copy-card">复制资料卡</button>
+              <a class="card-source-link" href="https://x.com/AnatoliKopadze/status/2068328135611822149" target="_blank" rel="noopener noreferrer">原文 ↗</a>
+            </div>
           </div>
-          <div class="card-meta">
-            <span>DATE</span>
-            <time class="card-date" datetime="2026-06-20">2026-06-20</time>
-            <b aria-hidden="true">↗</b>
+          <div class="card-meta" aria-label="文章时间">
+            <span class="published-label">发布于 2026-06-20</span>
+            <span class="activity-label">整理于 2026-07-11</span>
           </div>
-        </a></section>
-    <section class="empty-state" id="empty-state" hidden><span>—</span><h2>没有找到对应文章</h2><p>请选择其他关键词查看文章。</p></section>
+        </article>
+        <article class="article-card reveal" data-article-id="article-53d7eead7cb1" data-tags="智能体|大模型|推理|模型评估" data-title="Fable的判断力" data-summary="赞助商：Teleport — 如何确保AI代理在你的预期边界内行动？Teleport的《从零信任到代理信任》白皮书详细说明了实现代理设计承诺所需的条件。 周三我在AIE上与Claude Code团队的Cat Wu和Thariq Shihipar主持炉边谈话时，得到的最有趣建议之一是：让Fable（在某种程度上也包括Opus）运用自己的判断力，而不是规定它们应该如何工作。 他们举的例子是测试。你可以告诉Fable&quot;只对较大的功能使用自动化测试，不要为小的文案或设计修改更新和运行测试&quot;——但更好的做法是直接告诉Fable在决定是否编写测试时运用自己的判断力。" data-authors="Simon Willison" data-source="https://simonwillison.net/2026/Jul/3/judgement/" data-published-value="2026-07-03" data-collected-value="" data-processed-value="2026-07-11T12:34">
+          <div class="card-main">
+            <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">大模型</span><span class="keyword">推理</span><span class="keyword">模型评估</span></div>
+            <h2 title="Fable的判断力"><a class="article-title-link" href="articles/article-53d7eead7cb1.html">Fable的判断力</a></h2>
+            <p class="card-summary">赞助商：Teleport — 如何确保AI代理在你的预期边界内行动？Teleport的《从零信任到代理信任》白皮书详细说明了实现代理设计承诺所需的条件。 周三我在AIE上与Claude Code团队的Cat Wu和Thariq Shihipar主持炉边谈话时，得到的最有趣建议之一是：让Fable（在某种程度上也包括Opus）运用自己的判断力，而不是规定它们应该如何工作。 他们举的例子是测试。你可以告诉Fable&quot;只对较大的功能使用自动化测试，不要为小的文案或设计修改更新和运行测试&quot;——但更好的做法是直接告诉Fable在决定是否编写测试时运用自己的判断力。</p><p class="card-author">作者：Simon Willison</p>
+            <div class="card-actions">
+              <button class="card-action favorite-action" type="button" data-action="favorite" aria-pressed="false">收藏</button>
+              <button class="card-action review-action" type="button" data-action="review">完成整理</button>
+              <button class="card-action copy-card-action" type="button" data-action="copy-card">复制资料卡</button>
+              <a class="card-source-link" href="https://simonwillison.net/2026/Jul/3/judgement/" target="_blank" rel="noopener noreferrer">原文 ↗</a>
+            </div>
+          </div>
+          <div class="card-meta" aria-label="文章时间">
+            <span class="published-label">发布于 2026-07-03</span>
+            <span class="activity-label">整理于 2026-07-11</span>
+          </div>
+        </article></section>
+    <section class="empty-state" id="empty-state" hidden><span>—</span><h2 id="empty-title">没有符合条件的文章</h2></section>
   </main>
   <footer class="site-footer" aria-label="Powered by @Madarame87 × @aswrise"><span>Powered by</span> <a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></footer>
-  <script src="assets/app.js?v=012a5dbc2c6a" defer></script>
+  <script src="assets/app.js?v=486d9e4e333b" defer></script>
 </body>
 </html>
