@@ -110,6 +110,11 @@ test('每周阅读统计不可筛选文章，并可导出带状态的七天回�
   assert.deepEqual({ ...series[1] }, {
     start: '2026-07-06', end: '2026-07-12', shortStart: '07.06', shortEnd: '07.12', count: 2, favorites: 1,
   });
+  const smoothPath = api.smoothChartPath([
+    { x: 18, y: 136 }, { x: 162.8, y: 136 }, { x: 307.6, y: 28 },
+  ]);
+  assert.equal(smoothPath, 'M 18.0 136.0 C 90.4 136.0, 90.4 136.0, 162.8 136.0 C 235.2 136.0, 235.2 28.0, 307.6 28.0');
+  assert.equal(smoothPath.includes(' L '), false);
   const markdown = api.buildWeeklyReviewMarkdown([{
     title: '世界模型进展',
     source: 'https://example.test/world-model',

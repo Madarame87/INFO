@@ -89,6 +89,18 @@
     return series;
   }
 
+  function smoothChartPath(points) {
+    if (!Array.isArray(points) || !points.length) return '';
+    let path = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    for (let index = 1; index < points.length; index += 1) {
+      const previous = points[index - 1];
+      const current = points[index];
+      const midpoint = (previous.x + current.x) / 2;
+      path += ` C ${midpoint.toFixed(1)} ${previous.y.toFixed(1)}, ${midpoint.toFixed(1)} ${current.y.toFixed(1)}, ${current.x.toFixed(1)} ${current.y.toFixed(1)}`;
+    }
+    return path;
+  }
+
   function buildWeeklyReviewMarkdown(articles, now = new Date()) {
     const start = startOfLocalWeek(now);
     const end = new Date(start);
@@ -230,6 +242,7 @@
     startOfLocalWeek,
     isDateInCurrentWeek,
     weeklyActivitySeries,
+    smoothChartPath,
     buildWeeklyReviewMarkdown,
     matchesTag,
     toggleFavoriteState,
@@ -266,11 +279,14 @@
     const empty = document.getElementById('empty-state');
     const emptyTitle = document.getElementById('empty-title');
     const weeklyExport = document.getElementById('export-weekly');
-    const weeklyCount = document.getElementById('weekly-count');
     const weeklyBreakdown = document.getElementById('weekly-breakdown');
     const weeklyRange = document.getElementById('weekly-range');
+    const weeklyChartArea = document.getElementById('weekly-chart-area');
     const weeklyChartLine = document.getElementById('weekly-chart-line');
-    const weeklyChartPoints = document.getElementById('weekly-chart-points');
+    const weeklyChartMarkerLine = document.getElementById('weekly-chart-marker-line');
+    const weeklyChartHalo = document.getElementById('weekly-chart-halo');
+    const weeklyChartMarker = document.getElementById('weekly-chart-marker');
+    const weeklyChartValue = document.getElementById('weekly-chart-value');
     const weeklyPeriods = document.getElementById('weekly-periods');
     if (!viewFilters || !filters || !grid) return;
 
@@ -309,7 +325,6 @@
       const states = cards.map(cardState);
       const series = weeklyActivitySeries(states);
       const current = series[series.length - 1];
-      if (weeklyCount) weeklyCount.textContent = String(current.count);
       if (weeklyBreakdown) weeklyBreakdown.textContent = `收藏 ${current.favorites} · 已整理 ${current.count - current.favorites}`;
       if (weeklyRange) weeklyRange.textContent = `${current.shortStart}—${current.shortEnd}`;
       if (weeklyExport) {
@@ -317,25 +332,43 @@
         weeklyExport.textContent = `导出 ${current.shortStart}—${current.shortEnd} Markdown`;
       }
 
-      const width = 300;
-      const height = 70;
-      const padding = 7;
+      const width = 760;
+      const top = 28;
+      const baseline = 136;
+      const paddingX = 18;
       const max = Math.max(1, ...series.map((item) => item.count));
       const coordinates = series.map((item, index) => ({
-        x: padding + (index * (width - padding * 2) / Math.max(1, series.length - 1)),
-        y: height - padding - (item.count / max) * (height - padding * 2),
+        x: paddingX + (index * (width - paddingX * 2) / Math.max(1, series.length - 1)),
+        y: baseline - (item.count / max) * (baseline - top),
       }));
+      const linePath = smoothChartPath(coordinates);
       if (weeklyChartLine) {
-        weeklyChartLine.setAttribute('d', coordinates.map((point, index) => `${index ? 'L' : 'M'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' '));
+        weeklyChartLine.setAttribute('d', linePath);
       }
-      if (weeklyChartPoints) {
-        weeklyChartPoints.innerHTML = coordinates.map((point, index) => (
-          `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="3.2"><title>${series[index].shortStart}—${series[index].shortEnd}：${series[index].count} 篇</title></circle>`
-        )).join('');
+      if (weeklyChartArea) {
+        const first = coordinates[0];
+        const last = coordinates[coordinates.length - 1];
+        weeklyChartArea.setAttribute('d', `${linePath} L ${last.x.toFixed(1)} ${baseline} L ${first.x.toFixed(1)} ${baseline} Z`);
+      }
+      const currentPoint = coordinates[coordinates.length - 1];
+      for (const circle of [weeklyChartHalo, weeklyChartMarker]) {
+        circle?.setAttribute('cx', currentPoint.x.toFixed(1));
+        circle?.setAttribute('cy', currentPoint.y.toFixed(1));
+      }
+      if (weeklyChartMarkerLine) {
+        weeklyChartMarkerLine.setAttribute('x1', currentPoint.x.toFixed(1));
+        weeklyChartMarkerLine.setAttribute('x2', currentPoint.x.toFixed(1));
+        weeklyChartMarkerLine.setAttribute('y1', (currentPoint.y + 10).toFixed(1));
+        weeklyChartMarkerLine.setAttribute('y2', String(baseline));
+      }
+      if (weeklyChartValue) {
+        weeklyChartValue.setAttribute('x', currentPoint.x.toFixed(1));
+        weeklyChartValue.setAttribute('y', String(Math.max(17, currentPoint.y - 13).toFixed(1)));
+        weeklyChartValue.textContent = String(current.count);
       }
       if (weeklyPeriods) {
-        weeklyPeriods.innerHTML = series.map((item) => (
-          `<span><strong>${item.count}</strong><small>${item.shortStart}</small></span>`
+        weeklyPeriods.innerHTML = series.map((item, index) => (
+          `<span class="${index === series.length - 1 ? 'is-current' : ''}"><small>${item.shortStart}</small>${index === series.length - 1 ? '<strong>本周</strong>' : ''}</span>`
         )).join('');
       }
     }
