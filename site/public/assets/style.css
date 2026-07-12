@@ -71,13 +71,24 @@ button { color: inherit; }
 .view-filter span { margin-top: 9px; font-size: 10px; font-weight: 720; letter-spacing: .08em; }
 
 .discovery-panel { padding: 28px 0 30px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: transparent; }
-.weekly-picks-strip { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 26px; margin-bottom: 26px; padding: 0 0 25px; border-bottom: 1px solid var(--line); }
-.weekly-view { display: flex; align-items: center; gap: 13px; padding: 0; border: 0; color: var(--ink); background: transparent; cursor: pointer; }
-.weekly-view > span { display: grid; gap: 3px; font: 500 21px/1.1 var(--display); text-align: left; }
-.weekly-view small { color: var(--aquatic-dark); font: 750 8px/1.2 var(--mono); letter-spacing: .16em; }
-.weekly-view strong { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid var(--aquatic-line); border-radius: 50%; color: var(--aquatic-dark); background: var(--aquatic-soft); font: 700 12px/1 var(--mono); transition: color .2s ease, background .2s ease; }
-.weekly-view:hover strong, .weekly-view:focus-visible strong, .weekly-view.is-active strong { color: white; background: var(--aquatic-dark); }
-.weekly-picks-strip > p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.65; }
+.weekly-activity { display: grid; grid-template-columns: 150px minmax(260px, 1fr) 120px auto; align-items: center; gap: 30px; margin-bottom: 26px; padding: 0 0 25px; border-bottom: 1px solid var(--line); }
+.weekly-activity-title { display: grid; gap: 4px; }
+.weekly-activity-title small { color: var(--aquatic-dark); font: 750 8px/1.2 var(--mono); letter-spacing: .16em; }
+.weekly-activity-title h2 { margin: 0; font: 500 23px/1.1 var(--display); }
+.weekly-activity-title p { margin: 4px 0 0; color: var(--muted); font: 10px/1.2 var(--mono); }
+.weekly-trend { min-width: 0; }
+.weekly-trend svg { display: block; width: 100%; height: 64px; overflow: visible; }
+.weekly-chart-guide { fill: none; stroke: var(--line); stroke-width: 1; }
+.weekly-chart-line { fill: none; stroke: var(--aquatic-dark); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.weekly-chart-points circle { fill: var(--surface); stroke: var(--aquatic-dark); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.weekly-periods { display: grid; grid-template-columns: repeat(6, 1fr); margin-top: 4px; }
+.weekly-periods span { display: grid; gap: 2px; color: var(--muted); text-align: center; }
+.weekly-periods strong { color: var(--ink-2); font: 700 10px/1 var(--mono); }
+.weekly-periods small { font: 8px/1 var(--mono); }
+.weekly-total { display: grid; align-content: center; gap: 3px; padding-left: 24px; border-left: 1px solid var(--line); }
+.weekly-total strong { font: 500 34px/1 var(--display); }
+.weekly-total span { color: var(--ink-2); font-size: 10px; font-weight: 720; }
+.weekly-total small { margin-top: 3px; color: var(--muted); font: 9px/1.4 var(--mono); }
 .weekly-export { min-height: 40px; padding: 8px 13px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--ink-2); background: transparent; font-size: 11px; font-weight: 720; cursor: pointer; transition: color .18s ease, border-color .18s ease, background .18s ease; }
 .weekly-export:hover:not(:disabled), .weekly-export:focus-visible:not(:disabled) { color: var(--aquatic-dark); border-color: var(--aquatic-line); background: var(--aquatic-soft); }
 .weekly-export:disabled { color: var(--muted); cursor: not-allowed; opacity: .45; }
@@ -199,6 +210,8 @@ button { color: inherit; }
 @media (max-width: 980px) {
   .hero-grid { grid-template-columns: 1fr; align-items: start; gap: 34px; }
   .library-stats { width: min(100%, 430px); }
+  .weekly-activity { grid-template-columns: 140px minmax(220px, 1fr) 110px; gap: 22px; }
+  .weekly-export { grid-column: 1 / -1; justify-self: end; }
   .article-card { grid-template-columns: minmax(0, 1fr) 200px; gap: 34px; }
   .reading-layout { grid-template-columns: 1fr; }
   .toc-card { position: static; }
@@ -225,8 +238,10 @@ button { color: inherit; }
   .view-filter:nth-child(3)::after { right: 0; left: 0; }
   .view-filter strong { font-size: 25px; }
   .discovery-panel { padding: 24px 0; }
-  .weekly-picks-strip { grid-template-columns: 1fr auto; gap: 14px; }
-  .weekly-picks-strip > p { grid-column: 1 / -1; grid-row: 2; }
+  .weekly-activity { grid-template-columns: 1fr auto; gap: 18px 16px; }
+  .weekly-trend { grid-column: 1 / -1; grid-row: 2; }
+  .weekly-total { grid-column: 1; grid-row: 3; padding: 0; border-left: 0; }
+  .weekly-export { grid-column: 2; grid-row: 3; }
   .tag-filters { gap: 4px 18px; }
   .tag-filter { min-height: 44px; }
   .article-card { grid-template-columns: 1fr; gap: 24px; min-height: 0; padding: 26px 22px; }
