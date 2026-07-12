@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="本文探讨了机器人基础模型领域的新范式——世界-行动模型（WAM）。与基于视觉-语言模型（VLM）的VLA模型不同，WAM利用预训练的视频或世界模型骨干网络，将语言指令映射为视觉变化，再生成动作。文章分析了WAM的三种核心范式（逆动力学、联合预测、仅表示）、动作集成方式及架构，并通过Veo 3.1实验和DreamZero等案例展示了其潜力。作者认为，WAM将成为与VLA并行的第二条主要技术路线，未来更可能走向混合模型。">
+  <meta name="color-scheme" content="light">
+  <title>预训练以想象，微调以行动：世界-行动模型的崛起（Pretrained to Imagine, Fine-Tuned to Act: The Rise of World-Action Models） · Info Collector</title>
+  <link rel="stylesheet" href="../assets/style.css?v=b4fdf5df7243">
+</head>
+<body class="article-page">
+  <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="site-brand" href="../index.html" aria-label="Info Collector 阅读库首页">
+        <span class="brand-signal" aria-hidden="true"></span>
+        <span><small>PERSONAL TECHNOLOGY INTELLIGENCE</small><strong>Info Collector<span class="brand-dot" aria-hidden="true">.</span></strong></span>
+      </a>
+      <div class="site-credits" aria-label="Powered by @Madarame87 × @aswrise">
+        <span class="credit-label">Powered by</span>
+        <span class="credit-people"><a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></span>
+      </div>
+    </div>
+  </header>
+  
+  <main class="article-shell">
+    <a class="back-link" href="../index.html">← 返回文章情报库</a>
+    <article data-article-id="https://developer.nvidia.com/blog/pretrained-to-imagine-fine-tuned-to-act-the-rise-of-world-action-models/">
+      <header class="article-hero reveal">
+        <p class="eyebrow"><i></i> TRANSLATED INTELLIGENCE</p>
+        <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">世界模型</span><span class="keyword">机器人</span><span class="keyword">大模型</span><span class="keyword">模型评估</span></div>
+        <h1>预训练以想象，微调以行动：世界-行动模型的崛起（Pretrained to Imagine, Fine-Tuned to Act: The Rise of World-Action Models）</h1>
+        <div class="article-meta">发布于 2026-06-15<span class="meta-dot"></span>收录于 2026-07-12<span class="meta-dot"></span>作者 Moritz Reuss</div>
+      </header>
+      <section class="summary-card reveal" aria-labelledby="summary-title">
+        <div class="summary-label"><span>01</span><p>EXECUTIVE SUMMARY</p></div>
+        <h2 id="summary-title">先读结论</h2>
+        <p>本文探讨了机器人基础模型领域的新范式——世界-行动模型（WAM）。与基于视觉-语言模型（VLM）的VLA模型不同，WAM利用预训练的视频或世界模型骨干网络，将语言指令映射为视觉变化，再生成动作。文章分析了WAM的三种核心范式（逆动力学、联合预测、仅表示）、动作集成方式及架构，并通过Veo 3.1实验和DreamZero等案例展示了其潜力。作者认为，WAM将成为与VLA并行的第二条主要技术路线，未来更可能走向混合模型。</p>
+      </section>
+
+      <div class="reading-layout">
+        <aside class="toc-card" aria-label="文章目录"><p>本页目录</p><nav id="article-toc"><span>正在整理章节…</span></nav></aside>
+        <section class="translated-copy reveal">
+          <div class="section-kicker"><span>02</span><div><p>CHINESE TRANSLATION</p><h2>中文译文</h2></div></div>
+          <div class="prose" id="article-content"><p><strong>快速术语表（面向VLA/WAM新读者）</strong></p>
+<ul>
+<li><strong>VLA（视觉-语言-行动模型）</strong>：一种机器人策略，从预训练的VLM骨干网络出发，将其适配为根据视觉观察和语言指令生成动作。大规模VLM预训练是其核心组成部分。参见Pi-0和GR00T N1。</li>
+<li><strong>WAM（世界-行动模型）</strong>：一种策略，从预训练的世界模型或视频骨干网络出发，将其适配为表示或预测场景随时间的变化，并发出相应的动作。本文通篇使用WAM这一术语。</li>
+<li><strong>VLM（视觉-语言模型）</strong>：一种在图像-文本或视频-文本数据上预训练的模型，用于生成基于视觉输入的语言输出，通常在适配机器人控制之前完成。</li>
+<li><strong>视频骨干网络</strong>：一个预训练的视频模型，在机器人策略内部被重用为核心表示或生成器。</li>
+<li><strong>世界模型</strong>：一种预测未来世界状态的模型，其条件基于某种动作抽象（如语言、机器人动作或潜在动作）。预测的状态可以表示为图像、视频、点轨迹、物体状态或潜在特征。参见经典的世界模型论文和NVIDIA的Cosmos世界基础模型论文。</li>
+<li><strong>接地（Grounding）</strong>：将符号（例如语言指令中的词语）连接到满足它们的感知和运动指代物。语言到动作的接地特指将“拿起红色杯子”这样的指令转化为实际完成该任务的视觉感知和运动指令。接地差距是指模型对语言的了解与其在物理世界中可靠实现的能力之间持续存在的差距。</li>
+<li><strong>逆动力学</strong>：给定当前观察o_t和未来观察o_{t+k}，推断出最可能产生该转变的动作或动作序列。</li>
+<li><strong>联合预测</strong>：给定o_t和语言l_t，训练一个策略π(o_t, l_t)同时预测未来观察o_{t+1:t+k}和动作a_{t:t+k}。</li>
+<li><strong>动作块</strong>：一个短视界的动作序列a_{t:t+k}——即在一次策略调用中预测的k个动作a_t, a_{t+1}, …, a_{t+k-1}，例如关节指令、末端执行器增量、夹爪状态。参见ACT和Diffusion Policy。</li>
+<li><strong>混合变换器（MoT）</strong>：多个特定于模态的变换器或专家，例如一个视频变换器和一个动作变换器，通过共享注意力连接，同时保持各自的权重。参见相关的Transfusion论文。</li>
+<li><strong>扩散变换器（DiT）</strong>：一种在扩散或流匹配模型中使用的变换器骨干网络，用于在多个步骤中对图像、视频或动作令牌进行去噪。DiT通常使用自适应层归一化（adaLN）将时间步条件注入变换器块。参见Peebles和Xie的DiT论文。</li>
+<li><strong>VAE（变分自编码器）</strong>：在本文中，主要指图像和视频VAE，它们在生成或策略学习之前将高分辨率图像或视频压缩为潜在表示。这大大减少了令牌数量；例如，Wan 2.1的VAE使用4倍时间和8×8空间压缩，而Wan 2.2-5B使用更高压缩比的4倍时间和16×16空间接口。参见原始VAE论文、Rombach等人的潜在扩散论文、Wan论文和Wan 2.2发布。</li>
+<li><strong>Wan</strong>：一个大型预训练视频生成模型系列，常被用作近期WAM中的视频骨干网络。参见Wan论文。</li>
+<li><strong>Cosmos</strong>：NVIDIA面向物理AI的世界基础模型系列，包括可适配用于机器人和策略学习的视频预测模型。参见Cosmos论文。</li>
+<li><strong>DROID（分布式机器人交互数据集）</strong>：一个大型真实世界操作数据集，包含超过5万个跨多种任务的演示，使用Franka Panda机器人手臂收集。参见DROID论文。</li>
+<li><strong>RoboArena</strong>：一个分布式真实世界基准测试，用于评估通用机器人策略在开放式语言条件下的任务表现。参见RoboArena论文。</li>
+<li><strong>RoboLab</strong>：一个高保真仿真基准测试，用于分析任务通用机器人策略在视觉、关系和程序能力方面的表现。参见RoboLab论文。</li>
+<li><strong>CALVIN</strong>：一个语言条件下的操作基准测试，专注于仿真中的长时域任务序列。参见CALVIN论文。</li>
+<li><strong>LIBERO</strong>：一个机器人学习基准测试，用于研究操作中的知识迁移、终身学习和泛化。参见LIBERO论文。</li>
+<li><strong>RoboTwin</strong>：一个仿真数据生成器和基准测试，用于在域随机化下进行稳健的双臂机器人操作。参见RoboTwin 2.0论文。</li>
+<li><strong>FAST / BEAST</strong>：离散动作令牌化方法，将连续机器人动作转换为令牌序列，使动作学习与VLM风格训练更兼容。参见FAST论文和BEAST论文。</li>
+<li><strong>VPP（视频预测策略）</strong>：一种WAM风格的方法，使用来自视频模型的预测性视觉表示来调节机器人动作。参见VPP论文。</li>
+<li><strong>LAPA（从视频中进行潜在动作预训练）</strong>：一种从视频中学习类似动作的潜在变量的方法，无需真实机器人动作标签。参见LAPA论文。</li>
+<li><strong>OOD（分布外）</strong>：训练或演示期间未包含的任务、物体、环境或指令。</li>
+<li><strong>FLOP / ZFLOP</strong>：浮点运算次数，衡量训练计算量。1 ZFLOP等于10^21 FLOPs。</li>
+<li><strong>H100 / GPU小时</strong>：H100是高端NVIDIA训练GPU。GPU小时表示一个GPU运行一小时，是用于比较训练成本的粗略单位。</li>
+<li><strong>BF16（脑浮点16位）</strong>：一种低精度数字格式，常用于高效训练大型神经网络。</li>
+<li><strong>I2V（图像到视频）</strong>：一种以初始图像或帧为条件的视频生成设置。</li>
+</ul>
+<p><strong>背景：两个构建模块。</strong> 视觉运动策略将当前观察加上目标或指令映射为机器人动作。世界模型从当前状态加上动作或目标抽象预测未来的视觉或潜在状态。WAM位于两者的重叠区域：它利用预训练的视频/世界模型骨干网络作为先验，并同时预测未来状态和机器人动作。视觉运动策略：输入语言指令和当前观察，输出动作序列。世界模型：输入当前世界状态加上动作抽象，输出未来图像或潜在表示。</p>
+<h2 id="section-1">引言</h2>
+<p>去年，我的学术收件箱摘要几乎每天都被新的VLA论文占据。这种情况在过去几个月发生了变化，现在另一个关键词几乎每天都会出现：WAM，即世界-行动模型（World-Action Model）的缩写。2025年10月，我在关于VLA现状的文章中写道，WAM是VLA研究中的一个小子领域，远不如从VLM初始化的VLA流行[60]。这种情况已经迅速改变，我希望看到更多这方面工作的愿望已经成为现实。</p>
+<p>那么，发生了什么变化，为什么是现在？也许是因为WAM是每个人都想研究的新鲜事物，或者VLA的作者们已经用完了自己VLA的新名称，因为基本上所有的“-VLA”名称如“X-VLA”和“Ego-VLA”都已被使用。所以现在我们可以为WAM领域回收它们。但更可能的是，这与基于VLM的VLA陷入瓶颈有关。现代VLA受益于大规模的视觉-语言预训练，但它们仍然遇到了语言到动作的接地壁垒。将语言和像素映射为行为的问题仍然必须从机器人数据中学习。WAM提供了一个不同的起点。它们使用预训练的视频或世界模型骨干网络，这些网络已经建模了场景动态如何在语言条件下变化。如果这个先验能够迁移到行为生成，那么剩余的视频到动作的差距可能比直接学习语言到动作的接地要小。</p>
+<p>但WAM背后的想法并不新鲜。早期的WAM，如UniPi [10]，早在2023年就提出了这种方法。那么，为什么这个范式花了几年时间才进入机器人基础模型的主流，它今天到底处于什么位置？本文将仔细审视现代WAM格局，以回答核心问题：</p>
+<p><strong>核心问题：这是研究和工业领域的真正范式转变，还是仅仅是一轮短暂的炒作周期？如果这种方法如此有效，为什么在UniPi等早期论文之后，WAM花了几年时间才变得如此流行？</strong></p>
+<p><strong>我的看法：</strong> WAM将成为机器人基础模型的第二条主要技术路线，与基于VLM的VLA并列。悬而未决的问题是哪种WAM形式会胜出，以及模型架构和流程的哪些部分真正重要。很可能胜出的既不是纯粹的VLA，也不是纯粹的WAM，而是两者的混合体。</p>
+<p>这是我绘制的现代WAM空间地图：如何分类和理解WAM，自早期模型以来发生了什么变化，以及当前结果与VLA相比如何。更广泛的综述，请参见最近的NTU综述“World Model for Robot Learning: A Comprehensive Survey”[57]，该综述涵盖了仿真、评估、导航和自动驾驶中的机器人学习世界模型。</p>
+<p><strong>目录</strong></p>
+<ul>
+<li>通用策略的两种表示赌注</li>
+<li>为什么是世界-行动模型？我们的假设</li>
+<li>接地差距</li>
+<li>WAM作为策略表示的核心假设</li>
+<li>快速实验：Veo 3.1</li>
+<li>理解现代WAM：核心范式</li>
+<li>范式：模型预测什么</li>
+<li>逆动力学</li>
+<li>联合预测</li>
+<li>仅表示</li>
+<li>动作集成：动作如何进入模型</li>
+<li>默认动作令牌</li>
+<li>动作即图像</li>
+<li>潜在动作与计划</li>
+<li>架构</li>
+<li>WAM为何现在起飞</li>
+<li>WAM比较</li>
+<li>实践考量</li>
+<li>视频先验的成本</li>
+<li>推理速度</li>
+<li>为什么现代VLA基线仍然重要</li>
+<li>两条表示之路是否实为一条？</li>
+<li>第四条路径：机器人优先的基础模型</li>
+<li>结语</li>
+<li>来源</li>
+</ul>
+<h2 id="section-2">通用策略的两种表示赌注</h2>
+<p><strong>图1. 当前通用操作策略的两种主要赌注：基于VLM的VLA vs 基于视频骨干网络的WAM。</strong></p>
+<p>该领域目前在研究和工业中都有两种主要的机器人基础模型表示赌注。许多团队正在构建在由Pi-0 [2]建立、后由Pi-0.5 [4]改进的传统VLA配方之上，使用VLM骨干网络作为策略学习的起点。这种VLM骨干网络配方出现在来自NVIDIA GR00T [5]、小米机器人[27]、Being-H0.5 [28]等团队的公开工作中。</p>
+<p>最近，一种不同的范式出现了：使用预训练的视频骨干网络作为通往通用操作的另一条路径。公开示例现在涵盖了NVIDIA的DreamZero [8]和Cosmos Policy [13]、蚂蚁集团的LingBot-VA [9]、Rhoda AI的DVA [40]、Sereact的Cortex 2.0 [45]以及Mimic Robotics的mimic-video [14]。同时，许多大学实验室和开放研究团体也在通过新想法推动前沿，包括Video Prediction Policy [24]、Unified Video Action Model [39]和Fast-WAM [23]。我们将在下面更详细地讨论这些。</p>
+<p>骨干网络的选择会影响整个训练和评估流程，从训练配方和数据混合到推理优化。考虑到大规模运行这些模型的成本，大多数团队可能不得不优先选择一个方向（VLA或WAM），而不是同时并行推进两者。哪条路径会被证明是成功的，或者两者是否会融合，仍然悬而未决。你今天会押注哪一个？在接下来的章节中，我们将深入探讨这个决策的两方面。</p>
+<h2 id="section-3">为什么是世界-行动模型？我们的假设</h2>
+<p>在我们深入探讨当前模型之前，让我们先回顾一下为什么WAM作为基于VLM的VLA的替代方案具有吸引力。这也有助于首先将WAM置于机器人学中世界模型的更广阔图景中。</p>
+<p><strong>图2. 机器人学中的世界模型。</strong> 动作条件世界模型（DreamDojo, Genie, JEPA-WM）从学习到的动作抽象预测未来状态。视频世界模型（Cosmos-3, WAN, Veo, LTX-Video）以语言和参考帧为条件预测未来视频。世界-行动模型（WAM），如DreamZero, LingBot-VA, UniPi和mimic-Video，位于交叉点：它们在发出动作的机器人策略内部重用视频或世界模型骨干网络。</p>
+<h3 id="section-4">接地差距</h3>
+<p>要理解为什么WAM有吸引力，有助于理解构建在VLM骨干网络上的“经典”VLA的核心挑战。第一个VLA的动机是利用VLM的互联网规模知识进行机器人学。VLM在海量的视觉-文本数据上训练，并在许多视觉任务上表现出显著的零样本性能。VLA配方随后适配这些预训练表示以生成动作。</p>
+<p>然而，VLM预训练与具身操作之间存在巨大的领域差距。几篇VLA论文要么观察到预训练VLM能力的退化，要么围绕这一点进行设计，特别是当动作学习目标与原始VLM目标严重偏离时。VLM2VLA直接将其描述为VLM到VLA转换过程中的灾难性遗忘[55]。Knowledge Insulation报告了类似的发现，并将其归因于架构问题：它将流匹配动作专家的梯度与VLM骨干网络隔离，以保留预训练的语言/视觉知识，从而改善训练收敛性、任务性能和语言遵循能力[20]。最近的解决方案如VLM协同训练和离散动作令牌化器有所帮助，但核心挑战依然存在：从有限的机器人数据中将语言接地到物理动作。我们在下面的现代VLA基线部分涵盖了这些解决方案。</p>
+<p>这自然引出了一个问题：如果我们从一个已经表示语言如何映射到世界中视觉变化的骨干网络开始，会怎么样？</p>
+<h3 id="section-5">WAM作为策略表示的核心假设</h3>
+<p>核心思想很简单：不使用VLM骨干网络来启动模仿学习，而是使用预训练的视频骨干网络。当前的视频模型在大型视频语料库上训练，并学习视觉场景如何演变的时空表示。至关重要的是，当前的视频模型通常是文本条件的：它们被训练为从精确的语言描述生成视频，有时带有参考帧，有时仅从文本生成。这些视频中有许多包含有意行为：手在伸、工具在移动、物体在被操作、场景因为某人或某物的行动而变化。这使得视频骨干网络作为通用操作的模型先验具有吸引力。在看到任何机器人动作之前，骨干网络已经编码了语言、视觉变化和合理的物体交互之间的有用联系。下面的Veo 3.1演示是一个快速说明。</p>
+<p>我将接下来的三点视为假设，而非结论。它们是跨论文、与同行讨论以及我自己对该领域的解读中反复出现的说法，得到了定性直觉、仿真证据和一些早期真实世界信号的支持，但尚未得到干净的匹配比较：</p>
+<ol>
+<li><strong>预测未来世界变化与生成必要动作相关。</strong> 逆动力学预测通常比纯动作生成更容易[26]。如果已知期望的结果，推断产生该结果的动作通常比直接从指令和当前观察预测动作更简单。Pi-0.7的视觉子目标结果指向同一方向：当策略被给予一个期望的未来图像时，动作预测变得更直接，训练收敛更快[43]。</li>
+<li><strong>视频预训练提供了语言与物理变化之间的接地。</strong> 视频模型学习将文本描述映射到视觉结果。如果这能迁移到机器人学，它可以减少必须仅从机器人演示中学习的接地量。</li>
+<li><strong>视频数据正则化机器人策略。</strong> 相对于网络规模的视频，机器人数据集很小。无论是通过首先在视频上预训练，还是在机器人数据旁进行视频协同训练，更广泛的视觉先验可以减少过拟合；其益处取决于数据集、目标和架构。DreamZero [8]和Fast-WAM [23]都表明，在机器人微调期间，当动作学习与视频预测目标协同训练时，WAM表现最佳。</li>
+</ol>
+<h3 id="section-6">快速实验：前沿视频模型对机器人操作已经“理解”了多少？</h3>
+<p>在添加任何特定于机器人的动作头之前，现代视频模型已经捕获了多少？我们用Google的Veo 3.1（一个前沿视频生成模型）进行了一个简单实验。给定来自DROID设置中烤面包机任务的原始RoboAarena rollout的一个上下文帧，我们提示Veo按下烤面包机杠杆（参考任务，匹配原始DROID演示），然后拿起左边的一个橙子（组合扩展，超出演示范围）。这个视频极不可能成为Veo预训练数据的一部分，但我们无法直接验证训练集；将此视为对先验的定性检查，而非对训练集成员资格的控制性探测。一次尝试，无提示优化。</p>
+<p>使用的提示是： “给定这个初始帧，生成一个机器人手臂按下烤面包机杠杆的视频。完成该任务后，机器人应拿起烤面包机左侧的橙子，并在拿起后停止。”</p>
+<p><strong>上下文帧和真实 rollout：</strong></p>
+<p><strong>图3. DROID设置中RoboAarena烤面包机任务的上下文帧。</strong> <strong>图4. 真实 rollout：机器人按下烤面包机杠杆。</strong></p>
+<p><strong>Veo 3.1生成的 rollout（零样本，无机器人微调）：</strong></p>
+<p><strong>图5. Veo 3.1为参考任务（按下烤面包机杠杆）生成的 rollout。</strong> <strong>图6. Veo 3.1为组合扩展任务（按下杠杆后拿起橙子）生成的 rollout。</strong> <strong>图7. 完整组合扩展序列的动画 rollout：按下杠杆，然后拿起橙子。</strong></p>
+<p>对于一个没有明确训练为机器人策略的模型来说，生成的 rollout 出奇地好。生成的运动很平滑，背景保持稳定一致，机器人沿着一条合理的轨迹朝向两个目标物体。甚至顺序也得到了尊重：先完成杠杆，然后移动到橙子。</p>
+<p>局限性同样明显：模型没有完全按下烤面包机杠杆，并且在某些点上似乎尝试了相反的运动（向上拉）。更明显的是，原始DROID设置中的夹爪变成了一个四指手。固定基座的机器人手臂在上下文帧之后几乎立即被重新想象为一个具有更少自由度的不同机器人。这些伪影与模型使用广泛的视觉先验而非忠实建模特定硬件是一致的。</p>
+<p>尽管如此，结果说明了为什么视频骨干网络对机器人学有吸引力：该模型对机器人-物体交互应该是什么样子有一个有用的先验，尽管它对于控制来说还不够可靠。WAM微调正是试图将这种零样本想象力转化为可靠的控制。</p>
+<h2 id="section-7">理解现代WAM：核心范式</h2>
+<p>在确立了核心动机之后，我们现在可以关注当前的WAM研究。与基于VLM的VLA（其训练配方已大致收敛于使用流变换器进行动作生成的VLM协同训练）相比，WAM仍在分裂为几种活跃的范式。这正是该领域目前有趣的原因：该领域还不知道哪种设计选择组合会胜出，或者最好的系统是否会合并多个部分。</p>
+<p>为了使设计空间易于理解，我们沿着三个轴（并非完全独立）组织WAM：</p>
+<ul>
+<li><strong>范式</strong>：模型预测什么，以及如何使用预测的视频生成动作？（逆动力学 vs 联合预测 vs 仅表示）</li>
+<li><strong>动作集成</strong>：动作实际上如何进入模型？（默认动作令牌 vs 动作即图像 vs 潜在动作/计划）</li>
+<li><strong>架构</strong>：组件如何组合？（混合变换器 vs 单体式 vs 层级式）</li>
+</ul>
+<p>这些轴并非完全独立，一些WAM并不完全适合单一类别。我不会将其视为完美的分类法。它更应该是一个实用的地图，用于阅读当前论文而不迷失在命名选择中。对于每个轴，我以一个较旧的论文和同一粗略配方的现代规模化版本来介绍这个想法。</p>
+<p><strong>图8. WAM设计空间概览。</strong> 左：三种范式在模型预测的内容上有所不同。逆动力学WAM生成未来视频，然后从中推导出动作。联合预测WAM同时输出视频和动作。仅表示WAM纯粹将视频骨干网络用作表示，并在推理时跳过视频生成。中：三种动作集成选择在动作如何进入模型方面有所不同。动作可以是独立的令牌。它们可以是视频模型原生去噪的图像形状目标。或者它们可以是压缩的潜在动作和计划。右：三种架构风格在组件如何组合方面有所不同。单体式变换器在一个堆栈中处理所有内容。通过共享注意力耦合的模态特定专家（MoT）保持独立权重但共享信息。层级式流程在动作模块之前运行一个视频模块。本节的其余部分将依次介绍每个轴。</p>
+<h3 id="section-8">范式：模型预测什么</h3>
+<p>第一个轴是策略范式：模型预测什么，以及如何使用预测的视频来生成动作。在现代WAM中，我们看到三个方向，它们在推理边界上有所不同：<strong>逆动力学</strong>、<strong>联合预测</strong>和<strong>仅表示</strong>。</p>
+<h4 id="section-9">逆动力学：预测未来，然后推断动作</h4>
+<p><strong>图9. 逆动力学WAM（抽象）。</strong> 视频模型首先根据语言指令和当前观察生成未来帧或潜在表示；然后一个逆动力学头将预测的转变映射为一系列动作。具体系统在是否使用全RGB未来（LingBot-VA, DVA）、潜在视频特征（VPP, mimic-video）或仅中间特征方面有所不同。</p>
+<p>逆动力学设置是最容易理解的WAM配方：首先想象未来，然后从视频中预测最可能的动作。这将困难的语言接地问题转移到了视频阶段：将指令翻译成合理的视觉变化。赌注在于视频预训练已经学习了这种语言到视觉变化映射的有用部分，因此动作头不必从机器人演示中学习所有内容，而是可以专注于逆动力学问题。</p>
+<p><strong>图10. UniPi概述。</strong> 一个文本条件的视频生成器从当前帧和语言指令生成未来图像序列；一个独立的逆动力学模块随后从连续帧中提取动作。图片来自Du等人，2023 [10]。</p>
+<p>UniPi [10] 是这个方向的开创性论文。它可能是第一个明确意识到视频扩散对机器人学潜力的现代配方实现：将视频用作高级计划，然后使用逆动力学恢复低级控制。事后看来，很多最近的WAM工作看起来像是这个的改进版本。</p>
+<p>UniPi也展示了为什么WAM又花了几年时间才进入主流。它使用了来自Imagen Video时代的基于CNN的视频扩散堆栈[56]，并且视频生成器必须从头开始预训练。我们在脚注2中的粗略估计将预训练计算量定在约167 ZFLOPs，远远超出大多数机器人实验室的预算。虽然这个配方之前就存在，但对于普通实验室来说并不可复制。现代逆动力学WAM现在可以通过从开源的基于DiT的视频骨干网络开始并对其进行微调来规避这一点。</p>
+<p><strong>图11. LingBot-VA架构：基于微调后的Wan 2.2-5B骨干网络生成的视频rollout进行逆动力学动作预测。</strong> 图片来自Li等人，2026 [9]。</p>
+<p>这个方向的现代版本是LingBot-VA [9]。它通过16k小时的跨具身预训练将Wan 2.2-5B转变为机器人视频-动作模型。与UniPi的重要区别不仅仅是规模。LingBot-VA是因果的，并在长视觉历史序列上训练，用于闭环rollout，而非开环视频生成。它还使用了混合变换器（MoT）架构：用于视频和动作的独立专家，每个都有自己的权重，通过每层中的共享自注意力耦合。</p>
+<p><strong>表1. 逆动力学，原始配方 vs 现代规模化版本。</strong></p>
+<p>| 设计选择 | UniPi [10] | LingBot-VA [9] | | :--- | :--- | :--- | | 主要思想 | 生成未来视频计划，然后用逆动力学恢复动作。 | 微调视频骨干网络，用于闭环机器人世界-动作rollout。 | | 骨干网络 | 基于CNN的视频扩散（级联U-Net），在Imagen Video时代从头训练。 | Wan 2.2-5B 潜在DiT（开放权重）。 | | 潜在视频VAE | 无；生成低分辨率RGB未来。 | Wan 2.2-5B（16×16空间，4×时间）[56]。 | | 动作专家 | 独立的CNN动作头。 | MoT动作专家，通过联合注意力耦合。 | | 动作-视频耦合 | 单向：先视频，后动作。 | 双向：视频调节动作；生成的动作调节视频。 | | 机器人训练规模 | 小，仅演示。 | 16k小时跨具身机器人世界-动作预训练。 |</p>
+<p>围绕同一主题有几种变体。Video Prediction Policy [24]、DiT4DiT [37]和mimic-video [14]不一定需要最终的RGB视频；它们使用中间视频模型特征作为动作解码器的预测计划。DVA [42]和LingBot-VA更直接地依赖于生成或预测的未来rollout。困难在于大多数论文改变了视频骨干网络，使用了不同数量的大规模预训练，调整了不同的超参数，并在不同的设置上评估。</p>
+<h4 id="section-10">联合预测：同时学习视频和动作</h4>
+<p><strong>图12. 联合预测WAM（抽象）。</strong> 一个单一模型接收语言指令和当前观察，并一次性输出一个动作序列和想象的未来状态（帧或潜在表示），无需独立的逆动力学模块。</p>
+<p>第二种范式是联合预测。不是首先生成未来视频然后解码动作，而是模型同时预测视频和动作。这是WAM思想更耦合的版本：模型被迫在同一预测步骤中学习应该发生什么以及如何使其发生。</p>
+<p><strong>图13. GR-1架构。</strong> 阶段1在视频预测上预训练；阶段2在机器人数据上使用未来帧和动作块的联合目标进行微调。图片来自Wu等人，2023 [11]。</p>
+<p>GR-1 [11] 是这个方向的早期基础论文。它在大规模视频上预训练，然后在本地机器人数据集上使用视频和动作监督进行微调。它使用了一个GPT-2风格的变换器策略，在互联网视频预测上使用读出令牌进行预训练，然后在机器人数据上使用联合视频-动作目标进行微调。早期的工作如R3M [15]和Voltron [16]已经表明视频和语言可以帮助机器人学的表示学习，但GR-1做了一个简单而重要的转变：它使用视频来学习更好的策略表示，而不仅仅是图像级别的视觉表示。</p>
+<p>当时，CALVIN的结果是有用的仿真证据。在更难的ABC→D分割上，GR-1表格中的先前方法平均序列长度保持在1.0以下，而GR-1达到了3.06/5。这个结果在这里很有用，因为它使得泛化信号最容易读取。到2026年，这个数字已经过时，但我仍然认为这个结果在历史上很重要。它表明预测未来视觉状态可以塑造更好的策略表示，而不仅仅是更好的视觉编码器。</p>
+<p><strong>图14. CALVIN ABC→D结果总结为五个子任务中平均完成的数量，GR-1作为历史结果，小米机器人-0作为当前SOTA VLA参考。</strong> 数值重新绘制自Wu等人，2023 [11]和小米机器人，2026 [27]。</p>
+<p>DreamZero [8] 是这个想法的现代规模化版本。它不是围绕一个视频预测头训练一个较小的变换器风格策略，而是从Wan 2.1-I2V-14B-480P开始，将视频扩散骨干网络转变为一个联合的世界-动作模型。该模型在一个单体式DiT内部同时去噪视频和动作令牌。没有独立的逆动力学模块：动作是同一去噪过程中的另一个生成模态。</p>
+<p><strong>图15. DreamZero架构。</strong> 一个单一的单体式变换器，从14B Wan视频扩散骨干网络初始化，联合去噪视频令牌和动作令牌。图片来自Ye等人，2026 [8]。</p>
+<p>DreamZero报告的RoboArena分数是WAM的一个重要真实世界信号。虽然大多数论文仍然关注流行的基准测试如LIBERO和其他仿真基准，但RoboArena是少数公开的真实世界、开放式评估之一，这使得下面的快照值得暂停一下。</p>
+<p><strong>图16. 2026年4月RoboArena排行榜快照。</strong> Pi-FAST (1592) 领先于 Pi-0 (1475)，而 Pi-0.5 (1622) 和 DreamZero (1750) 则进一步领先。</p>
+<p>在上面的2026年4月快照中，DreamZero达到了1750，而Pi-0.5为1622，这是WAM潜力的一个重要信号。这并不能证明WAM是更好的默认选择，但对其潜力是一个积极的信号。有趣的是，DreamZero仅在DROID上训练，没有额外的大规模跨具身机器人训练阶段。</p>
+<p><strong>表2. 联合预测，早期策略级版本 vs 现代规模化版本。</strong></p>
+<p>| 设计选择 | GR-1 [11] | DreamZero [8] | | :--- | :--- | :--- | | 主要思想 | 在学习动作的同时，将未来帧预测作为辅助目标。 | 在一个视频扩散骨干网络中联合去噪未来视频和机器人动作。 | | 骨干网络 | GPT-2风格变换器策略，带有视频预测读出令牌。 | Wan 2.1-I2V-14B-480P视频扩散模型，适配用于机器人控制。 | | 规模 | ~2100万策略参数；预训练的视觉和语言编码器保持独立[55]。 | 14B Wan骨干网络，端到端动作调优。 | | 生成目标 | 未来视频和动作的L2重建。 | 联合未来视频和动作生成的流/去噪。 | | 潜在视频VAE | 无；预训练的MAE/ViT视觉特征。 | 继承Wan的潜在视频VAE。 | | 语言条件 | CLIP。 | T5系列文本编码器（继承自Wan）。 |</p>
+<p>GR-1展示了联合视频-动作预测的策略级版本，而DreamZero将该想法与现代视频基础模型和流匹配设置相结合。核心的联合预测思想与GR-1相同，但DreamZero改变了几乎所有其他方面，因此这远非一个干净的比较。</p>
+<p>GR-2 [12]、Seer [29]、PAD [57]、UWM [58]、UVA [41]和DreamVLA [40]属于这个更广泛的联合预测浪潮。PAD是另一个早期尝试，在一个联合去噪过程中同时进行未来图像预测和机器人动作生成。UWM为视频和动作使用独立噪声，以支持联合变换器内更灵活的推理模式。</p>
+<h4 id="section-11">仅表示：在推理时跳过视频生成</h4>
+<p>第三种选择是纯粹将视频骨干网络用作表示，并在推理时完全跳过视频生成。Fast-WAM是这个想法的一个很好的例子。</p>
+<p>Fast-WAM [23] 使用了类似于LingBot-VA的Wan/MoT风格设置，即使没有16k小时的大规模机器人预训练，也在仿真基准测试上紧密匹配其性能。此外，在测试时跳过视频生成使其推理速度快几倍。然而，Fast-WAM是仅表示假设的少数公开证据之一，当前的仿真证据不足以让我真正信服这个想法。但我很乐意在未来的工作中被说服。</p>
+<p>今天的大多数WAM在推理时保留某种形式的视频生成，并且非常慢。像Fast-WAM这样更快的WAM将在未来成为一个更大的研究领域。</p>
+<h3 id="section-12">动作集成：动作如何进入模型</h3>
+<p>在讨论了如何结合视频和动作预测之后，让我们关注动作在模型内部是如何表示的。这个选择很重要，因为预训练的骨干网络知道如何对视觉令牌进行去噪，而不是连续的机器人动作，因此存在真正的模态不匹配。我在当前论文中看到三种变体。</p>
+<h4 id="section-13">默认动作令牌</h4>
+<p>最简单的默认方法是添加动作令牌（连续或离散）和一个动作头，其中动作被视为与视频并列的另一种模态。UniPi、GR-1、DreamZero、LingBot-VA、VPP、mimic-video和Fast-WAM都使用了某种版本。风险在于模态不匹配：动作块与骨干网络预训练时的视觉令牌不同，因此模型必须在动作微调期间调整其表示。</p>
+<h4 id="section-14">动作即图像</h4>
+<p>另一种选择是将动作转化为视频模型已经知道的东西。不是添加新的动作令牌或独立的动作头，而是将动作编码为同一生成接口内的视觉目标，这样预训练的视频表示就不会被破坏。</p>
+<p><strong>图17. GENIMA将动作转化为视觉目标：图像模型在RGB空间中预测关节动作目标，下游控制器将这些目标映射回机器人指令。</strong> 图片来自Shridhar等人，2024 [31]。</p>
+<p>这里最近的早期祖先是GENIMA [31]。GENIMA微调Stable Diffusion以在RGB图像上绘制关节动作目标，然后使用控制器将这些视觉目标映射为关节位置动作。有趣的部分是接口选择：动作被表示为生成式图像模型可以绘制的东西。</p>
+<p><strong>图18. Cosmos Policy潜在注入：动作、本体感觉和价值目标被表示为同一视频去噪接口内的合成潜在帧。</strong> 图片来自Kim等人，2026 [13]。</p>
+<p>这个方向的现代版本是Cosmos Policy [13]，它将动作视为合成的潜在视频帧。它不是添加一个独立的动作解码器，而是将动作、本体感觉和价值目标编码为视频模型自身去噪接口内的假帧，并在推理时通过平均空间维度将预测的动作图像解码回动作向量。这种设置使预训练的视频骨干网络接近其原生的视频去噪空间，同时仍然产生机器人动作。</p>
+<h4 id="section-15">潜在动作与计划</h4>
+<p>另一种不同的选择是将行为压缩为潜在计划或潜在动作，并以此作为策略的条件。这很有吸引力，因为完整的视频预测成本高昂，而且大多数像素实际上并非控制所需。潜在计划和潜在动作并不完全相同，但为了本次讨论，我将它们归为一组：两者都是从轨迹或视频中学习到的紧凑行为抽象。主要区别在于粒度和监督。计划通常覆盖多步窗口，并且通常需要配对的机器人数据；Genie/LAPA风格的潜在动作可以从无标签视频中学习。</p>
+<p><strong>图19. Play-LMP架构。</strong> 训练期间，一个识别网络将轨迹窗口压缩为潜在计划；推理时，一个提议网络从当前观察和目标图像预测潜在计划。图片来自Lynch等人，2020 [32]。</p>
+<p>Play-LMP [32] 在2019年开创了这个想法。这值得记住，因为基本思想比当前的基础模型浪潮更古老。Play-LMP在能够访问今天更大的机器人数据集和预训练模型之前很久，就将子任务压缩到一个小的潜在空间中，作为调节低级策略的中间抽象。具体来说，一个后验网络将短轨迹窗口压缩为一个潜在计划，一个先验网络学习从当前观察和目标图像预测该潜在计划，一个低级策略将采样的计划解码为动作。</p>
+<p>现代潜在动作浪潮改变了规模和数据来源。Genie [19] 表明，潜在动作令牌可以从无标签的互联网视频中学习，并用于驱动一个动作条件的世界模型。Genie本身并不将这些潜在变量解码为真实的机器人电机指令，因此它不是一个机器人策略。但它使这个想法更具可扩展性：从视频中学习类似动作的抽象，而无需真实的机器人动作。LAPA [33] 随后将这种潜在动作预训练推向VLA风格的机器人学习。</p>
+<p>Being-H0.7 [42] 是原始Play-LMP想法的现代WAM版本。它保留了先验/后验潜在计划逻辑，但在基础模型规模上执行，并进行了几项重大更改。它不使用小型层级式潜在计划策略，而是使用一个更大的混合变换器（MoT）骨干网络。与Play-LMP类似，该模型有一个后验分支和一个先验分支。后验分支可以访问未来观察，使用冻结的V-JEPA2.1 [64]视觉编码器和Perceiver重采样器对其进行编码，并将其压缩为K个未来嵌入。先验分支使用可学习的潜在查询，并学习从可用上下文中匹配这些未来信息潜在状态。在测试时，后验分支被移除，因此策略获得一个快速的潜在接口，而不是强制模型重新生成完整的视频序列。动作生成部分仍然是一个流匹配动作策略。Being-H0.7在20万小时的自我中心人类视频以及1.5万小时的机器人演示上训练。</p>
+<p><strong>图20. Being-H0.7潜在世界-动作架构。</strong> 后验分支将观察到的行为压缩为潜在令牌，而先验分支预测这些令牌以进行快速的测试时策略推理。图片来自BeingBeyond团队，2026 [42]。</p>
+<p><strong>表3. 潜在抽象，早期潜在计划配方 vs 现代规模化潜在世界-动作配方。</strong></p>
+<p>| 设计选择 | 潜在计划 / Play-LMP [32] | Being-H0.7 [42] | | :--- | :--- | :--- | | 主要思想 | 将短机器人行为窗口压缩为调节低级策略的潜在计划。 | 从大规模自我中心视频和机器人演示中学习潜在世界-动作模型。 | | 数据来源 | 机器人游戏/演示轨迹。 | 20万小时自我中心人类视频 + 1.5万小时机器人演示。 | | 架构 | 层级式潜在计划策略；LSTM低级解码器。 | 用于潜在世界-动作建模的大型MoT变换器。 | | 潜在变量 | 轨迹级潜在计划，先验/后验训练。 | 相同的先验/后验结构，基础模型规模。 | | 策略接口 | 预测先验计划；以观察和目标为条件的低级策略执行它。 | 训练两个分支；测试时仅先验分支通过紧凑的潜在接口运行。 |</p>
+<p>关键区别不在于潜在变量本身。Play-LMP已经拥有了核心的先验/后验潜在计划思想。Being-H0.7展示了该接口如何在现代WAM/VLA混合体内部进行扩展。</p>
+<p>潜在动作作为动作条件世界模型的抽象也变得流行。最近的一个例子是DreamDojo [44]，它从大规模自我中心人类视频中学习连续潜在动作，用于可控世界模型。与逆动力学的重要区别在于监督路径。逆动力学WAM通常需要配对的视频和动作数据来学习视觉转换如何映射到运动指令。潜在动作方法试图首先从视频本身学习行为抽象，然后将该抽象与机器人动作连接起来。</p>
+<h3 id="section-16">架构：层级式、单体式还是MoT？</h3>
+<p>第三个轴是架构：组件在结构上如何组合。这基本上与前两个轴正交。逆动力学可以是层级式或MoT风格，联合预测可以是单体式或基于专家，潜在动作方法可以位于几种不同的包装器中。</p>
+<p><strong>图21. 层级式：独立的视频预测和动作生成阶段，单向连接。</strong></p>
+<p>层级式是最灵活的设计，因为动作头是完全模块化的。它可以是任何东西，从简单的CNN回归器（UniPi）到完整的VLA堆栈（Pi-0.7的BAGEL子目标加上完整的基于VLA的动作专家），VPP [24]和mimic-video [14]通过传递中间视频模型特征而不是完整的RGB rollout介于两者之间。缺点是视频和动作阶段之间的耦合较弱。信息单向流动，因此当视频和动作应该强烈相互影响时，这种风格不太自然。</p>
+<p><strong>图22. 单体式变换器：一个单一的变换器端到端联合去噪视频和动作。</strong></p>
+<p>像DreamZero [8]这样的单体式变换器将视频和动作去噪放在同一个堆栈中，这给了它们两个流之间的强耦合。它们也是像Cosmos Policy [13]这样的动作即图像设置的自然选择，其中动作和视频已经存在于相同的潜在空间中。风险在于双重优化：相同的模型权重必须处理密集的视觉令牌和更稀疏的动作目标。</p>
+<p><strong>图23. 混合变换器：通过共享注意力耦合的模态特定专家。</strong></p>
+<p>混合变换器（MoT）是当前的默认选择，包括在现代VLA（Pi-0, Pi-0.5）和最近的WAM如LingBot-VA [9]和Fast-WAM [23]中。模态特定参数保持表示独立，而共享注意力仍然允许视频和动作交换信息。我的猜测是，MoT风格的设计也将成为主导的WAM架构，主要是因为它们是模块化和耦合性之间的实用折衷。</p>
+<h2 id="section-17">WAM为何现在起飞</h2>
+<p>我对WAM为何现在起飞的简短回答是：虽然这个想法并不新鲜，但所需的工具（如预训练视频模型）终于赶上了。早期的范式（逆动力学的UniPi，联合预测的GR-1，潜在抽象的Play-LMP）有正确的想法，但工具有限：更小的骨干网络、更弱的视频数据、没有公开可用的视频基础模型，以及与现代动作块策略相比效果不佳的逐步骤动作头。它们的现代对应物（LingBot-VA, DreamZero, Being-H0.7）使用了基础设施和几年前不存在的大规模机器人数据集。</p>
+<p>首先，视频骨干网络变得强大得多。基于DiT的模型如Wan [21]和Cosmos [22]取代了早期的基于CNN的堆栈，具有更好的时间压缩、流匹配目标和精心策划的网络规模视频数据。其次，这些骨干网络变得公开可用。研究人员现在可以微调一个强大的预训练视频模型，而不是自己支付完整的预训练成本。第三，动作方面赶上了：现代系统使用变换器或流匹配头预测动作块，而不是小的逐步骤MLP头。这就是为什么WAM现在看起来像一个真正的配方，而不仅仅是一个有更好品牌的老想法。</p>
+<h2 id="section-18">WAM比较</h2>
+<p>下表通过跨不同设计决策对它们进行分类，总结了我们之前涵盖的模型：模型预测什么、动作如何进入、使用什么骨干网络以及使用什么架构？WAM领域发展迅速，因此这只是一个选定的论文子集。关于世界模型和WAM相关机器人学习论文的更广泛综述，请参见NTU综述“World Model for Robot Learning”[57]。</p>
+<p><strong>表4. 选定的WAM及相关模型比较，沿三个设计轴（范式、动作集成、架构），加上骨干网络和年份。</strong></p>
+<p>| 模型 | 范式 | 动作集成 | 骨干网络 | 架构 | 年份 | | :--- | :--- | :--- | :--- | :--- | :--- | | Play-LMP [32] | — (前WAM) | 潜在计划 | 变换器 + LSTM (从头) | 层级式 | 2019 | | UniPi [10] | 逆动力学 | 默认动作令牌 | CNN视频扩散 (1.7B) | 层级式 | 2023 | | GR-1 [11] | 联合预测 | 默认动作令牌 | 变换器 (从头) | 统一变换器 | 2024 | | GENIMA [31] | 逆动力学 | 动作即图像 | Stable Diffusion / ControlNet | 层级式 (图像生成 + 控制器) | 2024 | | Seer [29] | 逆动力学 | 默认动作令牌 | 视觉/动作令牌上的变换器 | 统一变换器 | 2025 | | VPP [24] | 逆动力学 | 默认动作令牌 | Stable Video Diffusion | 层级式 | 2025 | | mimic-video [14] | 逆动力学 | 默认动作令牌 | 视频扩散 (Cosmos) | 层级式 | 2025 | | DreamZero [8] | 联合预测 | 默认动作令牌 | 视频扩散 (Wan 14B) | 单体式 DiT | 2026 | | LingBot-VA [9] | 逆动力学 | 默认动作令牌 | 视频扩散 (Wan 2.2-5B) | MoT | 2026 | | Cosmos Policy [13] | 联合预测 | 动作即图像 | 视频扩散 (Cosmos) | 单体式 DiT | 2026 | | Being-H0.7 [42] | 联合预测 (潜在) | 潜在计划/动作 | MoT变换器 (从头, 20万+1.5万小时数据) | MoT | 2026 | | Fast-WAM [23] | 仅表示 | 默认动作令牌 | 视频扩散 (Wan 5.5B) | MoT | 2026 |</p>
+<h2 id="section-19">实践考量</h2>
+<p>我们在上面看到了一些有前景的WAM模型和一些有前景的结果。然而，也存在几个核心问题：</p>
+<ul>
+<li><strong>高训练成本。</strong> 视频骨干网络处理的令牌比图像条件动作策略多得多，完整的视频预训练成本高昂。</li>
+<li><strong>推理速度慢。</strong> 生成或去噪未来视频潜在表示的策略比简单的VLA慢得多。</li>
+<li><strong>内存和系统复杂性。</strong> 长视频令牌序列推高了GPU内存、通信和数据加载。如果没有额外的工程工作，祝你好运能在本地GPU上运行100亿+参数的WAM模型。</li>
+</ul>
+<h3 id="section-20">视频先验的成本</h3>
+<p>强大的视频先验可以在某些设置中减少机器人数据需求[24, 25, 42]，并且在使用像Wan [21]这样的现代视频模型时仍然提供强大的零样本性能。在实践中，这通常是用计算成本换取机器人数据效率。让我们对此做一个非常粗略的下界比较。</p>
+<p>训练成本很难在模型之间进行比较，但我们可以根据论文和GitHub仓库中提供的细节进行粗略的下界估计。因此，我们使用一个简单的密集变换器下界估计：C ≈ 6NT，其中N是可训练的密集参数数量，T是令牌数量¹。</p>
+<p><strong>图24. 密集核心训练计算下界估计（以ZFLOPs为单位），以对数刻度显示。</strong> 将其视为粗略的跨论文比较，而非精确预算；数值使用每篇论文/模型卡中报告的参数、样本、令牌或GPU小时数，推导和注意事项见脚注1。</p>
+<p>基于VLM的VLA在训练的两个阶段都更便宜，因为它们的序列更小：它们编码一到几张图像加上文本，然后预测文本或一个短的动作令牌序列。WAM训练预测一个视频潜在表示序列，并带有额外的动作令牌。视频令牌序列通常比VLA序列长约10倍。这使得在相同数据集上的训练比默认的VLA训练更昂贵。</p>
+<p>图24给出了不同VLA/WAM训练成本估计的概览。DreamZero风格的动作调优大约为9 ZFLOPs，与轻量级VLA训练行相比是巨大的。像MolmoAct2这样的现代VLA报告从Molmo2-ER到DROID检查点的完整成本约为9.8 ZFLOP当量。这假设了一个强大的继承自Molmo2-ER的骨干网络，并且不包括Qwen3或SigLIP2的预训练成本。Summer-22B是一个现代公开视频预训练令牌/数据参考，用于理解以规模训练一个竞争性视频基础模型所需的成本：对于一个220亿参数的模型和论文中约5000亿令牌的训练规模，它给出了约66 ZFLOP的视频预训练估计。如果我们将其缩小以匹配DreamZero的Wan大小（14B），我们可以估计训练视频模型和WAM阶段总共需要51 ZFLOPs。与高效的VLA Foundry配方（6.9 ZFLOPs）相比，这导致了约7.4倍的差距。这些数字显示了大规模WAM训练的挑战。</p>
+<p>除了总FLOPs之外，还存在硬件和工程障碍。一个140亿参数的模型，动作调优序列约8000个令牌，需要大量的GPU内存，并且通常需要带有高端互连的多节点设置。成功的视频模型训练还依赖于稳健的数据过滤、字幕生成、视频解码、潜在预处理、分布式I/O和长序列DiT基础设施。</p>
+<p>同样的论点也存在一个数据质量版本。DreamZero认为更强的视频生成转化为更强的策略性能[8]，因此WAM不仅计算量大，而且对视频数据质量要求高：过滤、字幕、潜在表示和生成式预训练都成为策略配方的一部分。基于VLM的VLA没有显示出同样清晰的联系。VLM4VLA [51]发现VLM初始化有助于从头训练，但通用VLM能力是下游VLA性能的较差预测指标。对于WAM，视频生成质量是良好策略的先决条件；对于VLA，空间目标比其他视觉能力重要得多。</p>
+<p>关于逐行注意事项和每个估计背后的推导，请参见下面的参考表。</p>
+<p>| 比较行 | 计算内容 | 估计/报告核算 | 主要注意事项 | | :--- | :--- | :--- | :--- | | VLA Foundry VLA/动作阶段 | 仅在预训练的Foundry VLM之上的最终VLA/动作训练阶段。 | ~0.56 ZFLOPs，来自约16.5亿可训练参数、1.024亿样本和约549个令牌/样本。 | 不包括LLM或VLM预训练。 | | Pi-FAST / FAST DROID动作调优 | 一个代表性的FAST风格VLA动作令牌策略的DROID微调运行。 | ~0.77 ZFLOPs，基于24万步核算；当前OpenPI的10万步配置在相同令牌假设下约为0.32 ZFLOPs。 | 对步数和序列长度敏感；非论文报告的计算预算。 | | VLA Foundry 完整 LLM→VLM→VLA 配方 | 小型从头开始的VLA Foundry路径：语言预训练、VLM训练、然后VLA/动作训练。 | ~6.9 ZFLOPs，主要由8000亿令牌的LLM阶段主导。 | 这是一个1-2B的开放配方，非前沿规模VLA。 | | DreamZero WAM动作调优 | 预训练Wan-14B视频骨干网络的下游WAM适配。 | ~8.6–9.0 ZFLOPs，基于10万步、批次128和约8.0–8.4k令牌/序列。 | 不包括生产Wan的成本，不包括冻结编码器、VAE、通信和数据管道开销。 | | MolmoAct2 报告从VLA堆栈到DROID | MolmoAct2预训练、后训练和DROID具身微调，从Molmo2-ER开始。 | ~9.8 ZFLOP当量，来自报告的5,760 + 2,304 + 1,152 = 9,216 H100小时。 | 不包括Molmo2-4B、Molmo2-ER专业化、OpenFAST令牌化器训练以及上游Qwen3/SigLIP2预训练。 | | 说明性 Wan-14B 完整 WAM 堆栈 | Wan规模的视频预训练代理加上DreamZero风格的动作调优。 | ~51 ZFLOPs = 14B参数Wan风格视频预训练代理（5000亿令牌）+ DreamZero风格调优。 | 这不是Summer-22B加DreamZero；它使用Summer的令牌预算作为Wan规模视频预训练的代理。 | | Summer-22B 视频预训练估计 | 报告了从头开始的视频模型约5000亿令牌的视频预训练数据规模。 | ~66 ZFLOPs，来自220亿参数模型处理约5000亿视频令牌。 | 一个透明的视频预训练估计，非论文报告的FLOP总数。 |</p>
+<h3 id="section-21">推理速度</h3>
+<p>总的来说，基于VLM的VLA并不总是很快，但带有测试时视频生成的默认WAM设置可能更慢。具体数字取决于硬件、实现、扩散步数和动作块长度，但来自Fast-WAM [23]的代表性值给出了一个有用的参考：两种常见的WAM推理模式（联合预测和带完整视频生成的逆动力学）每个动作块需要590ms到800ms，而Pi-0.5大约需要190ms。这在推理时慢了3-4倍，这对实时控制非常重要。有一些方法可以加速，如DreamZero [8]论文和Fast-WAM完全跳过视频生成的方法所示，但在没有大型GPU的情况下，本地运行这些模型仍然具有挑战性。</p>
+<h2 id="section-22">为什么现代VLA基线仍然重要</h2>
+<p>基于VLM的现代VLA已经迅速改进，目前最强的基线结合了四个想法：离散动作令牌化、VLM保持协同训练、隔离动作头和更广泛的数据混合。任何声称视频骨干网络是更好默认选择的说法都必须击败当前的SOTA配方。</p>
+<p>VLA的架构已经收敛到一个默认设置：混合变换器（MoT）配方，最初由Transfusion [30]在视觉领域引入，并由Pi-0 [2]在机器人学中推广。改变的主要是训练配方。早期的基于流的动作头导致了从离散的下一令牌VLM预训练到连续动作去噪的强烈破坏。较新的配方试图减少这种破坏。</p>
+<p>首先，许多现代VLA使用离散令牌化器，如FAST [3]或BEAST [34]，将动作表示为VLM可以学习的一种新型语言。这是由优化张力驱动的：VLM使用交叉熵损失为离散的下一令牌预测进行预训练，而机器人动作存在于通常使用流匹配建模的连续空间中。天真地使用流匹配目标微调VLM会导致预训练语言和视觉能力的灾难性遗忘[51]。使用离散动作令牌化进行协同训练，通常与来自流匹配头的隔离梯度相结合，可以规避这个问题。VLM可以保持更接近其偏好的离散空间，并为具身控制学习有用的表示，而流匹配头则基于这些特征进行自己的动作预测。在测试时，具有独立动作头的系统可以放弃缓慢的自回归动作令牌预测路径，让动作头完成其工作。</p>
+<p>为了直观了解这个灾难性遗忘问题的影响，让我们再次看看RoboArena [1]的快照。Pi-FAST使用与Pi-0-DROID相同的骨干网络，但没有流组件，并使用离散的FAST令牌进行动作生成。两者都在DROID上微调。Pi-FAST得分1592，而Pi-0仅达到1475，这是一个相当大的差距。这支持了离散动作配方可以比原始的Pi-0基于流的设置保留更多有用预训练能力的观点。</p>
+<p>其次，Pi-0.5风格的系统在VLM数据和机器人数据上协同训练，同时通常隔离VLM和流/动作组件之间的梯度，以实现更快、更稳定的收敛[4, 20]。这让VLM在动作方面专门用于操作的同时，继续练习语言和视觉理解。同样的模式出现在最近的VLA中，如Pi-0.5、小米机器人-0 [27]和Being-H0.5 [28]。Pi-0.5在RoboArena上以相当大的优势超过了Pi-FAST和Pi-0（1622 vs Pi-FAST的1592和Pi-0的1475）。这些结果与这些训练设计决策对策略性能的重要性是一致的。</p>
+<p>即使有了这些配方的改进，VLA仍然会遇到接地壁垒。语言是表达行为目标的一种欠指定方式。在杂乱场景中的文本指令很少能精确定位相关的物体实例或期望的物理状态。因此，策略可能会过拟合虚假相关性，如背景物体或其他数据集偏差。Pi-0.7报告的语言提示与目标图像条件之间的差距支持了这种观点：视觉子目标改善了语言遵循，并使训练收敛更快[41]。DreamZero在同一RoboArena快照上的1750 Elo分数是另一个论据，表明视频/图像目标先验可以帮助解决这类问题。</p>
+<p>因此，目前WAM和VLA之间没有真正的赢家，并且是否会有赢家也是值得怀疑的。像Zhang等人[25]这样的首次比较在匹配的扰动下，在LIBERO-Plus和RoboTwin 2.0-Plus上对LingBot-VA、Cosmos Policy和Pi-0.5进行了基准测试。他们的结果表明，WAM可以在没有VLA基线使用的更广泛训练数据混合的情况下达到强大的鲁棒性。然而，该比较仅限于仿真环境，并未涵盖真实世界的泛化。</p>
+<h2 id="section-23">两条表示之路是否实为一条？</h2>
+<p>悬而未决的问题是，从长远来看，这两条路径是否甚至保持不同。一些最近的VLA已经使用世界模型风格的组件来实现更好的目标遵循（参见Pi-0.7），而许多最近的WAM则借鉴了VLA的MoT配方用于动作专家。机器人基础模型的未来似乎是两者的混合。</p>
+<p><strong>图25. 可能的融合：VLA风格、WAM风格，以及结合两者的第三条通用路径。</strong></p>
+<p>在最近的工作如Motus [17]和BagelVLA [18]中已经出现了这种方向的初步迹象。不是决定语言还是视频应该是机器人学的主要表示，而是训练一个模型来完成所有事情。图26显示了一个简化版本：一个理解/VLM组件、一个视频生成组件和一个动作专家。每个塔都有专门的权重，同时通过共享的自注意力交换信息，通常具有非对称模式，以便每个塔可以向其他塔暴露不同的信息。密集变换器或MoE风格的路由可以实现相同的高级思想。</p>
+<p><strong>图26. Motus风格的混合设置：视频建模和动作生成由独立的变换器处理，同时共享注意力和文本条件，指向一个统一的VLA+WAM策略配方。</strong></p>
+<p>这种混合体的层级版本也出现在Physical Intelligence最近的Pi-0.7 [41]中，这是一个可引导的VLA，其动作专家以测试时由基于BAGEL的世界模型[50]生成的视觉子目标为条件。一个高级策略发出子任务指令，世界模型将这些指令转化为子目标图像，动作专家以当前观察加上该子目标为条件执行。</p>
+<p>报告的消融研究支持语言遵循的论点：添加世界模型子目标改善了复杂指代任务上的指令遵循，并且据报道对于某些无子目标变体失败的打破数据集偏差的任务是必要的。作者还报告说，子目标图像使训练显著加快，因为动作预测变得更接近于当前帧和期望未来帧之间的逆动力学问题。在证据阶梯上，这是一个真实世界的信号，表明视觉子目标可以弥合部分语言接地差距，即使在VLA风格的堆栈内部也是如此。它不需要每个强大的VLA都需要一个完整的视频生成头这一更强的断言。</p>
+<p>Sereact的Cortex 2.0 [47]是另一个指向这种混合方向的初创公司例子。Cortex 2.0添加了一个世界模型，该模型在视觉潜在空间中生成候选未来轨迹，根据预期进展、风险和效率对其进行评分，并根据得分最高的rollout来调节执行。这使得它成为WAM风格的前瞻性思维成为已部署操作系统内部规划层的行业信号。</p>
+<p>Being-H0.7 [42]是基础模型混合体的最佳例子：它是一个建立在预训练VLA Being-H0.5之上的潜在计划风格WAM/VLA，以InternVL3.5作为理解专家，Qwen3作为动作专家，以及V-JEPA2.1 [64]视觉编码器。它设法结合了VLA风格的预训练组件、V-JEPA2.1 [64]未来观察嵌入、Play-LMP风格的先验/后验潜在接口以及流匹配动作策略。</p>
+<p>计算成本是我们迄今为止只看到少数“一个模型完成所有事情”系统的主要原因。训练一个强大的VLM已经很昂贵了；在其上叠加大规模视频建模会成倍增加成本。因此，VLA风格和WAM风格训练之间的划分在短期内仍然有用，这既是因为计算限制，也是因为我们仍然不知道哪些成分对机器人学最重要。你认为这两条道路真的会合并，还是其中一条会彻底胜出？</p>
+<h2 id="section-24">第四条路径：机器人优先的基础模型</h2>
+<p>第四种可能性是机器人优先的基础模型（RFFM）。基本上，这将是一个围绕机器人学挑战设计的大型变换器架构：具身性、动作、接触丰富的交互和具身记忆。这条路径的一个干净版本不会简单地从网络VLM或视频生成器开始，然后稍后附加动作。它将使交互和动作从一开始就成为预训练的核心。</p>
+<p>我所知道的最干净的例子是Generalist AI的GEN-1，它引入了一个在50万小时UMI风格可穿戴数据上预训练的大型机器人行为模型。这个方向的核心问题是访问权限：除了资金充足的初创公司和大型公司之外，几乎没有人能够访问这种大规模的人类或机器人数据。因此，这条研究路径目前对社区来说是受阻的，直到我们获得更多大规模的开源机器人数据。</p>
+<p>一个值得指出的正交方向是像V-JEPA 2 [45]这样的潜在世界模型。它们直接在预训练的潜在空间内从视频中学习潜在动态。这些模型承诺比基于扩散的视频生成更便宜的rollout、更快的推理和更清晰的规划信号。这个方向上的首批WAM，如VLA-JEPA [63]或Being-H0.7 [42]，报告了有前景的性能。</p>
+<h2 id="section-25">结语</h2>
+<p>WAM将成为机器人基础模型的一个核心研究子领域。而VLA已经收敛到一个大致共享的配方（VLM骨干网络、带流匹配的梯度隔离动作专家、以及广泛的网络和机器人混合协同训练），WAM仍处于探索阶段。论文在视频骨干网络、策略范式、训练配方和评估设置方面差异很大。这种研究多样性对于一个年轻的领域来说是健康的，并且许多新想法正在被发表。然而，没有人真正知道什么效果最好。</p>
+<p>总结本文的结论：</p>
+<ul>
+<li><strong>从指令到运动的差距仍然存在。</strong> 即使是现代VLA，具有离散动作令牌化、VLM保持协同训练和广泛的数据混合，也未能完全弥合这一差距。WAM承诺从视频方面攻击这个差距，但当前结果并未显示它们已经解决了这个问题。</li>
+<li><strong>机器人基准测试仍然是一个核心问题。</strong> 我必须重复我上一篇博文中的发现：现代VLA和WAM基准测试尚未解决。我们需要更多像RoboLab [62]或MolmoSpaces [61]这样的基准测试，使benchmaxxing更难，并要求适当的策略泛化才能获得好分数。</li>
+<li><strong>下一代机器人基础模型很可能是WAM+VLA混合体。</strong> Pi-0.7的BAGEL子目标、Cortex 2.0的通过前瞻进行规划、Being-H0.7的潜在先验/后验桥梁，以及Motus / BagelVLA风格的混合体，已经融合了VLA和WAM的思想。从头开始训练的首批机器人基础模型是另一个可能的赌注，特别是当我们能够访问更多更好的开源机器人数据时。</li>
+</ul>
+<p>这是我目前对WAM所处位置的理解。如果你有不同的看法，或者对其中一条路径有强有力的论据，请联系我——我很乐意听到。</p>
+<p><strong>脚注</strong></p>
+<ol>
+<li><strong>归一化计算核算：</strong> 对于柱状图，我们使用密集变换器下界 C_train ≈ 6 × N_train × T，其中 N_train 是可训练密集参数，T 是处理的令牌数。数值以 ZFLOPs 报告，1 ZFLOP = 10^21 FLOPs。H100 小时直觉使用非稀疏密集 BF16 等效 H100 峰值吞吐量，利用率约 30%，得到 1 ZFLOP ≈ 936 H100 小时。这排除了预处理、数据加载、优化器开销、冻结编码器传递、VAE 编码/解码、超出简单 6NT 近似的注意力项、通信开销和硬件特定效率。重点是数量级归一化，而非精确的系统审计。</li>
+</ol>
+<ul>
+<li><strong>VLA Foundry LLM 预训练：</strong> VLA Foundry [46] 发布了一个 Foundry-LLM 检查点，其模型卡报告了一个 12 亿非嵌入参数的语言模型，在 8000 亿 DCLM-Baseline-1.0 令牌上训练。使用此估计中使用的 12.3 亿参数计数，得到 C ≈ 6 × 1.23B × 800B = 5.9 ZFLOPs，或大约 5.5k H100 小时。</li>
+<li><strong>VLA Foundry VLM 阶段：</strong> Foundry-VLM-1.3B-200M 模型卡报告了一个 13 亿非嵌入参数的 VLM，在 2 亿图像-标题对上训练，并从 Foundry-LLM-1.2B-800B [46] 初始化。技术报告描述了 64 个图像令牌加上可变标题文本，填充或截断到 256 令牌的总序列。对于估计，我们每个样本计数一个 256 令牌的多模态序列，得到 T ≈ 200M × 256 = 512 亿令牌，C ≈ 6 × 1.32B × 51.2B = 0.41 ZFLOPs，或大约 0.4k H100 小时。这仍然忽略了一些实现开销，应视为下界简化。</li>
+<li><strong>VLA Foundry VLA/动作阶段：</strong> Foundry-VLA-1.7B-full 模型卡报告了一个 17 亿非嵌入参数的 VLA，在 1.02 亿模拟和真实双臂操作样本上训练；论文的训练表报告了 Foundry-VLA-1.7B 变体的总样本数为 1.024 亿 [46]。使用平均 549 令牌序列估计，得到 T ≈ 102.4M × 549 = 562 亿令牌，C ≈ 6 × 1.65B × 56.2B = 0.56 ZFLOPs，或大约 0.5k H100 小时。将 LLM、VLM 和 VLA 阶段相加，得到小型从头开始 VLA Foundry LLM→VLM→VLA 路径（使用 8000 亿令牌 LLM 检查点）约 6.9 ZFLOPs。</li>
+<li><strong>Pi-FAST / FAST DROID 动作调优：</strong> FAST [3] 提供了离散动作令牌化配方，OpenPI [48] 提供了公开的 Pi-FAST-DROID 训练/配置参考。绘制的值使用较早的 24 万步 DROID 核算，全局批次 256 和近似 700 令牌序列（两个 224×224 图像视图加上文本/动作令牌）：T ≈ 240k × 256 × 700 = 430 亿令牌，所以 C ≈ 6 × 3B × 43B = 0.77 ZFLOPs，或大约 0.7k H100 小时。OpenPI 当前的公开完整 DROID 微调配置使用 10 万步，批次 256，在相同的 700 令牌假设下约为 0.32 ZFLOPs。将此行视为代表性的 FAST 规模 DROID 调优估计，而非规范的固定成本。</li>
+<li><strong>MolmoAct2 报告从 VLA 堆栈到 DROID：</strong> MolmoAct2 [58] 报告 MolmoAct2-Pretrain 为 5,760 H100 小时（20 万步，4,200 令牌最大序列长度，全局批次 128，64 个 H100），后训练为 2,300 H100 小时（10 万次更新，全局批次 128，64 个 H100），DROID 微调为 1,150 H100 小时（10 万次更新，全局批次 64，32 个 H100）。我们将这些报告的数字相加得到 9,210 H100 小时，并使用相同的 1 ZFLOP ≈ 936 H100 小时启发式转换，得到 ~9.8 ZFLOP 当量。此行不是从头开始的 VLA 总数：MolmoAct2 从 Molmo2-ER 开始，其专业化计算未以 H100 小时报告；OpenFAST 令牌化器训练计算也未报告；Molmo2-ER 本身构建在 Molmo2 之上。Molmo2-4B [59] 报告其自身 VLM 阶段为 490 + 7.5k + 3.2k = ~11.2k H100 小时，但这仍然排除了上游 Qwen3-4B 和 SigLIP2 预训练。</li>
+<li><strong>DreamZero WAM 动作调优：</strong> DreamZero [8] 报告了一个 14B Wan2.1-I2V-14B-480P 骨干网络，10 万训练步，全局批次大小 128（AgiBot 和 DROID 均如此），并更新所有 DiT 块加上状态/动作编码器-解码器，同时冻结文本编码器、图像编码器和 VAE。对于序列长度，我们使用论文的帧/动作设置和 Wan 风格的潜在令牌近似：潜在压缩和网格打包后，每个序列大约 8.0k–8.4k 令牌，包括视频、状态和动作令牌。绘制的上界估计使用 8,361 令牌，得到 T ≈ 100k × 128 × 8,361 = 1070 亿令牌，C ≈ 6 × 14B × 107B = 9.0 ZFLOPs，或核心 DiT 更新大约 8.4k H100 小时。使用稍短的 8.0k 令牌核算得到约 8.6 ZFLOPs。冻结编码器、VAE、通信和长序列效率开销仍被排除。</li>
+<li><strong>Summer-22B 视频预训练：</strong> Summer-22B [47] 报告了一个 220 亿参数视频扩散模型，从头开始在约 5000 万个片段上训练，描述为约 5000 亿视频令牌。使用 C ≈ 6 × 22B × 500B 得到 66 ZFLOPs，或大约 62k H100 小时。</li>
+<li><strong>说明性完整 WAM 堆栈：</strong> 由于 Wan-14B 预训练计算未报告，我们包含一个透明的代理，将 Summer-22B 风格的视频预训练与 DreamZero 风格的 WAM 动作调优相加：66 + 9.0 = 75.0 ZFLOPs，或额外开销前大约 70k H100 小时。这不是报告的 DreamZero 总数，不应归因于 Wan。它旨在显示当视频骨干网络不被视为免费时，完整视频预训练加动作调优路径的规模。</li>
+<li><strong>Wan-14B 预训练：</strong> Wan [21] 报告了一个 14B 视频模型，在大型策划图像/视频语料库上训练，但未披露令牌计数或完整训练计算预算。由于 DreamZero 从 Wan2.1 开始，DreamZero 动作调优数字应仅解读为下游 WAM 适配成本，而非生产底层视频骨干网络的完整成本。</li>
+</ul>
+<p>这些是下界密集核心估计，并且有几行是重新计算估计，而非论文报告的计算预算。它们对于比较训练配方之间的计算大致位置很有用，但不应解读为精确的挂钟成本、云成本或端到端能源使用。 ↩</p>
+<ol>
+<li><strong>UniPi / CNN 扩散计算细节：</strong> 估计 UniPi 中使用的 3D U-Net 的 FLOPs（它继承了 Imagen Video 基础架构）需要与用于变换器的 Chinchilla 公式不同的方法。因为卷积神经网络在核在空间和时间维度上滑动时共享权重，计算量随分辨率和帧数急剧变化。以下数字是粗略的数量级估计，应如此对待。</li>
+</ol>
+<ul>
+<li><strong>前向传递：</strong> 基础模型生成 16 帧，分辨率为 24×40（总共 15,360 像素）。考虑到 U-Net 架构的空间下采样，所有 17 亿参数处理的“有效”像素大约为每个视频 4,000 个。</li>
+<li><strong>前向 FLOPs ≈ 2 × 1.7B × 4,000 ≈ 13.6 TFLOPs 每个视频。</strong></li>
+<li><strong>总训练 FLOPs：</strong> 训练运行了 2,000,000 步，全局批次大小为 2,048。考虑到前向和反向传递的标准乘数 3：</li>
+<li><strong>C = 3 × 13.6 TFLOPs × 2048 × 2,000,000 ≈ 1.67 × 10^23 FLOPs。</strong></li>
+<li>从这个角度来看，这大约是 <strong>~167 ZFLOPs</strong>。根据上面的 936 H100 小时/ZFLOP 直觉，这大约是 156,000 H100 小时；使用较低的测量有效吞吐量假设 ~224 TFLOPS/GPU，则约为 207,000 H100 小时。尽管 UniPi 的 17 亿参数计数远小于 DreamZero 的 140 亿，但从头开始预训练视频基础模型的要求可能使得早期的 WAM 风格配方对于大多数机器人实验室来说成本过高。最近的势头部分是由开放的预训练视频模型（如 Wan）驱动的，这些模型允许研究人员跳过这个 10^23 FLOP 的预训练阶段。 ↩</li>
+</ul>
+<p><strong>致谢</strong></p>
+<p>作者感谢 Alexander Schwarz、Ankit Goyal、Elie Aljalbout、Fabio Ramos、Seonghyeon Ye、Shenyuan Gao、Xuning Yang、Yashraj Narang 和 Yixuan Wang（按名字字母顺序排列）提供了富有洞察力的反馈和讨论，改进了这篇文章。</p>
+<p><strong>来源</strong></p>
+<p>[1] Atreya, Pranav, et al. “RoboArena: Distributed Real-World Evaluation of Generalist Robot Policies.” CoRL 2025. paper [2] Black, Kevin, et al. “Pi-0: A Vision-Language-Action Flow Model for General Robot Control.” arXiv 2024. paper [3] Pertsch, Karl, et al. “FAST: Efficient Action Tokenization for Vision-Language-Action Models.” arXiv 2025. paper [4] Physical Intelligence, et al. “Pi-0.5: A Vision-Language-Action Model with Open-World Generalization.” arXiv 2025. paper [5] Bjorck, Johan, et al. “GR00T N1: An Open Foundation Model for Generalist Humanoid Robots.” arXiv 2025. paper [6] Liu, Bo, et al. “LIBERO: Benchmarking Knowledge Transfer for Lifelong Robot Learning.” NeurIPS 2023. paper [7] Mees, Oier, et al. “CALVIN: A Benchmark for Language-Conditioned Policy Learning for Long-Horizon Robot Manipulation Tasks.” RA-L 2022. paper [8] Ye, Seonghyeon, et al. “World Action Models Are Zero-shot Policies.” arXiv 2026. paper [9] Li, Lin, et al. “Causal World Modeling for Robot Control.” arXiv 2026. paper [10] Du, Yilun, et al. “Learning Universal Policies via Text-Guided Video Generation.” NeurIPS 2023. paper [11] Wu, Hongtao, et al. “Unleashing Large-Scale Video Generative Pre-training for Visual Robot Manipulation.” ICLR 2024. paper [12] Cheang, Chi-Lam, et al. “GR-2: A Generative Video-Language-Action Model with Web-Scale Knowledge for Robot Manipulation.” arXiv 2024. paper [13] Kim, Moo Jin, et al. “Cosmos Policy: Fine-Tuning Video Models for Visuomotor Control and Planning.” arXiv 2026. paper [14] Pai, Jonas, et al. “mimic-video: Video-Action Models for Generalizable Robot Control Beyond VLAs.” arXiv 2025. paper [15] Nair, Suraj, et al. “R3M: A Universal Visual Representation for Robot Manipulation.” arXiv 2022. paper [16] Karamcheti, Siddharth, et al. “Language-Driven Representation Learning for Robotics.” arXiv 2023. paper [17] Bi, Hongzhe, et al. “Motus: A Unified Latent Action World Model.” arXiv 2025. paper [18] Hu, Yucheng, et al. “BagelVLA: Enhancing Long-Horizon Manipulation via Interleaved Vision-Language-Action Generation.” arXiv 2026. paper [19] Bruce, Jake, et al. “Genie: Generative Interactive Environments.” ICML 2024. paper [20] Driess, Danny, et al. “Knowledge Insulating Vision-Language-Action Models: Train Fast, Run Fast, Generalize Better.” NeurIPS 2025. paper [21] Wan Team, et al. “Wan: Open and Advanced Large-Scale Video Generative Models.” arXiv 2025. paper [22] Agarwal, Niket, et al. “Cosmos World Foundation Model Platform for Physical AI.” arXiv 2025. paper [23] Yuan, Tianyuan, et al. “Fast-WAM: Do World Action Models Need Test-time Future Imagination?” arXiv 2026. paper [24] Hu, Yucheng, et al. “Video Prediction Policy: A Generalist Robot Policy with Predictive Visual Representations.” ICML 2025. paper [25] Zhang, Zhanguang, et al. “Do World Action Models Generalize Better than VLAs? A Robustness Study.” arXiv 2026. paper [26] Schäfer, Lukas, et al. “When does predictive inverse dynamics outperform behavior cloning?.” arXiv preprint arXiv:2601.21718 (2026). paper [27] Cai, Rui, et al. “Xiaomi-robotics-0: An open-sourced vision-language-action model with real-time execution.” arXiv 2026. paper [28] Luo, Hao, et al. “Being-H0.5: Scaling Human-Centric Robot Learning for Cross-Embodiment Generalization.” arXiv 2026. paper [29] Tian, Yang, et al. “Predictive Inverse Dynamics Models are Scalable Learners for Robotic Manipulation.” ICLR 2025. paper [30] Zhou, Chunting, et al. “Transfusion: Predict the Next Token and Diffuse Images with One Multi-Modal Model.” ICLR 2025. paper [31] Shridhar, Mohit, Yat Long Lo, and Stephen James. “Generative Image as Action Models.” CoRL 2024. paper [32] Lynch, Corey, et al. “Learning Latent Plans from Play.” CoRL 2020. paper [33] Ye, Seonghyeon, et al. “Latent Action Pretraining from Videos.” ICLR 2025. paper [34] Zhou, Hongyi, et al. “BEAST: Efficient Tokenization of B-Splines Encoded Action Sequences for Imitation Learning.” NeurIPS 2025. paper [35] Chi, Cheng, et al. “Universal Manipulation Interface: In-The-Wild Robot Teaching Without In-The-Wild Robots.” RSS 2024. paper [36] Chi, Cheng, et al. “Diffusion Policy: Visuomotor Policy Learning via Action Diffusion.” IJRR 2025. paper [37] Ma, Teli, et al. “DiT4DiT: Jointly Modeling Video Dynamics and Actions for Generalizable Robot Control.” arXiv 2026. paper [38] Zhang, Wenyao, et al. “DreamVLA: A Vision-Language-Action Model Dreamed with Comprehensive World Knowledge.” NeurIPS 2025. paper [39] Li, Shuang, et al. “Unified Video Action Model.” arXiv 2025. paper [40] Rhoda AI Team. “Causal Video Models Are Data-Efficient Robot Policy Learners.” Rhoda AI Blog, 2026. blog [41] Physical Intelligence. “Pi-0.7: a Steerable Model with Emergent Capabilities.” Physical Intelligence Blog/Paper, April 2026. blog , paper [42] Luo, Hao, et al. “Being-H0.7: A Latent World-Action Model from Egocentric Videos.” arXiv 2026. paper , project page [43] Assran, Mido, et al. “V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction and Planning.” arXiv 2025. paper [44] Gao, Shenyuan, et al. “DreamDojo: A Generalist Robot World Model from Large-Scale Human Videos.” arXiv 2026. paper [45] Aida, Adriana, et al. “Cortex 2.0: Grounding World Models in Real-World Industrial Deployment.” arXiv 2026. paper , project page [46] Mercat, Jean, et al. “VLA Foundry: A Unified Framework for Training Vision-Language-Action Models.” arXiv 2026. paper , model collection [47] Ryu, Simo, and Chunghwan Han. “Summer-22B: A Systematic Approach to Dataset Engineering and Training at Scale for Video Foundation Model.” arXiv 2026. paper [48] Physical Intelligence. “openpi.” GitHub repository, 2025-2026. code [49] Zhang, Jianke, et al. “VLM4VLA: Revisiting Vision-Language-Models in Vision-Language-Action Models.” arXiv 2026. paper [50] Deng, Chaorui, et al. “Emerging Properties in Unified Multimodal Pretraining.” arXiv 2025. paper [51] Hancock, Asher J., et al. “Actions as Language: Fine-Tuning VLMs into VLAs Without Catastrophic Forgetting.” ICLR 2026. paper , project page [52] Ho, Jonathan, et al. “Imagen Video: High Definition Video Generation with Diffusion Models.” arXiv 2022. paper [53] Wang, Lirui, et al. “Prediction with Action: Visual Policy Learning via Joint Denoising Process.” arXiv 2024. paper [54] Wen, Junjie, et al. “Unified World Models: Coupling Video and Action Diffusion for Pretraining on Large Robotic Datasets.” arXiv 2025. paper [55] ByteDance Seed. “GR-1.” GitHub repository, 2024. released config [56] Wan-Video Team. “Wan2.2.” GitHub repository, 2025. release [57] Hou, Bohan, et al. “World Model for Robot Learning: A Comprehensive Survey.” 2026. project page , repo [58] Fang, Haoquan, et al. “MolmoAct2: Action Reasoning Models for Real-World Deployment.” arXiv 2026. paper , model [59] Clark, Christopher, et al. “Molmo2: Open Weights and Data for Vision-Language Models with Video Understanding and Grounding.” arXiv 2026. paper , model [60] Reuss, Moritz. “State of VLA Research at ICLR 2026.” Blog post, October 2025. blog [61] Kim, Yejin, et al. “MolmoSpaces: A Large-Scale Open Ecosystem for Robot Navigation and Manipulation.” arXiv 2026. paper [62] Yang, Xuning, et al. “RoboLab: A High-Fidelity Simulation Benchmark for Analysis of Task Generalist Policies.” arXiv 2026. paper [63] Sun, Jingwen, et al. “VLA-JEPA: Enhancing Vision-Language-Action Model with Latent World Model.” arXiv 2026. paper [64] Mur-Labadia, Lorenzo, et al. “V-JEPA 2.1: Unlocking Dense Features in Video Self-Supervised Learning.” arXiv 2026.</p>
+<p><strong>引用本文</strong></p>
+<p>如果您想引用本文，请使用下面的 BibTeX：</p>
+<div class="code-block"><button class="copy-code" type="button">复制</button><pre data-language="bibtex"><code>@misc{reuss2026state-wam,
+title = {Pretrained to Imagine, Fine-Tuned to Act: The Rise of World-Action Models},
+author = {Reuss, Moritz},
+year = {2026},
+month = {June},
+organization = {Seattle Robotics Lab (SRL), NVIDIA},
+howpublished = {\url{https://developer.nvidia.com/blog/pretrained-to-imagine-fine-tuned-to-act-the-rise-of-world-action-models}},
+note = {Blog post},
+}</code></pre></div>
+<p><strong>讨论 (0)</strong> <strong>喜欢</strong> <strong>标签</strong> Agentic AI / 生成式 AI | 机器人学 | 通用 | 中级技术 | 深度探讨 | 精选 | NVIDIA 研究</p>
+<p><strong>关于作者</strong></p>
+<p><strong>关于 Moritz Reuss</strong></p>
+<p>Moritz 是苏黎世西雅图机器人实验室的博士后，致力于高效的操作机器人基础模型。他的研究处于生成式建模和从演示数据中学习机器人的交叉点。他曾在卡尔斯鲁厄理工学院师从 Rudolf Lioutikov 教授攻读博士学位，研究方向包括扩散策略、混合专家架构、高效的视觉-语言-动作模型、数据标注以及用于机器人操作的新型动作令牌化器。他的博士学位得到了苹果 AI/ML 奖学金的支持。</p>
+<p><strong>查看 Moritz Reuss 的所有文章</strong></p>
+<p><strong>评论</strong></p>
+<p><strong>相关文章</strong></p>
+<ul>
+<li>最佳多模态 RAG：Llama 3.2 NeMo 检索器嵌入模型如何提升管道准确性</li>
+<li>使用 DRaFT+（现为 NVIDIA NeMo 的一部分）增强文本到图像微调</li>
+<li>生成式 AI 研究通过引导图像结构控制赋能创作者</li>
+<li>解释：大型语言模型用于什么？</li>
+<li>参加 NIPS DeepArt 海报竞赛，赢取 NVIDIA DGX Station</li>
+</ul>
+<p><strong>相关文章</strong></p>
+<ul>
+<li>如何评估通用机器人策略以进行真实世界部署</li>
+<li>使用 NVIDIA Isaac GR00T 端到端开发人形机器人策略</li>
+<li>使用 NVIDIA Nsight 开发者工具优化神经重建管道</li>
+<li>在 NVIDIA GPU 上加速 BEV 池化以用于物理 AI 应用</li>
+<li>深入了解 NVIDIA Halos for Robotics：用于物理 AI 的全栈功能安全系统</li>
+</ul></div>
+        </section>
+      </div>
+      
+      <section class="source-card reveal">
+        <div><p class="eyebrow">ORIGINAL SOURCE</p><h2>继续查看原文</h2><p>中文译文用于高效理解；需要核对语境、图表或引用时，请返回作者原始页面。</p></div>
+        <a href="https://developer.nvidia.com/blog/pretrained-to-imagine-fine-tuned-to-act-the-rise-of-world-action-models/" target="_blank" rel="noopener noreferrer">访问文章原文 <span>↗</span></a>
+      </section>
+    </article>
+  </main>
+  <footer class="site-footer" aria-label="Powered by @Madarame87 × @aswrise"><span>Powered by</span> <a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></footer>
+  <script src="../assets/app.js?v=b4fdf5df7243" defer></script>
+</body>
+</html>

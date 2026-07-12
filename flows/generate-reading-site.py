@@ -279,6 +279,7 @@ def read_article(path):
         "processed_at": str(meta.get("processed_at") or "").strip(),
         "legacy_date": str(meta.get("date") or "").strip(),
         "authors": str(meta.get("authors") or "").strip(),
+        "content_status": str(meta.get("content_status") or "").strip(),
         "summary": summary,
         "tags": tags,
         "body": body,
@@ -479,6 +480,10 @@ def render_index(articles, asset_version=""):
     cards = []
     for article in articles:
         tag_html = "".join(render_tag(tag) for tag in article["tags"])
+        status_badge = (
+            '<span class="content-status-badge">原文受限</span>'
+            if article["content_status"] == "source_blocked" else ""
+        )
         article_href = f"articles/{article['slug']}.html"
         source_link = (
             f'<a class="card-source-link" href="{escape_attr(article["source"])}" '
@@ -490,9 +495,9 @@ def render_index(articles, asset_version=""):
             if article["authors"] else ""
         )
         cards.append(f"""
-        <article class="article-card reveal" data-article-id="{escape_attr(article['article_id'])}" data-tags="{escape_attr('|'.join(article['tags']))}" data-title="{escape_attr(article['title'])}" data-summary="{escape_attr(article['summary'])}" data-authors="{escape_attr(article['authors'])}" data-source="{escape_attr(article['source'])}" data-published-value="{escape_attr(article['published_at'])}" data-collected-value="{escape_attr(article['collected_at'])}" data-processed-value="{escape_attr(article['processed_at'] or article['legacy_date'])}">
+        <article class="article-card reveal" data-article-id="{escape_attr(article['article_id'])}" data-tags="{escape_attr('|'.join(article['tags']))}" data-title="{escape_attr(article['title'])}" data-summary="{escape_attr(article['summary'])}" data-authors="{escape_attr(article['authors'])}" data-source="{escape_attr(article['source'])}" data-published-value="{escape_attr(article['published_at'])}" data-collected-value="{escape_attr(article['collected_at'])}" data-processed-value="{escape_attr(article['processed_at'] or article['legacy_date'])}" data-content-status="{escape_attr(article['content_status'])}">
           <div class="card-main">
-            <div class="keyword-row">{tag_html}</div>
+            <div class="keyword-row">{tag_html}{status_badge}</div>
             <h2 title="{escape_attr(article['title'])}"><a class="article-title-link" href="{article_href}">{html.escape(article['title'])}</a></h2>
             <p class="card-summary">{html.escape(article['summary'])}</p>{author_html}
             <div class="card-actions">
@@ -523,6 +528,14 @@ def render_index(articles, asset_version=""):
       </div>
     </section>
     <section class="discovery-panel reveal" aria-labelledby="filter-title">
+      <div class="weekly-picks-strip">
+        <button class="weekly-view" type="button" data-view="weekly" aria-pressed="false">
+          <span><small>WEEKLY PICKS</small>本周精选</span>
+          <strong data-count-view="weekly">0</strong>
+        </button>
+        <p>本周点为“收藏”的文章会自动汇成清单；旧文章本周重新发现，也可以入选。</p>
+        <button class="weekly-export" id="export-weekly" type="button" disabled>导出 Markdown ↓</button>
+      </div>
       <div class="filter-heading"><h2 id="filter-title">按关键词浏览</h2><output id="result-count" aria-live="polite" aria-atomic="true">显示 {len(articles)} 篇</output></div>
       <div class="tag-filters" id="tag-filters" role="group" aria-label="文章关键词筛选">{all_button}{tag_buttons}</div>
     </section>
@@ -542,6 +555,13 @@ def render_article_page(article, asset_version=""):
         meta_items.append(f"作者 {html.escape(article['authors'])}")
     meta_items = [item for item in meta_items if item]
     body_html = render_markdown(article["body"], article["title"])
+    source_warning = ""
+    if article["content_status"] == "source_blocked":
+        source_warning = """
+      <aside class="source-warning reveal">
+        <span>原文受限</span>
+        <p>原站拒绝了自动访问，因此本页只保留可核验的标题、链接与状态说明，没有把未读取的内容伪装成中文译文。</p>
+      </aside>"""
     original = ""
     if article["source"]:
         original = f"""
@@ -564,6 +584,7 @@ def render_article_page(article, asset_version=""):
         <h2 id="summary-title">先读结论</h2>
         <p>{html.escape(article['summary'])}</p>
       </section>
+{source_warning}
       <div class="reading-layout">
         <aside class="toc-card" aria-label="文章目录"><p>本页目录</p><nav id="article-toc"><span>正在整理章节…</span></nav></aside>
         <section class="translated-copy reveal">

@@ -3,7 +3,7 @@
 
 import * as store from './lib/storage.js';
 import { importFromBookmarks } from './lib/importer.js';
-import { bridgeSync, triggerFlow } from './lib/bridge.js';
+import { bridgeSync, openFlowOutput, triggerFlow } from './lib/bridge.js';
 import { mergeSource, setJobStatus, applyResult, manualSaveTypes } from './lib/queue.js';
 import { normalizeUrl } from './lib/normalize.js';
 
@@ -75,6 +75,9 @@ async function handle(msg) {
       chrome.alarms.create('bridge-followup-2', { delayInMinutes: 8 });
       return resp;
     }
+
+    case 'openFlowOutput':
+      return openFlowOutput(msg.type);
 
     case 'saveTab':
       return serial(async () => {

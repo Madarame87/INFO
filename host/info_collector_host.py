@@ -33,6 +33,10 @@ PROCESSED = os.path.join(INBOX, "processed")
 STATE = os.path.join(SPOOL, "state")
 FLOWS_FILE = os.path.join(SPOOL, "flows.json")
 _TRIGGERED_PROCESSES = []
+OPENABLE_OUTPUTS = {
+    "weekly-report": ("weekly-report-status.json", "latestReport"),
+    "reading-site": ("reading-site-status.json", "siteIndex"),
+}
 
 
 def trigger_env():
@@ -214,6 +218,41 @@ def handle_trigger(msg):
     return {"ok": True, "started": True}
 
 
+def open_local_path(path):
+    """Open a trusted generated artifact with the user's default application."""
+    if os.name == "nt":
+        os.startfile(str(path))
+        return
+    command = ["open", str(path)] if sys.platform == "darwin" else ["xdg-open", str(path)]
+    subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def handle_open_output(msg):
+    ptype = msg.get("processingType")
+    contract = OPENABLE_OUTPUTS.get(ptype)
+    if not contract:
+        return {"ok": False, "error": f"不允许打开该流程输出: {ptype}"}
+    status_name, field = contract
+    status_path = Path(STATE) / status_name
+    try:
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"ok": False, "error": "尚未找到可打开的生成结果"}
+    raw_path = status.get(field) or (status.get("lastRun") or {}).get(field)
+    if not raw_path:
+        return {"ok": False, "error": "生成状态中没有输出路径"}
+    target = Path(raw_path).expanduser().resolve()
+    home = HOME.resolve()
+    try:
+        target.relative_to(home)
+    except ValueError:
+        return {"ok": False, "error": "输出路径不在用户目录内，已拒绝打开"}
+    if not target.is_file():
+        return {"ok": False, "error": "生成文件不存在，请重新生成"}
+    open_local_path(target)
+    return {"ok": True, "path": str(target)}
+
+
 def main():
     configure_native_stdio()
     while True:
@@ -229,6 +268,8 @@ def main():
                 send_message(handle_sync(msg))
             elif mtype == "trigger":
                 send_message(handle_trigger(msg))
+            elif mtype == "open-output":
+                send_message(handle_open_output(msg))
             elif mtype == "ping":
                 send_message({"ok": True, "pong": True})
             else:

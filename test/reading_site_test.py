@@ -60,6 +60,17 @@ class ReadingSiteTest(unittest.TestCase):
             "## 设计方法\n\n通过用户访谈和原型发现未知问题。\n",
             encoding="utf-8",
         )
+        (output / "blocked.md").write_text(
+            "---\n"
+            "title: 原站限制访问的机器人文章\n"
+            "source: https://example.test/blocked\n"
+            "processed_at: 2026-07-12T02:36:00-04:00\n"
+            'summary: "原站拒绝自动抓取，未生成伪造译文。"\n'
+            'tags: ["机器人", "产业动态"]\n'
+            'content_status: "source_blocked"\n'
+            "---\n\n## 正文状态\n\n原站拒绝自动抓取。\n",
+            encoding="utf-8",
+        )
 
     def test_builds_index_and_article_pages_with_keywords_summary_and_source(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -67,7 +78,7 @@ class ReadingSiteTest(unittest.TestCase):
             output = Path(tmp) / "translated"
             self.write_articles(output)
             index_path, articles = reader.build_site(output)
-            self.assertEqual(len(articles), 2)
+            self.assertEqual(len(articles), 3)
             self.assertTrue(index_path.exists())
             index = index_path.read_text(encoding="utf-8")
             self.assertIn("文章情报库", index)
@@ -77,6 +88,10 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertIn('data-view="pending" aria-pressed="true"', index)
             self.assertIn('data-view="favorites" aria-pressed="false"', index)
             self.assertIn('data-view="all" aria-pressed="false"', index)
+            self.assertIn('data-view="weekly" aria-pressed="false"', index)
+            self.assertIn('id="export-weekly"', index)
+            self.assertIn("本周精选", index)
+            self.assertIn("导出 Markdown", index)
             self.assertIn("待整理", index)
             self.assertIn("我的收藏", index)
             self.assertIn("全部收录", index)
@@ -100,15 +115,16 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertNotIn("INFO COLLECTOR / READING DESK", index)
             self.assertIn('class="brand-signal"', index)
             self.assertNotIn('class="brand-mark"', index)
-            self.assertEqual(index.count('<article class="article-card reveal"'), 2)
+            self.assertEqual(index.count('<article class="article-card reveal"'), 3)
             self.assertNotIn('<a class="article-card', index)
-            self.assertEqual(index.count('class="article-title-link" href="articles/'), 2)
+            self.assertEqual(index.count('class="article-title-link" href="articles/'), 3)
             self.assertIn('data-article-id="stable-agent-key"', index)
             self.assertIn('data-article-id="article-', index)
-            self.assertEqual(index.count('data-action="favorite" aria-pressed="false"'), 2)
-            self.assertEqual(index.count('data-action="review"'), 2)
-            self.assertEqual(index.count('data-action="copy-card"'), 2)
-            self.assertEqual(index.count('class="card-source-link"'), 1)
+            self.assertEqual(index.count('data-action="favorite" aria-pressed="false"'), 3)
+            self.assertEqual(index.count('data-action="review"'), 3)
+            self.assertEqual(index.count('data-action="copy-card"'), 3)
+            self.assertEqual(index.count('class="card-source-link"'), 2)
+            self.assertIn('class="content-status-badge">原文受限', index)
             self.assertNotIn('href=""', index)
             self.assertIn('class="card-meta"', index)
             self.assertIn('class="card-main"', index)
@@ -120,7 +136,8 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertNotIn("阅读中文全文", index)
             self.assertNotIn('class="card-foot"', index)
             self.assertIn("作者：研究团队", index)
-            article_path = index_path.parent / "articles" / f"{articles[0]['slug']}.html"
+            agent = next(item for item in articles if item["article_id"] == "stable-agent-key")
+            article_path = index_path.parent / "articles" / f"{agent['slug']}.html"
             article = article_path.read_text(encoding="utf-8")
             self.assertIn("EXECUTIVE SUMMARY", article)
             self.assertIn("先读结论", article)
@@ -157,6 +174,12 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertIn("info-collector:reader-state:v1", app)
             self.assertIn("buildInfoCardMarkdown", app)
             self.assertIn("matchesView", app)
+            self.assertIn("buildWeeklyPicksMarkdown", app)
+
+            blocked = next(item for item in articles if item["content_status"] == "source_blocked")
+            blocked_page = (index_path.parent / "articles" / f"{blocked['slug']}.html").read_text(encoding="utf-8")
+            self.assertIn('class="source-warning reveal"', blocked_page)
+            self.assertIn("没有把未读取的内容伪装成中文译文", blocked_page)
 
     def test_falls_back_to_summary_and_keywords_without_model_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -229,10 +252,10 @@ class ReadingSiteTest(unittest.TestCase):
                 second = reader.main([])
             self.assertEqual(first, 0)
             self.assertEqual(second, 0)
-            self.assertEqual(len(list((site / "articles").glob("*.html"))), 2)
+            self.assertEqual(len(list((site / "articles").glob("*.html"))), 3)
             status = json.loads(reader.STATUS_FILE.read_text(encoding="utf-8"))
             self.assertEqual(status["lastRun"]["outcome"], "success")
-            self.assertEqual(status["lastRun"]["count"], 2)
+            self.assertEqual(status["lastRun"]["count"], 3)
             self.assertEqual(status["siteIndex"], str(site / "index.html"))
 
 

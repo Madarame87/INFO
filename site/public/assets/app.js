@@ -27,10 +27,60 @@
     return readerState[articleId] || { reviewedAt: null, favorite: false };
   }
 
-  function matchesView(articleState, view) {
+  function matchesView(articleState, view, isCurrentWeek = false) {
     if (view === 'favorites') return articleState.favorite === true;
+    if (view === 'weekly') return articleState.favorite === true && isCurrentWeek;
     if (view === 'all') return true;
     return articleState.reviewedAt === null && articleState.favorite === false;
+  }
+
+  function startOfLocalWeek(now = new Date()) {
+    const value = new Date(now);
+    value.setHours(0, 0, 0, 0);
+    value.setDate(value.getDate() - ((value.getDay() + 6) % 7));
+    return value;
+  }
+
+  function isDateInCurrentWeek(value, now = new Date()) {
+    if (!value) return false;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+    const start = startOfLocalWeek(now);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    return date >= start && date < end;
+  }
+
+  function formatLocalDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function buildWeeklyPicksMarkdown(articles, now = new Date()) {
+    const start = startOfLocalWeek(now);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const lines = [
+      `# 本周精选｜${formatLocalDate(start)} — ${formatLocalDate(end)}`,
+      '',
+      `共 ${articles.length} 篇`,
+      '',
+    ];
+    for (const article of articles) {
+      const title = cleanCardValue(article.title) || '未命名文章';
+      const source = cleanCardValue(article.source);
+      const summary = cleanCardValue(article.summary) || '暂无摘要';
+      const tags = String(article.tags || '').split('|').map(cleanCardValue).filter(Boolean);
+      lines.push(`## ${title}`, '');
+      if (tags.length) lines.push(`关键词：${tags.join('、')}`, '');
+      lines.push(summary, '');
+      if (source) lines.push(`[查看原文](${source})`, '');
+    }
+    return `${lines.join('\n').trim()}\n`;
   }
 
   function matchesTag(tags, activeTag) {
@@ -53,6 +103,7 @@
     if (tag !== '全部') return '没有符合条件的文章';
     if (view === 'pending') return '待整理已清空';
     if (view === 'favorites') return '还没有收藏文章';
+    if (view === 'weekly') return '本周还没有精选文章';
     return '没有符合条件的文章';
   }
 
@@ -146,6 +197,9 @@
     parseReaderState,
     stateFor,
     matchesView,
+    startOfLocalWeek,
+    isDateInCurrentWeek,
+    buildWeeklyPicksMarkdown,
     matchesTag,
     toggleFavoriteState,
     toggleReviewedState,
@@ -180,6 +234,7 @@
     const count = document.getElementById('result-count');
     const empty = document.getElementById('empty-state');
     const emptyTitle = document.getElementById('empty-title');
+    const weeklyExport = document.getElementById('export-weekly');
     if (!viewFilters || !filters || !grid) return;
 
     let storage = null;
@@ -196,6 +251,23 @@
       return stateFor(readerState, card.dataset.articleId);
     }
 
+    function stateIsCurrentWeek(articleState) {
+      return isDateInCurrentWeek(articleState.reviewedAt);
+    }
+
+    function cardData(card) {
+      return {
+        title: card.dataset.title,
+        source: card.dataset.source,
+        authors: card.dataset.authors,
+        published: card.dataset.publishedValue,
+        collected: card.dataset.collectedValue,
+        processed: card.dataset.processedValue,
+        tags: card.dataset.tags,
+        summary: card.dataset.summary,
+      };
+    }
+
     function updateCard(card) {
       const articleState = cardState(card);
       card.classList.toggle('is-favorite', articleState.favorite);
@@ -210,15 +282,17 @@
     }
 
     function updateViewCounts() {
-      const totals = { pending: 0, favorites: 0, all: cards.length };
+      const totals = { pending: 0, favorites: 0, weekly: 0, all: cards.length };
       for (const card of cards) {
         const articleState = cardState(card);
         if (matchesView(articleState, 'pending')) totals.pending += 1;
         if (matchesView(articleState, 'favorites')) totals.favorites += 1;
+        if (matchesView(articleState, 'weekly', stateIsCurrentWeek(articleState))) totals.weekly += 1;
       }
       document.querySelectorAll('[data-count-view]').forEach((element) => {
         element.textContent = String(totals[element.dataset.countView] ?? 0);
       });
+      if (weeklyExport) weeklyExport.disabled = totals.weekly === 0;
     }
 
     function emptyMessage() {
@@ -229,7 +303,8 @@
       let visible = 0;
       for (const card of cards) {
         const tagMatch = matchesTag(card.dataset.tags, activeTag);
-        const show = tagMatch && matchesView(cardState(card), activeView);
+        const articleState = cardState(card);
+        const show = tagMatch && matchesView(articleState, activeView, stateIsCurrentWeek(articleState));
         card.hidden = !show;
         if (show) visible += 1;
       }
@@ -244,15 +319,35 @@
       applyFilters();
     }
 
-    viewFilters.addEventListener('click', (event) => {
+    document.addEventListener('click', (event) => {
       const button = event.target.closest('[data-view]');
       if (!button) return;
       activeView = button.dataset.view;
-      viewFilters.querySelectorAll('[data-view]').forEach((item) => {
+      document.querySelectorAll('[data-view]').forEach((item) => {
         item.classList.toggle('is-active', item === button);
         item.setAttribute('aria-pressed', item === button ? 'true' : 'false');
       });
       applyFilters();
+    });
+
+    weeklyExport?.addEventListener('click', () => {
+      const weeklyCards = cards.filter((card) => {
+        const articleState = cardState(card);
+        return matchesView(articleState, 'weekly', stateIsCurrentWeek(articleState));
+      });
+      if (!weeklyCards.length) return;
+      const markdown = buildWeeklyPicksMarkdown(weeklyCards.map(cardData));
+      const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `Info-Collector-本周精选-${formatLocalDate(new Date())}.md`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+      const originalLabel = weeklyExport.textContent;
+      weeklyExport.textContent = '已导出 ✓';
+      window.setTimeout(() => { weeklyExport.textContent = originalLabel; }, 1400);
     });
 
     filters.addEventListener('click', (event) => {
@@ -290,16 +385,7 @@
       }
       if (action.dataset.action === 'copy-card') {
         const originalLabel = action.textContent;
-        const markdown = buildInfoCardMarkdown({
-          title: card.dataset.title,
-          source: card.dataset.source,
-          authors: card.dataset.authors,
-          published: card.dataset.publishedValue,
-          collected: card.dataset.collectedValue,
-          processed: card.dataset.processedValue,
-          tags: card.dataset.tags,
-          summary: card.dataset.summary,
-        });
+        const markdown = buildInfoCardMarkdown(cardData(card));
         const copied = await copyText(markdown);
         action.textContent = copied ? '已复制' : '复制失败';
         window.setTimeout(() => {
