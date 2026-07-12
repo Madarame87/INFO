@@ -1,50 +1,13 @@
 <svg width="1440" height="540" viewBox="0 0 1440 540" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="1440" height="540" rx="28" fill="#F4F1EA"/>
-  <rect x="32" y="32" width="1376" height="476" rx="22" fill="#FFFDF8" stroke="#DDD5C8"/>
+  <rect width="1440" height="540" rx="28" fill="#F4F1EA"/><rect x="32" y="32" width="1376" height="476" rx="22" fill="#FFFDF8" stroke="#DDD5C8"/>
   <text x="72" y="84" fill="#8A8175" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="3">CORE CAPABILITIES</text>
-  <text x="72" y="126" fill="#25221E" font-family="Georgia, Microsoft YaHei, serif" font-size="30">把阅读变成可复用的技术情报</text>
+  <text x="72" y="126" fill="#25221E" font-family="Georgia, Microsoft YaHei, serif" font-size="30">一条可审计、可回溯的个人技术情报链路</text>
   <g font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
-    <g transform="translate(72 164)">
-      <rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/>
-      <circle cx="42" cy="40" r="18" fill="#25221E"/><text x="42" y="46" fill="#FFFDF8" font-size="13" font-weight="700" text-anchor="middle">01</text>
-      <text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">收藏即入队</text>
-      <text x="28" y="86" fill="#665E54" font-size="15">只读导入 Chrome「收藏文章」书签，</text>
-      <text x="28" y="111" fill="#665E54" font-size="15">不改变原始收藏结构。</text>
-    </g>
-    <g transform="translate(516 164)">
-      <rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/>
-      <circle cx="42" cy="40" r="18" fill="#C65F3D"/><text x="42" y="46" fill="white" font-size="13" font-weight="700" text-anchor="middle">02</text>
-      <text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">AI 翻译与提炼</text>
-      <text x="28" y="86" fill="#665E54" font-size="15">正文抓取后生成中文 Markdown、摘要</text>
-      <text x="28" y="111" fill="#665E54" font-size="15">以及 2–5 个规范化标签。</text>
-    </g>
-    <g transform="translate(960 164)">
-      <rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/>
-      <circle cx="42" cy="40" r="18" fill="#2E8B67"/><text x="42" y="46" fill="white" font-size="13" font-weight="700" text-anchor="middle">03</text>
-      <text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">状态全程可追踪</text>
-      <text x="28" y="86" fill="#665E54" font-size="15">待处理、处理中、失败、完成与归档，</text>
-      <text x="28" y="111" fill="#665E54" font-size="15">全部集中在 Dashboard。</text>
-    </g>
-    <g transform="translate(72 326)">
-      <rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/>
-      <circle cx="42" cy="40" r="18" fill="#25221E"/><text x="42" y="46" fill="#FFFDF8" font-size="13" font-weight="700" text-anchor="middle">04</text>
-      <text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">标签化情报库</text>
-      <text x="28" y="86" fill="#665E54" font-size="15">按主题聚合、筛选同类文章，识别一周</text>
-      <text x="28" y="111" fill="#665E54" font-size="15">内持续出现的技术信号。</text>
-    </g>
-    <g transform="translate(516 326)">
-      <rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/>
-      <circle cx="42" cy="40" r="18" fill="#C65F3D"/><text x="42" y="46" fill="white" font-size="13" font-weight="700" text-anchor="middle">05</text>
-      <text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">静态阅读前台</text>
-      <text x="28" y="86" fill="#665E54" font-size="15">关键词搜索、Summary 先读、中文全文</text>
-      <text x="28" y="111" fill="#665E54" font-size="15">与原文回溯，全部在本机生成。</text>
-    </g>
-    <g transform="translate(960 326)">
-      <rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/>
-      <circle cx="42" cy="40" r="18" fill="#2E8B67"/><text x="42" y="46" fill="white" font-size="13" font-weight="700" text-anchor="middle">06</text>
-      <text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">技术动态周报</text>
-      <text x="28" y="86" fill="#665E54" font-size="15">一键生成主题排行、同类文章分组和</text>
-      <text x="28" y="111" fill="#665E54" font-size="15">每日收录日历。</text>
-    </g>
+    <g transform="translate(72 164)"><rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/><circle cx="42" cy="40" r="18" fill="#25221E"/><text x="42" y="46" fill="#FFFDF8" font-size="13" font-weight="700" text-anchor="middle">01</text><text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">浏览器原生采集</text><text x="28" y="86" fill="#665E54" font-size="15">只读导入 Chrome 指定书签目录，保留用户</text><text x="28" y="111" fill="#665E54" font-size="15">原有收藏结构。</text></g>
+    <g transform="translate(516 164)"><rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/><circle cx="42" cy="40" r="18" fill="#C65F3D"/><text x="42" y="46" fill="white" font-size="13" font-weight="700" text-anchor="middle">02</text><text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">AI 辅助内容提炼</text><text x="28" y="86" fill="#665E54" font-size="15">正文抽取后生成中文译文、结构化摘要与</text><text x="28" y="111" fill="#665E54" font-size="15">规范化主题标签。</text></g>
+    <g transform="translate(960 164)"><rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/><circle cx="42" cy="40" r="18" fill="#2E8B67"/><text x="42" y="46" fill="white" font-size="13" font-weight="700" text-anchor="middle">03</text><text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">任务编排与可观测性</text><text x="28" y="86" fill="#665E54" font-size="15">统一呈现排队、运行、失败、完成与归档，</text><text x="28" y="111" fill="#665E54" font-size="15">并支持人工重试。</text></g>
+    <g transform="translate(72 326)"><rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/><circle cx="42" cy="40" r="18" fill="#25221E"/><text x="42" y="46" fill="#FFFDF8" font-size="13" font-weight="700" text-anchor="middle">04</text><text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">结构化知识库</text><text x="28" y="86" fill="#665E54" font-size="15">按主题标签组织文章，在待研判、已收藏与</text><text x="28" y="111" fill="#665E54" font-size="15">全部收录之间切换。</text></g>
+    <g transform="translate(516 326)"><rect width="408" height="138" rx="16" fill="#F8F5EE" stroke="#D9D0C3"/><circle cx="42" cy="40" r="18" fill="#C65F3D"/><text x="42" y="46" fill="white" font-size="13" font-weight="700" text-anchor="middle">05</text><text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">沉浸式阅读工作台</text><text x="28" y="86" fill="#665E54" font-size="15">摘要优先、中文全文、原文追溯与资料卡</text><text x="28" y="111" fill="#665E54" font-size="15">复制，均由本地静态生成。</text></g>
+    <g transform="translate(960 326)"><rect width="408" height="138" rx="16" fill="#EAF3ED" stroke="#AED0BC"/><circle cx="42" cy="40" r="18" fill="#2E8B67"/><text x="42" y="46" fill="white" font-size="13" font-weight="700" text-anchor="middle">06</text><text x="74" y="45" fill="#25221E" font-size="19" font-weight="700">周度回顾与导出</text><text x="28" y="86" fill="#665E54" font-size="15">汇总本周处理与人工研判记录，生成可迁移</text><text x="28" y="111" fill="#665E54" font-size="15">的 Markdown 回顾。</text></g>
   </g>
 </svg>

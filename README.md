@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/readme-hero.svg" alt="Info Collector — Local Intelligence OS" width="100%">
+  <img src="docs/images/readme-hero.svg" alt="Info Collector — Personal Technology Intelligence" width="100%">
 </p>
 
 <p align="center">
@@ -10,49 +10,49 @@
   <a href="SETUP-WINDOWS.md"><img alt="Windows 11" src="https://img.shields.io/badge/Windows_11-supported-2E8B67?style=flat-square"></a>
   <img alt="Chrome Extension" src="https://img.shields.io/badge/Chrome-Manifest_V3-C65F3D?style=flat-square">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-25221E?style=flat-square">
-  <img alt="Node tests" src="https://img.shields.io/badge/Node_tests-45_passing-2E8B67?style=flat-square">
-  <img alt="Python tests" src="https://img.shields.io/badge/Python_tests-30_passing-2E8B67?style=flat-square">
+  <img alt="Node tests" src="https://img.shields.io/badge/Node_tests-46_passing-2E8B67?style=flat-square">
+  <img alt="Python tests" src="https://img.shields.io/badge/Python_tests-32_passing-2E8B67?style=flat-square">
 </p>
 
 <p align="center">
-  <strong>收录文章 → 翻译提炼 → 摘要二次判断 → 收藏或完成整理 → 生成本周处理回顾</strong>
+  <strong>文章采集 → AI 辅助内容提炼 → 人工研判 → 知识归档 → 周度回顾</strong>
 </p>
 
-Info Collector 是一套运行在本机的个人技术情报工作台。你只需要把文章加入 Chrome 的「收藏文章」书签文件夹，系统就会把它送入处理队列，生成带有中文翻译、摘要和标签的 Markdown，并在 Dashboard 中持续记录机器处理状态。进入静态阅读库后，你可以根据摘要完成第二次人工判断：真正有价值的加入「我的收藏」，其余文章标记为「完成整理」。
+Info Collector 是一套面向 **Windows 11** 的本地优先技术阅读与情报整理工作台。它把 Chrome 书签中的公开文章转化为中文译文、结构化摘要、主题标签和可追溯 Markdown，并通过任务面板、阅读工作台与周度回顾，完成从采集到人工研判的闭环。
 
-它不是另一个“稍后读”列表。它把零散阅读转化为一条可追踪、可检索、可复用的研究工作流。
+它解决的不是“保存更多”，而是让已经保存的内容经过机器提炼与人工判断，成为可检索、可迁移、可复用的个人知识资产。
 
-## 产品界面
+## 产品工作台
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="Info Collector Windows Dashboard：处理流水线、运行状态和文章情报库" width="100%">
+  <img src="docs/images/dashboard.png" alt="Info Collector Windows 11 工作台：任务状态、处理流水线与文章知识库" width="100%">
 </p>
 
 <details>
-<summary><strong>查看文章情报库完整列表</strong></summary>
+<summary><strong>查看文章知识库完整列表</strong></summary>
 <br>
 <p align="center">
-  <img src="docs/images/dashboard-library.png" alt="Info Collector 文章情报库：摘要、标签、状态与操作" width="100%">
+  <img src="docs/images/dashboard-library.png" alt="Info Collector 文章知识库：摘要、标签、状态与操作" width="100%">
 </p>
 </details>
 
-## 它能做什么
+## 核心能力
 
 <p align="center">
-  <img src="docs/images/readme-capabilities.svg" alt="Info Collector 六项核心能力：收录入队、AI 翻译提炼、状态追踪、标签化阅读库、本地 Markdown 和本周处理回顾" width="100%">
+  <img src="docs/images/readme-capabilities.svg" alt="Info Collector 六项核心能力：浏览器采集、AI 辅助提炼、任务可观测、结构化知识库、沉浸式阅读与周度回顾" width="100%">
 </p>
 
-## 从收录到二次整理
+## 从采集到知识资产
 
 <p align="center">
-  <img src="docs/images/readme-workflow.svg" alt="Info Collector 技术文章流水线：收录文章、导入桥接、翻译提炼、文章阅读库和本周处理回顾" width="100%">
+  <img src="docs/images/readme-workflow.svg" alt="Info Collector 工作流：浏览器采集、任务编排、内容提炼、人工研判与阅读回顾" width="100%">
 </p>
 
-扩展是任务状态的唯一事实来源。本地处理流通过 `~/.info-collector/` 下的 outbox / inbox 文件契约与扩展交换数据，因此浏览器界面、模型调用与 Markdown 产物彼此解耦。
+Chrome 扩展的同步存储承担任务状态的 **system of record**。Windows Native Host 与本地处理引擎通过 `~/.info-collector/` 下的 outbox / inbox 文件契约交换数据，使浏览器交互、模型调用与 Markdown 产物彼此解耦；API Key 仅保存在本机配置中。
 
 ## Windows 11 快速开始
 
-### 1. 下载并进入项目
+### 1. 下载项目
 
 ```powershell
 git clone https://github.com/Madarame87/INFO.git
@@ -65,59 +65,59 @@ cd INFO
 powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 ```
 
-安装器会引导你设置模型、API Key、输出目录以及 Chrome 扩展。完整截图式步骤与故障排查见 **[Windows 安装指南](SETUP-WINDOWS.md)**。
+安装器会引导配置模型、API Key、输出目录与 Chrome 扩展。完整步骤与故障排查见 **[Windows 安装指南](SETUP-WINDOWS.md)**。
 
-### 3. 收藏并处理文章
+### 3. 完成一条真实工作流
 
-1. 在 Chrome 中创建「收藏文章」书签文件夹。
-2. 把想处理的文章保存到该文件夹。
-3. 打开 Info Collector Dashboard，依次点击「导入书签」和「桥接同步」。
-4. 点击「立即处理」，完成后查看摘要、标签和本地 Markdown。
-5. 点击「生成并打开阅读库」，在「待整理 / 我的收藏 / 全部收录」之间切换并完成二次整理；页面会自动形成最近六周的阅读趋势，并可按本周日期区间导出 Markdown 回顾。
+1. 在 Chrome 中创建「收藏文章」书签文件夹并保存公开文章。
+2. 打开 Dashboard，依次点击「导入书签」与「桥接同步」。
+3. 点击「立即处理」，等待任务从排队、运行进入完成状态。
+4. 查看中文译文、结构化摘要、主题标签与本地 Markdown。
+5. 打开阅读工作台，在「待整理 / 我的收藏 / 全部收录」间完成研判；查看最近六周阅读趋势，并按明确日期区间导出 Markdown 回顾。
 
-## 静态文章阅读前台
+## 阅读与人工研判
 
-阅读站由本地 Markdown 自动生成，默认输出到：
+阅读站由本地 Markdown 确定性生成，默认输出到：
 
 ```text
 %USERPROFILE%\Documents\InfoCollector\阅读站\index.html
 ```
 
-索引页提供三个主视图：
+三个主视图分别承担不同语义：
 
-- **待整理**：尚未完成人工判断的新文章；
-- **我的收藏**：阅读摘要后确认值得长期保留的文章；
-- **全部收录**：所有已经进入系统的文章。
+- **待整理**：尚未完成人工研判的新文章；
+- **我的收藏**：确认值得长期保留的文章；
+- **全部收录**：所有进入系统的文章。
 
-关键词筛选只与三个主视图组合使用。每张卡片都支持「收藏」「完成整理」「复制资料卡」和直接打开原文；标题仍进入完整中文译文。「每周阅读」是不可点击的统计模块：根据人工判断时间展示最近六周趋势、本周收藏数和已整理数，不会隐藏或过滤文章。导出按钮会明确显示本周起止日期，并生成一份含判断状态、摘要、关键词和原文链接的 Markdown 回顾。人工状态保存在当前浏览器 origin 的 `localStorage` 中，不会上传，也不会跨浏览器或跨设备同步。重新生成静态页面不会改变稳定文章 ID 对应的本地状态。
+主题标签可与主视图组合筛选。文章卡片支持收藏、完成整理、复制资料卡与打开原文；标题进入完整中文译文。人工研判状态保存在当前浏览器 origin 的 `localStorage` 中，不会上传，也不会跨浏览器或跨设备同步；重新生成页面不会改变稳定文章 ID 对应的状态。
 
-「复制资料卡」会生成中性的 Markdown，包含标题、原文、作者、发布时间、收录时间、关键词和摘要，便于迁移到 Obsidian 或其他笔记工具。
+「每周阅读」是统计而非筛选器：它按人工研判时间展示最近六周趋势、本周收藏数与已整理数，不隐藏文章。导出按钮会标明七天起止日期，并生成包含研判状态、摘要、主题标签与原文链接的 Markdown 回顾。
 
-## 当前支持范围
+## 已验证范围
 
 <p align="center">
-  <img src="docs/images/readme-scope.svg" alt="Info Collector Windows 11 已验证范围：原生桥接、文章整理和本周处理回顾" width="100%">
+  <img src="docs/images/readme-scope.svg" alt="Info Collector Windows 11 已验证能力：原生集成、文章处理流水线、阅读研判与周度回顾" width="100%">
 </p>
 
-这个仓库的产品目标明确限定为 **Windows 11 技术文章整理工作流**：从 Chrome 首次收录进入队列，到本机生成结构化文章，再通过摘要完成收藏或整理判断。
+产品边界明确限定为 **Windows 11 上的个人技术文章处理工作流**：Chrome 负责采集与任务管理，本机负责正文抽取与 AI 辅助提炼，阅读工作台负责人工研判与知识迁移。它不把个人阅读量包装成行业趋势，也不宣称替代专业研究判断。
 
 ## 为什么做这个项目
 
-技术信息真正的瓶颈通常不是“找不到文章”，而是第一次保存后没有再次判断和形成可复用结构。书签会不断增长，真正重要的内容却没有被人工精选出来。
+技术信息管理的瓶颈通常不是找不到文章，而是首次保存后缺少结构化处理与再次判断。Info Collector 在原文和长期知识库之间增加一层可审计的处理链：保留来源，统一生成译文、摘要和标签，再由用户决定收藏、归档或迁移。
 
-Info Collector 试图补上中间这一层：保留原文入口，同时生成统一的中文摘要与标签，让用户进行第二次判断，并把真正有用的内容迁移出去。Dashboard 的「本周处理回顾」按机器 `processedAt` 汇总，代表这周实际处理过的文章，不代表行业趋势或世界动态；阅读库里的「每周阅读」则统计人工判断行为。两者语义分开，前者用于复盘机器处理量，后者用于观察自己的阅读节奏并导出七天回顾。
+Dashboard 的「本周处理回顾」按机器 `processedAt` 汇总，用于复盘系统处理量，不代表行业趋势或世界动态；阅读工作台的「每周阅读」按人工 `reviewedAt` 汇总，用于观察研判节奏。两组指标口径独立，避免把机器吞吐与人工阅读混为一谈。
 
-## 技术结构
+## 技术架构
 
 <p align="center">
-  <img src="docs/images/readme-architecture.svg" alt="Info Collector 技术结构：Chrome MV3 扩展、Windows 文件桥、文章处理流和本地 Markdown 产物" width="100%">
+  <img src="docs/images/readme-architecture.svg" alt="Info Collector 技术架构：Chrome MV3、Windows Native Host、本地处理引擎与知识资产" width="100%">
 </p>
 
 - 架构说明：[docs/design.md](docs/design.md)
 - 领域语言：[CONTEXT.md](CONTEXT.md)
 - 关键决策：[docs/adr/](docs/adr/)
-- Windows 迁移清单：[docs/windows-porting-checklist.md](docs/windows-porting-checklist.md)
-- 原始目标与当前产品方向自查：[docs/goal-audit-2026-07-11.md](docs/goal-audit-2026-07-11.md)
+- Windows 移植清单：[docs/windows-porting-checklist.md](docs/windows-porting-checklist.md)
+- 目标完成度审查：[docs/goal-audit-2026-07-11.md](docs/goal-audit-2026-07-11.md)
 
 ## 开发与验证
 
@@ -125,16 +125,16 @@ Info Collector 试图补上中间这一层：保留原文入口，同时生成�
 npm.cmd test
 ```
 
-当前回归覆盖 URL 归一化、队列状态机、确定性文章元数据、浏览器本地整理状态、组合筛选、资料卡复制、摘要标签、异常模型输出、周报聚合、Windows UTF-8 输出和页面契约。
+回归基线覆盖 URL 归一化、任务状态机、跨端文件契约、真实网页抽取、模型异常输出、摘要与标签、浏览器本地研判状态、组合筛选、资料卡复制、周度聚合、Windows UTF-8 子进程、Native Messaging 与静态页面契约。
 
-## Roadmap · 已完成
+## 验证基线
 
 <p align="center">
-  <img src="docs/images/readme-validation.svg" alt="Info Collector 验证结果与已完成 Roadmap：45 个 Node 测试、30 个 Python 测试、Windows Native Host 与二次整理闭环" width="100%">
+  <img src="docs/images/readme-validation.svg" alt="Info Collector 验证基线：46 个 Node 测试、32 个 Python 测试与 Windows Native Host 验收" width="100%">
 </p>
 
 ---
 
 <p align="center">
-  <sub>Local-first · Windows-native · Built for repeatable intelligence work</sub>
+  <sub>Powered by <a href="https://github.com/Madarame87">@Madarame87</a> × <a href="https://github.com/aswrise">@aswrise</a> · Personal Technology Intelligence</sub>
 </p>
