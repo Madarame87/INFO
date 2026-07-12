@@ -63,7 +63,8 @@ PROVIDER_DEFAULTS = {
         "model": "claude-opus-4-8",
     },
 }
-MAX_TOKENS = 16000          # 非流式安全上限；超长文章会报 failed
+MAX_TOKENS = 16000          # Anthropic 与结构修复的保守输出上限
+MAX_DEEPSEEK_OUTPUT_TOKENS = 64000  # V4 Flash 支持长输出，避免长文在 16K 处被截断
 REQUEST_TIMEOUT = 900       # 单篇翻译最长等待（秒）
 MAX_CONTINUATIONS = 4       # 服务端工具 pause_turn 续跑次数上限
 FETCH_TIMEOUT = 45
@@ -74,6 +75,15 @@ MAX_REPAIR_INPUT_CHARS = 180_000
 REJECTED_PREVIEW_CHARS = 500
 MAX_SUMMARY_CHARS = 240
 MAX_TAGS = 5
+
+
+class SourceAccessBlockedError(RuntimeError):
+    """The publisher returned an explicit access-control response."""
+
+    def __init__(self, url, status):
+        self.url = str(url)
+        self.status = int(status)
+        super().__init__(f"原站限制自动抓取（HTTP {self.status}）")
 
 CANONICAL_TAGS = (
     "人工智能", "世界模型", "机器人", "具身智能", "大模型", "智能体", "多模态",
@@ -432,6 +442,8 @@ def fetch_article_with_builtin(url):
             raw = resp.read(MAX_FETCH_BYTES + 1)
     except urllib.error.HTTPError as e:
         body = e.read(200).decode("utf-8", errors="replace")
+        if e.code in {401, 403}:
+            raise SourceAccessBlockedError(url, e.code) from e
         raise RuntimeError(f"抓取原文失败 HTTP {e.code}: {body}") from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"抓取原文失败: {e}") from e
@@ -456,8 +468,64 @@ def fetch_article_source(url):
     return fetch_article_with_defuddle(url) or fetch_article_with_builtin(url)
 
 
+def fallback_tags_for_title(title):
+    """Derive only broad, defensible tags when a publisher blocks extraction."""
+    lowered = str(title or "").casefold()
+    tags = []
+    if "world model" in lowered or "world-model" in lowered:
+        tags.append("世界模型")
+    if any(word in lowered for word in ("robot", "humanoid", "apptronik")):
+        tags.extend(["机器人", "具身智能"])
+    if any(word in lowered for word in (" ai ", "agent", "artificial intelligence")):
+        tags.append("人工智能")
+    tags.append("产业动态")
+    tags = list(dict.fromkeys(tags))
+    if len(tags) < 2:
+        tags.insert(0, "人工智能")
+    return tags[:MAX_TAGS]
+
+
+def blocked_source_markdown(url, title, status):
+    """Create an explicit, non-fabricated record for access-controlled sources."""
+    display_title = str(title or url).strip() or str(url)
+    summary = (
+        f"原站返回 HTTP {int(status)} 并限制自动抓取，系统没有读取正文，也没有生成未经核实的译文。"
+        "已保留标题与原文入口，请打开原始页面核对内容。"
+    )
+    published_at = published_at_from_url(url)
+    tags = fallback_tags_for_title(display_title)
+    lines = [
+        "---",
+        f"title: {json.dumps(display_title, ensure_ascii=False)}",
+        f"published_at: {json.dumps(published_at, ensure_ascii=False)}",
+        'authors: ""',
+        f"summary: {json.dumps(summary, ensure_ascii=False)}",
+        f"tags: {json.dumps(tags, ensure_ascii=False)}",
+        'content_status: "source_blocked"',
+        "---",
+        "",
+        "## 摘要",
+        "",
+        summary,
+        "",
+        "## 正文状态",
+        "",
+        f"> 原站限制自动抓取（HTTP {int(status)}）。系统未伪造正文或译文。",
+        "",
+        "## 原文",
+        "",
+        f"[打开原文 ↗]({url})",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def translate_article_deepseek(url, title, cfg):
-    article = fetch_article_source(url)
+    try:
+        article = fetch_article_source(url)
+    except SourceAccessBlockedError as exc:
+        log(f"原站限制自动抓取，生成透明占位记录：HTTP {exc.status}")
+        return blocked_source_markdown(url, title, exc.status)
     article_text = article["content"]
     truncated = ""
     if len(article_text) > MAX_DEEPSEEK_INPUT_CHARS:
@@ -492,7 +560,7 @@ def translate_article_deepseek(url, title, cfg):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        "max_tokens": MAX_TOKENS,
+        "max_tokens": MAX_DEEPSEEK_OUTPUT_TOKENS,
         "stream": False,
         "temperature": 0.2,
     }
@@ -786,7 +854,7 @@ def repair_markdown_output(markdown, url, title, cfg):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "max_tokens": MAX_TOKENS,
+            "max_tokens": MAX_DEEPSEEK_OUTPUT_TOKENS,
             "stream": False,
             "temperature": 0,
         }
@@ -1011,8 +1079,12 @@ def main():
                 md = finalize_deterministic_metadata(md, a, now_utc)
                 translated_title = extract_title(md, title)
                 path = save_markdown(md, translated_title, out_dir)
+                result_meta = {"savedTo": path, "title": translated_title, **enrichment}
+                content_status = frontmatter_scalar(md, "content_status")
+                if content_status:
+                    result_meta["contentStatus"] = content_status
                 results.append({"articleKey": a.get("articleKey"), "url": url, "status": "done", "processedAt": now_utc,
-                                "meta": {"savedTo": path, "title": translated_title, **enrichment}})
+                                "meta": result_meta})
                 state[a.get("articleKey") or url] = now_utc
                 done += 1
                 log(f"  ✅ 已保存: {path}")

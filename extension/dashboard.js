@@ -374,31 +374,53 @@ $('btn-bridge').addEventListener('click', async () => {
   refresh();
 });
 
+const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function waitForFlow(type, previousRun, timeoutMs = 180000) {
+  const deadline = Date.now() + timeoutMs;
+  let observedRunning = false;
+  while (Date.now() < deadline) {
+    await delay(750);
+    await send({ cmd: 'bridgeNow' });
+    await refresh();
+    const lastRun = flows[type]?.status?.lastRun;
+    if (lastRun?.outcome === 'running') observedRunning = true;
+    const changed = lastRun?.startedAt !== previousRun?.startedAt || lastRun?.finishedAt !== previousRun?.finishedAt;
+    if (lastRun?.startedAt && (changed || observedRunning) && lastRun.outcome !== 'running') {
+      return lastRun;
+    }
+  }
+  return null;
+}
+
 $('btn-weekly').addEventListener('click', async () => {
-  toast('正在生成本周周报…');
+  const previousRun = flows['weekly-report']?.status?.lastRun;
+  toast('正在生成本周处理回顾…');
   const r = await send({ cmd: 'triggerFlow', type: 'weekly-report' });
   if (!r?.ok) {
-    toast(`✕ 周报启动失败：${r?.error || '未知错误'}（请重新运行 scripts/setup.ps1）`);
+    toast(`✕ 处理回顾启动失败：${r?.error || '未知错误'}（请重新运行 scripts/setup.ps1）`);
     return;
   }
   if (r.alreadyRunning) {
-    toast('⏳ 周报流程已在运行中');
+    toast('⏳ 处理回顾正在生成中');
     return;
   }
-  toast('✓ 周报流程已启动，稍后自动刷新结果');
-  setTimeout(async () => {
-    await send({ cmd: 'bridgeNow' });
-    await refresh();
-    const lastRun = flows['weekly-report']?.status?.lastRun;
-    if (lastRun?.outcome === 'success' || lastRun?.outcome === 'empty') {
-      toast(`✓ 本周周报已生成：${lastRun.count || 0} 篇`);
-    } else if (lastRun?.outcome === 'error') {
-      toast(`✕ 周报生成失败：${lastRun.error || '查看 weekly-report.log'}`);
-    }
-  }, 1500);
+  toast('⏳ 正在汇总本周已处理文章，请稍候…');
+  const lastRun = await waitForFlow('weekly-report', previousRun);
+  if (!lastRun) {
+    toast('⏳ 处理回顾仍在后台生成，可稍后再次查看');
+  } else if (lastRun.outcome === 'success' || lastRun.outcome === 'empty') {
+    const opened = await send({ cmd: 'openFlowOutput', type: 'weekly-report' });
+    toast(opened?.ok
+      ? `✓ 本周处理回顾已生成：${lastRun.count || 0} 篇，正在打开`
+      : `✓ 已生成 ${lastRun.count || 0} 篇；${opened?.error || '请从输出目录打开'}`);
+  } else {
+    toast(`✕ 处理回顾生成失败：${lastRun.error || '查看 weekly-report.log'}`);
+  }
 });
 
 $('btn-reader').addEventListener('click', async () => {
+  const previousRun = flows['reading-site']?.status?.lastRun;
   toast('正在构建文章阅读库…');
   const r = await send({ cmd: 'triggerFlow', type: 'reading-site' });
   if (!r?.ok) {
@@ -409,17 +431,15 @@ $('btn-reader').addEventListener('click', async () => {
     toast('⏳ 阅读库正在生成中');
     return;
   }
-  toast('✓ 阅读库正在生成，完成后会自动打开');
-  setTimeout(async () => {
-    await send({ cmd: 'bridgeNow' });
-    await refresh();
-    const lastRun = flows['reading-site']?.status?.lastRun;
-    if (lastRun?.outcome === 'success' || lastRun?.outcome === 'empty') {
-      toast(`✓ 阅读库已更新：${lastRun.count || 0} 篇文章`);
-    } else if (lastRun?.outcome === 'error') {
-      toast(`✕ 阅读库生成失败：${lastRun.error || '查看 reading-site.log'}`);
-    }
-  }, 1500);
+  toast('⏳ 阅读库正在生成，完成后会自动打开');
+  const lastRun = await waitForFlow('reading-site', previousRun);
+  if (!lastRun) {
+    toast('⏳ 阅读库仍在后台生成，可稍后再次打开');
+  } else if (lastRun.outcome === 'success' || lastRun.outcome === 'empty') {
+    toast(`✓ 阅读库已更新：${lastRun.count || 0} 篇文章`);
+  } else {
+    toast(`✕ 阅读库生成失败：${lastRun.error || '查看 reading-site.log'}`);
+  }
 });
 
 $('btn-bulk').addEventListener('click', () => {

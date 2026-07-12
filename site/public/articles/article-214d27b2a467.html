@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="RoboGaze 是一个无需训练的多智能体 VLM 框架，用于结构化、可解释的机器人操作视频评估。它通过任务-场景接地、维度特定专家路由和基于批评者的验证三阶段流程，输出基于新提出的6维度30类型机器人特定故障分类法的、时间定位的故障报告。在包含382个剪辑的基准测试中，RoboGaze 在描述 F1 上比零样本基线提升高达43分，时间对齐提升37分，并将干净剪辑准确率从低于25%提升至超过80%，缩小了约85%的与人类评估的差距。">
+  <meta name="color-scheme" content="light">
+  <title>RoboGaze：通过结构化视觉-语言分析评估机器人世界模型（RoboGaze: Evaluating Robot World Models via Structured Vision-Language Analysis） · Info Collector</title>
+  <link rel="stylesheet" href="../assets/style.css?v=b4fdf5df7243">
+</head>
+<body class="article-page">
+  <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="site-brand" href="../index.html" aria-label="Info Collector 阅读库首页">
+        <span class="brand-signal" aria-hidden="true"></span>
+        <span><small>PERSONAL TECHNOLOGY INTELLIGENCE</small><strong>Info Collector<span class="brand-dot" aria-hidden="true">.</span></strong></span>
+      </a>
+      <div class="site-credits" aria-label="Powered by @Madarame87 × @aswrise">
+        <span class="credit-label">Powered by</span>
+        <span class="credit-people"><a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></span>
+      </div>
+    </div>
+  </header>
+  
+  <main class="article-shell">
+    <a class="back-link" href="../index.html">← 返回文章情报库</a>
+    <article data-article-id="article-214d27b2a467">
+      <header class="article-hero reveal">
+        <p class="eyebrow"><i></i> TRANSLATED INTELLIGENCE</p>
+        <div class="keyword-row"><span class="keyword">智能体</span><span class="keyword">模型评估</span><span class="keyword">机器人</span><span class="keyword">大模型</span><span class="keyword">具身智能</span></div>
+        <h1>RoboGaze：通过结构化视觉-语言分析评估机器人世界模型（RoboGaze: Evaluating Robot World Models via Structured Vision-Language Analysis）</h1>
+        <div class="article-meta">发布于 2026-06-22<span class="meta-dot"></span>整理于 2026-07-12<span class="meta-dot"></span>作者 Minh-Loi Nguyen, Nghiem Tuong Diep, Hung Khang Nguyen, Minh Le, Doanh Le Thien, Hoang H. Tran, Dung D. Le, Vu N. Duong, Daniel Sonntag, An Thai Le, Duy Minh Ho Nguyen, Vien Anh Ngo, Tran Van Nhiem</div>
+      </header>
+      <section class="summary-card reveal" aria-labelledby="summary-title">
+        <div class="summary-label"><span>01</span><p>EXECUTIVE SUMMARY</p></div>
+        <h2 id="summary-title">先读结论</h2>
+        <p>RoboGaze 是一个无需训练的多智能体 VLM 框架，用于结构化、可解释的机器人操作视频评估。它通过任务-场景接地、维度特定专家路由和基于批评者的验证三阶段流程，输出基于新提出的6维度30类型机器人特定故障分类法的、时间定位的故障报告。在包含382个剪辑的基准测试中，RoboGaze 在描述 F1 上比零样本基线提升高达43分，时间对齐提升37分，并将干净剪辑准确率从低于25%提升至超过80%，缩小了约85%的与人类评估的差距。</p>
+      </section>
+
+      <div class="reading-layout">
+        <aside class="toc-card" aria-label="文章目录"><p>本页目录</p><nav id="article-toc"><span>正在整理章节…</span></nav></aside>
+        <section class="translated-copy reveal">
+          <div class="section-kicker"><span>02</span><div><p>CHINESE TRANSLATION</p><h2>中文译文</h2></div></div>
+          <div class="prose" id="article-content"><p>Minh-Loi Nguyen 1 , Nghiem Tuong Diep 2 , Hung Khang Nguyen 2 Minh Le 2 , Doanh Le Thien 3 , Hoang H. Tran 3 , Dung D. Le 3 Vu N. Duong 3 , Daniel Sonntag 4 , An Thai Le 3 , Duy Minh Ho Nguyen 2 Vien Anh Ngo 2 , Tran Van Nhiem 2 1 胡志明市理科大学，越南国家大学 2 VinRobotics 3 VinUniversity 4 德国人工智能研究中心 (DFKI)</p>
+<p><strong>项目网页:</strong> https://robogaze-eval.github.io/</p>
+<p><strong>关键词:</strong> 机器人世界模型，操作视频评估，故障诊断</p>
+<h2 id="section-1">1 引言</h2>
+<p>生成式世界模型的最新进展使合成视频成为具身人工智能的一个有前景的接口，能够实现以机器人为中心的展开，用于操作预测、演示合成和策略评估 [1, 2, 3, 4, 5, 6, 7]。然而，对于机器人技术来说，仅凭视觉真实感是不够的：生成的视频还必须物理上合理、时间上连贯且任务可执行。看起来逼真但违反物理规律、破坏时间一致性或无法完成任务的视频在下游应用中的价值有限，这在感知质量和机器人实用性之间造成了根本性的差距。</p>
+<p><strong>图 1：RoboGaze 与单一 VLM 评估器的对比。</strong> 标准的标量评估器无法检测到细微的物理异常，如物体穿透（A, B），而 RoboGaze 则提供高度可解释、时间定位的故障诊断，在描述 F1 和干净剪辑准确率（C）上都接近人类水平。</p>
+<p>现有的评估方法未能充分捕捉这些要求。感知相似性指标侧重于低层次的视觉保真度，而通用视频评估框架如 VBench [8]、DOVER [9] 和 VideoScore [10] 主要评估整体视频质量而非执行正确性。人工评估 [11] 仍然是最可靠的方法，但成本高、速度慢且难以扩展。最近基于 VLM 的评估器 [12, 13, 14] 改善了与人类判断的一致性，而新兴的世界批评者则展示了在物理合理性、常识一致性和语义正确性方面的强大推理能力 [15, 16, 17, 12]。然而，现有方法主要关注整体质量评估，对机器人特定诊断的支持有限，而识别故障内容、发生时间、原因和严重程度至关重要。</p>
+<p>为弥补这一差距，我们引入了 <strong>RoboGaze</strong>，一个无需训练的多智能体 VLM 评估器，用于机器人视频生成（图 1）。RoboGaze 建立在三个关键创新之上：(i) 一个机器人特定的故障分类法，包含 <strong>6 个评估维度和 30 种故障类型</strong>；(ii) <strong>子任务级别的时间定位</strong>，可在任务执行期间定位故障；以及 (iii) <strong>一个基于验证器的多智能体推理框架</strong>，可诊断、验证和报告故障，并提供可解释的证据。RoboGaze 不是分配单一质量分数，而是将机器人视频评估重新构建为一个关于任务进展、物理交互和执行正确性的结构化推理问题。据我们所知，RoboGaze 是第一个将无需训练评估、机器人特定分类法和时间定位诊断报告结合在统一框架中的评估器。</p>
+<p>为支持严格评估，我们构建了一个人工验证的基准测试，包含时间定位的故障注释、严重性标签和自由文本描述。与仅限于视频级别判断的先前基准不同，我们的基准能够在结构化的机器人特定分类法下进行细粒度故障定位。在多种机器人视频生成设置中，RoboGaze 在开源和专有 VLM 基线中实现了与人工评估最强的一致性，并具有更准确和可解释的定位能力。</p>
+<h2 id="section-2">2 相关工作</h2>
+<p><strong>表 1：相关视频评估方法比较。</strong> 高亮行是唯一提供机器人特定、时间定位诊断报告（含严重性和有据可查的证据）的无需训练方法。</p>
+<p>| 方法 | 关注点 | 时间定位 | 诊断 | 严重性 | 有据可查的证据 | 机器人相关 | 无需训练 | 输出 | | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | | VBench [8] | 生成质量 | 否 | 否 | 否 | 否 | 否 | 是 | 视觉分数 | | VideoScore [10] | 生成质量 | 否 | 有限 | 否 | 有限 | 否 | 否 | 多维分数 | | WORLDJEN [14] | 多维评估 | 否 | 有限 | 否 | 有限 | 否 | 是 | 多维分数 | | GRADEO [13] | 类人评估 | 否 | 有限 | 有限 | 有限 | 否 | 否 | 语义分数 | | VideoGen-Eval [18] | 结构化评估 | 有限 | 有限 | 否 | 有限 | 否 | 是 | 多维分数 | | PAI-Bench [19] | 物理真实感 | 否 | 有限 | 否 | 有限 | 有限 | 是 | 物理分数 | | VideoHallu [20] | 幻觉 | 否 | 是 | 否 | 有限 | 否 | 是 | 幻觉报告 | | GlitchBench [21] | 故障检测 | 否 | 是 | 否 | 有限 | 否 | 是 | 故障报告 | | GLiDE [22] | 游戏故障（开放） | 是 | 是 | 否 | 有限 | 否 | 是 | 故障报告 | | WorldSimBench [23] | 世界模型评估 | 否 | 有限 | 否 | 有限 | 是 | 否 | 基准分数 | | RBench [24] | 机器人视频评估 | 否 | 有限 | 否 | 有限 | 是 | 是 | 机器人分数 | | RoboWM-Bench [17] | 机器人执行评估 | 有限 | 有限 | 否 | 有限 | 是 | 有限 | 执行分数 | | Morpheus [16] | 物理推理 | 否 | 有限 | 否 | 有限 | 是 | 是 | 物理分数 | | <strong>RoboGaze</strong> | <strong>机器人诊断</strong> | <strong>是</strong> | <strong>是</strong> | <strong>是</strong> | <strong>是</strong> | <strong>是</strong> | <strong>是</strong> | <strong>结构化诊断报告</strong> |</p>
+<p><strong>合成视频生成与机器人世界模型。</strong> 大规模视频扩散系统如 CogVideo [5] 能够生成高保真合成视频，但优先考虑视觉质量而非物理可执行性 [25]。Cosmos-Predict [1, 7] 统一了多模态世界生成，具有更好的指令遵循和物理一致性，而 DreamGen [26] 和 DreamDojo [27] 将机器人中心生成扩展到零样本和灵巧任务。这些进展确立了合成机器人视频作为实用的具身 AI 接口，但持续的故障模式——幻觉物理和与指令无关的展开——促使评估超越视觉保真度。除了基本评估，这些生成式世界模型在合成针对性训练数据以增强复杂环境下的视觉-语言-动作 (VLA) [28, 29] 模型方面具有巨大潜力。具体来说，对于容易产生复合执行错误的长时程操作任务 [30, 31]，世界模型可以模拟多阶段轨迹以在多样的动作转换上预训练策略。类似地，通过程序化布局和资产变化，它们可以合成高度杂乱场景 [32]，包含各种遮挡和干扰物。这使得 VLA 能够完全通过模拟数据学习鲁棒的空间推理和物体持久性 [33, 34, 35]，绕过了真实世界数据收集的瓶颈。</p>
+<p><strong>生成视频的通用评估。</strong> 传统视频指标（如 PSNR、SSIM [36]、LPIPS [37]、FVD [38]）衡量感知或分布相似性，但对物理、时间一致性和任务正确性不敏感。结构化基准如 VBench [8, 15, 9, 39] 增加了多维评分，但针对的是通用真实感，采用整体、视频级别的评估，而非任务接地诊断。学习型评估器如 VideoScore 和 VideoScore2 [10, 12] 使用 VLM 对创意视频进行评分，但需要大规模监督并在粗略维度级别操作。关键的是，现有方法缺乏机器人技术所需的时间定位故障诊断和执行推理。</p>
+<p><strong>基于 VLM 的诊断与物理真实感。</strong> 最近的基于 VLM 的评估器将自动视频评估扩展到结构化推理、基于证据的批评和物理合理性分析 [18, 14, 13, 40]。然而，大多数依赖于产生全局判断或标量分数的单一 VLM 评估器，对故障的具体时间、原因或严重性提供的洞察很少。物理真实感基准如 PAI-Bench [19] 引入了物理故障分类法，但主要作为在预定义测试分布上进行全局、模型级别比较的固定框架。此外，前沿多模态模型在物理敏感、时间接地诊断方面仍然不可靠 [11]。虽然像 VideoHallu [20]、GlitchBench [21] 和智能体开放检测器 GLiDE [22] 这样的诊断方法可以定位事件级别的不一致性，但它们针对的是通用幻觉或视频游戏故障，而非具身执行。特别是 GLiDE，作为最接近的智能体、时间接地故障检测器，它假设自由形式的游戏画面，没有任务指令、子任务结构或物理可执行性标准。相比之下，RoboGaze 将机器人视频评估表述为一个无需训练、多智能体的诊断问题。在机器人特定的 30 种故障分类法指导下，它联合分析任务进展、场景交互和物理合理性，输出包含严重性指标、接地证据和验证的时间定位故障报告。</p>
+<p><strong>机器人特定视频评估。</strong> 最近的基准使用结构一致性、物理合理性和动作完整性（RBench [24]），或通过模拟动作转换和守恒定律（RoboWM-Bench [17]、Morpheus [16]）来评估机器人视频生成。WorldSimBench [23] 评估人类偏好和闭环成功率，但与其他依赖模拟的方法一样，无法扩展到离线的真实机器人视频评估。从根本上说，现有框架通过聚合分数对生成模型进行排名，而不是诊断单个视频，不提供每个视频、时间定位的故障注释或诊断证据。RoboGaze 弥合了这些差距：无需训练和模拟器，它提供结构化的、每个视频的诊断报告，具有事件级别的时间定位和严重性感知证据。</p>
+<h2 id="section-3">3 方法</h2>
+<p><strong>图 2：RoboGaze 框架。</strong> 用于视频生成诊断的三阶段流程：(1) 提取任务和场景上下文记忆；(2) 将可疑的时间跨度路由到六个维度特定的专家以生成故障假设；(3) 验证和综合假设，形成最终的结构化故障报告。</p>
+<p>本节介绍 <strong>RoboGaze</strong>，一个用于细粒度评估机器人视频生成的多智能体框架。给定任务指令、可选的初始场景观察和生成的机器人执行视频，RoboGaze 检测执行失败并生成结构化诊断报告，包含故障类型、支持证据和可能原因。如图 2 所示，RoboGaze 将异常推理分解为三个阶段：(1) <strong>输入与上下文接地</strong>，从多模态输入构建任务接地的语义记忆；(2) <strong>候选发现与专家分析</strong>，将异常假设路由到专门的专家进行诊断；以及 (3) <strong>验证与报告</strong>，由批评验证器验证发现并生成最终故障报告。</p>
+<h3 id="section-4">3.1 故障分类法</h3>
+<p>我们将机器人视频故障组织成一个两级分类法：6 个粗粒度维度，每个维度进一步细分为总共 30 个细粒度类型。这六个维度涵盖了操作展开的整个执行栈，从任务语义（任务进度、指令一致性），经过物体和机器人动力学（物体-场景、机器人本体），到物理和渲染（物理合理性、视觉质量）。专家智能体在细粒度类型级别进行推理；主要论文的结果在维度级别聚合。完整的类型定义、严重性评分标准和级联规则见附录 A.1。</p>
+<h3 id="section-5">3.2 输入与上下文接地</h3>
+<p>给定任务指令 S、初始观察 I0 和生成的执行视频 V，RoboGaze 首先将原始多模态输入转换为结构化的上下文记忆，用于异常诊断。直接提示 VLM 处理长时程机器人视频通常会导致在大量无关视觉上下文中产生较弱的时间定位和模糊的任务推理；因此 RoboGaze 首先执行显式的任务、场景和时间接地。</p>
+<p>具体来说，RoboGaze 将 S 和 I0 解析为任务记忆 Tm，编码全局任务目标和子任务级别的规范，包括操作对象、目标状态、预期动作结果以及每个子任务的完成标准。RoboGaze 还构建了一个场景记忆 Sm，以 Tm 和 I0 为条件，表示初始工作空间配置、可见物体、机器人身体部位、空间关系以及来自遮挡或模糊物体状态的不确定性线索。Tm 和 Sm 共同为任务意图提供语义接地，为场景可行性提供物理接地：</p>
+<p>Tm = ftask(S, I0), Sm = fscene(I0, Tm), (1)</p>
+<p>其中 ftask 和 fscene 分别表示用于任务和场景理解的基于 VLM 的语义解析器。</p>
+<p>为了捕捉局部执行动态，RoboGaze 将 V 分解为 N 个固定长度的时间片段 W = {w1, ..., wN}。RoboGaze 不是直接在完整视频上定位子任务，而是将定位转换为片段级别的任务进度推理。每个片段与 Tm 和 Sm 联合分析，以产生结构化的语义观察：</p>
+<p>M = {mi}i=1^N, mi = fvlm(wi, Tm, Sm), (2)</p>
+<p>其中 mi 总结了片段 wi 中的机器人动作、物体状态转换、任务进度信号、异常和不确定性线索。利用这些进度信号，RoboGaze 将时间相关的片段分组为子任务特定的执行段：</p>
+<p>U = {uk}k=1^K, uk = Merge({wi | i ∈ Ik}), (3)</p>
+<p>其中 Ik 表示与子任务 k 相关的片段，Merge(·) 将时间上连续的片段组合成一个统一的子视频。</p>
+<p>生成的包 C = {Tm, Sm, M, U} 编码了任务意图、场景条件、局部执行证据和子任务级别的时间结构，使得比直接的全视频提示更可靠、更接地的时间推理成为可能。</p>
+<h3 id="section-6">3.3 候选发现与专家分析</h3>
+<p>给定上下文包 C = {Tm, Sm, M, U}，RoboGaze 通过稀疏候选路由和专家分析执行针对性诊断。由于通常只有一部分故障维度与每个子任务相关，将所有专家应用于每个段会引入噪声或弱接地诊断；因此 RoboGaze 首先识别可能的故障维度，然后再分派给相关专家。</p>
+<p>对于每个子任务执行段 uk ∈ U，RoboGaze 检索相应的任务规范 tk ⊂ Tm，其中包含子任务 k 的预期目标和完成标准。然后，一个候选路由 VLM 执行多标签路由，以预测一个可能的故障维度子集：</p>
+<p>Gk^cand = frouter(uk, tk), Gk^cand ⊆ G, (4)</p>
+<p>其中 G 表示六个故障维度，Gk^cand 仅包含可能与当前执行段相关的维度。这种路由机制通过将推理限制在与任务相关的故障空间内，提高了诊断的聚焦度。</p>
+<p>对于每个候选维度 g ∈ Gk^cand，相应的专家根据执行段、任务规范和场景接地执行细粒度诊断：</p>
+<p>dk,g = fg(uk, tk, Sm) = (yk,g, rk,g, τk,g, ek,g, s̃k,g, ck,g), (5)</p>
+<p>其中 yk,g ∈ {0, 1} 指示是否检测到故障，rk,g 提供诊断推理，τk,g 在时间上定位故障，ek,g 总结支持证据，s̃k,g 是建议的严重性，ck,g 是置信度分数。</p>
+<p>聚合所有专家诊断得到 D = {dk,g | g ∈ Gk^cand, k = 1, ..., K}，这是一个用于验证的结构化异常假设集。结合稀疏路由和维度特定专家，可以在无需对所有维度进行详尽分析的情况下，产生细粒度、时间定位、有证据支持的诊断。</p>
+<h3 id="section-7">3.4 验证与报告</h3>
+<p>阶段 2 的诊断 D 是候选假设，可能仍然不确定、弱接地或在维度间冗余。因此 RoboGaze 整体裁决假设集：验证支持的声明，抑制不支持的声明，并将重复项合并为一个连贯的报告。</p>
+<p>一个批评验证器根据执行段、诊断推理、时间定位、支持证据和任务-场景接地重新检查每个假设 dk,g ∈ D，并分配三个动作之一：</p>
+<p>fverify(dk,g, uk, tk, Sm) → ak,g ∈ {接受, 拒绝, 合并}. (6)</p>
+<p>如果假设在视觉上得到支持、时间上一致且与任务和场景约束语义对齐，则被<strong>接受</strong>；如果其证据更好地由正常执行解释（例如，遮挡而非物体消失），则被<strong>拒绝</strong>；如果它描述了与另一个假设相同的物理事件——匹配的对象或动作、重叠的时间跨度和一致的证据——则被<strong>合并</strong>，此时该组被整合到一个主要维度和类型下。即使时间跨度重叠，独立的故障也保持分离。每个幸存的假设作为 d̂k,g = (r̂k,g, τ̂k,g, êk,g, sk,g) 返回，带有精炼的解释、验证的时间跨度、验证的证据和验证的严重性。聚合接受和合并的假设得到 D̂，综合成最终报告 R = freport(D̂)。通过在假设进入报告之前对其提出质疑，这一阶段显著减少了误报，并推动了 RoboGaze 的干净剪辑可靠性（第 4.3 节）。</p>
+<h2 id="section-8">4 实验</h2>
+<h3 id="section-9">4.1 设置与注释</h3>
+<p><strong>表 2：RoboGazeBench 三个评估分区的总结。</strong></p>
+<p>| 数据集 | 剪辑数 | 领域 | 视角 | 平均时长 | | :--- | :--- | :--- | :--- | :--- | | GR1-Sim | 154 | 模拟 | 单视角 | 8-9 秒 | | GR1-Real | 100 | 真实初始化 | 单视角 | 5-6 秒 | | DROID-MV | 128 | 真实 | 多视角 | 17-18 秒 | | <strong>总计</strong> | <strong>382</strong> | – | – | – |</p>
+<p><strong>基准测试。</strong> RoboGazeBench 包含 382 个生成的机器人操作剪辑，涵盖模拟 GR-1 任务（GR1-Sim）、真实初始化的 GR-1 任务（GR1-Real）和真实领域多视角操作剪辑（DROID-MV）；表 2 总结了这三个分区。这些分区测试诊断评估是否跨领域真实感和相机配置进行迁移；数据集构建细节和来源引用见附录 A.2。</p>
+<p><strong>模型与条件。</strong> 我们评估了八个视觉-语言骨干模型，涵盖专有模型（Gemini 3.1 Pro [41]、GPT-5.5 [42]、Gemini 3.1 Flash [41]、Claude Sonnet 4.6）和开源模型（Gemma4-31B [43]、Qwen3.6-35B [44, 45]、LLaVA-OneVision-2-8B-Instruct [46]、InternVL3.5-38B [47]）。每个骨干模型在三种条件下进行测试：零样本 vanilla、+CoT 和由 RoboGaze 包装（+RG），视觉输入方案在各条件下固定；提示、服务细节和采样消融见附录 A.3 和 A.4。</p>
+<p><strong>人工注释。</strong> 每个剪辑由两名受过机器人训练的注释员从头开始注释，并由一名高级注释员裁决，他们只看到生成的视频和任务指令；对于每个事件，我们记录其维度、类型、时间跨度、严重性和自由形式描述。一个包含 60 个视频的金子集（每个分区 20 个）由三名高级注释员独立标记，以估计可靠性和人类上限。注释指南、界面和裁决规则见附录 A.2。</p>
+<p><strong>图 3：Gemma4-31B 效率权衡。</strong> 点代表 vanilla、+CoT 和 +RG；标签显示每个视频的 VLM 调用次数。</p>
+<p><strong>表 3：60 个视频金子集上的注释员间一致性。</strong> 指标涵盖剪辑级别检测、事件维度、时间跨度、有序严重性和自由文本诊断一致性；所有指标越高越好。</p>
+<p>| 指标 ↑ | GR1-Sim | GR1-Real | DROID-MV | 总体 | | :--- | :--- | :--- | :--- | :--- | | 检测 κ（每剪辑） | 0.82 | 0.79 | 0.71 | 0.77 | | 维度 κ（每事件） | 0.74 | 0.70 | 0.63 | 0.69 | | 平均成对时间 IoU | 0.68 | 0.65 | 0.58 | 0.64 | | 严重性 Krippendorff's α（有序） | 0.66 | 0.62 | 0.55 | 0.61 | | 描述相似性（LLM 评估器，0-1） | 0.79 | 0.76 | 0.71 | 0.75 |</p>
+<p>所有五个指标的一致性都很强（表 3）；DROID-MV 由于更长的多视角网格剪辑而稍难。我们使用金子集来估计人类上限，评估每个注释员相对于其他两个注释员的共识（表 4 中的 Human (ceiling) 行）。</p>
+<h3 id="section-10">4.2 评估协议</h3>
+<p>我们采用 GLiDE [22] 的开放匹配协议，通过使用语义一致性和时间重叠全局匹配预测事件和参考事件来对每个预测报告进行评分。对于视频 v，设预测为 Pv = {pi}i=1^N，参考为 Ŷv = {ŷj}j=1^M，其中每个事件包含维度、类型、时间跨度、严重性和描述。一个固定的 LLM 评估器使用关于事件忠实度、特异性和因果正确性的评分标准，为每个预测-参考对分配描述相似性 Sij ∈ [0, 1]。然后我们将每个对的分数计算为三个可解释因素的乘积——描述相似性、时间重叠和维度一致性奖励：</p>
+<p>Cij = Sij · IoUt(τi, τ̂j) · βij, βij = 1 + λdim 1[dim_i = dim̂_j], (7)</p>
+<p>其中 τi 和 τ̂j 是预测和参考的时间跨度，IoUt 是它们的时间交并比，奖励 βij 以 λdim = 0.25 奖励维度一致性。在 C 上进行最大权重匈牙利分配 [48] 得到一对一匹配集 A。</p>
+<p>我们通过将 Sij 在 A 上求和并除以 N 或 M 来报告描述精确率/召回率/F1，通过对匹配对平均 IoUt 来报告时间 mIoU，并通过在相同的精确率-召回率计算中用 Sij IoUt 替换 Sij 来报告联合 F1 × IoU。我们还报告匹配事件上的严重性 within-1 准确率和无故障剪辑的干净剪辑准确率，后者捕捉了单一评估器的误报行为。评估器提示、阈值时间指标、严重性加权分数、每个数据集的细分和宽松匹配变体见附录。</p>
+<h3 id="section-11">4.3 主要结果</h3>
+<p><strong>表 4：RoboGazeBench 上的主要结果，在三个数据集上平均。</strong> V、CoT 和 RG 分别表示 vanilla 提示、思维链提示和由 RoboGaze 包装的相同骨干模型；灰色阴影的 RG 列显示主要比较。所有指标越高越好，Clean 是干净剪辑准确率。</p>
+<p>| 家族 | 模型 | Desc. F1 ↑ | mIoU ↑ | F×IoU ↑ | Clean ↑ | | :--- | :--- | :--- | :--- | :--- | :--- | | | | V | CoT | RG | V | CoT | RG | V | CoT | RG | V | CoT | RG | | 专有 | Gemini 3.1 Pro | 25.4 | 32.4 | <strong>67.9</strong> | .39 | .43 | <strong>.64</strong> | 9.8 | 13.9 | <strong>43.7</strong> | .13 | .21 | <strong>.92</strong> | | | GPT-5.5 | 23.9 | 30.5 | <strong>65.1</strong> | .37 | .41 | <strong>.63</strong> | 8.8 | 12.5 | <strong>41.1</strong> | .09 | .18 | <strong>.90</strong> | | | Gemini 3.1 Flash | 20.2 | 26.1 | <strong>57.8</strong> | .35 | .39 | <strong>.61</strong> | 7.0 | 10.2 | <strong>35.0</strong> | .08 | .16 | <strong>.87</strong> | | | Claude Sonnet 4.6 | 21.4 | 27.6 | <strong>60.3</strong> | .36 | .40 | <strong>.61</strong> | 7.7 | 11.0 | <strong>36.8</strong> | .11 | .20 | <strong>.89</strong> | | 开源 | Gemma4-31B | 17.6 | 23.4 | <strong>56.6</strong> | .33 | .37 | <strong>.66</strong> | 5.7 | 8.7 | <strong>34.5</strong> | .03 | .12 | <strong>.86</strong> | | | Qwen3.6-35B | 16.7 | 22.3 | <strong>53.1</strong> | .32 | .36 | <strong>.60</strong> | 5.4 | 8.2 | <strong>31.6</strong> | .16 | .23 | <strong>.84</strong> | | | LLaVA-OV-2-8B | 14.2 | 19.5 | <strong>47.9</strong> | .30 | .33 | <strong>.56</strong> | 4.3 | 6.5 | <strong>26.9</strong> | .18 | .25 | <strong>.82</strong> | | | InternVL3.5-38B | 15.5 | 21.0 | <strong>50.1</strong> | .31 | .35 | <strong>.58</strong> | 4.8 | 7.4 | <strong>28.9</strong> | .04 | .13 | <strong>.81</strong> | | <strong>人类上限</strong> | | <strong>75.5</strong> | | | <strong>0.71</strong> | | | <strong>47.1</strong> | | | <strong>0.94</strong> | | |</p>
+<p>表 4 报告了 RoboGazeBench 上的主要比较，在三个数据集上平均。三个发现尤为突出。</p>
+<p>(i) <strong>单一 VLM 评估器在机器人视频诊断中很脆弱。</strong> Vanilla VLM 通常能识别可疑运动，但不能可靠地判断它是否构成与任务相关、物理上合理的故障。思维链提示提高了一致性，但未能解决核心故障模式：没有任务-场景接地和显式证据检查，模型会将不确定性或异常但有效的运动转换为错误的故障报告。</p>
+<p>(ii) <strong>RoboGaze 提高了跨模型家族的诊断一致性。</strong> 使用 RoboGaze 包装相同的骨干模型，在专有和开源模型上均一致地提高了语义一致性、时间定位和联合分数，表明改进来自评估器结构而非仅仅是骨干模型规模。按维度细分（图 4）显示，在任务进度、指令一致性、物体-场景和机器人本体故障方面增益最大，这些方面的诊断依赖于关系和因果推理。</p>
+<p><strong>图 4：Gemini 3.1 Pro 在 RoboGazeBench 上的按维度描述 F1，在三个数据集上平均。</strong> 描述 F1 衡量每个故障维度内预测诊断描述与人类诊断描述之间的一致性；越高越好。</p>
+<p>(iii) <strong>批评验证器解决了“狼来了”的故障模式。</strong> RoboGaze 与单一评估器之间的关键区别不在于它提出了更多候选故障，而在于它拒绝了弱假设：验证器在假设进入报告之前，会对照视觉证据、任务上下文、场景状态和时间一致性检查每个假设。这解释了干净剪辑准确率的大幅提升，并且与消融实验（表 5）一致，其中移除验证器导致最大的性能下降；图 5 显示了代表性案例，包括一个被验证器拒绝的误报（b）。</p>
+<h3 id="section-12">4.4 消融研究</h3>
+<p><strong>表 5：Gemma4-31B 与 RoboGaze 的消融实验，在三个数据集上平均。</strong> 灰色阴影的全系统行是参考；灰色阴影的验证器消融标记了最大的性能下降。</p>
+<p>| 配置 | Desc. F1 ↑ | mIoU ↑ | F×IoU ↑ | Sev@1 ↑ | | :--- | :--- | :--- | :--- | :--- | | RoboGaze (Gemma4-31B) | <strong>56.6</strong> | <strong>0.66</strong> | <strong>34.5</strong> | <strong>81.4</strong> | | 无任务记忆 | 51.2 | 0.61 | 29.2 | 76.8 | | 无场景记忆 | 50.0 | 0.60 | 28.3 | 75.9 | | 无子任务分割 | 52.7 | 0.62 | 30.6 | 77.5 | | 无候选路由 | 51.5 | 0.63 | 30.8 | 77.0 | | 无批评验证器 | 44.3 | 0.59 | 23.8 | 71.7 |</p>
+<p>表 5 消融了 RoboGaze 在 Gemma4-31B 上的结构组件：每个组件都有贡献，但移除批评验证器导致最大的性能下降，支持我们的核心主张，即可靠的机器人视频评估需要结构化上下文和明确的拒绝弱假设机制。这些增益带来了更高的推理成本；图 3 绘制了 vanilla、+CoT 和 +RG 条件下的准确率-计算权衡。关于成本和运行时的更多细节见消融实验 A.4.9。</p>
+<p><strong>评估器鲁棒性。</strong> 使用替代 LLM 评估器重新评估表 4 保留了模型排名并产生了高度相关的分数，表明趋势不是单个评估器模型的伪影；完整的相关性、分数差异和评估器提示见附录 A.4。</p>
+<h3 id="section-13">4.5 定性分析</h3>
+<p><strong>图 5：vanilla 基线与 RoboGaze 在三个代表性剪辑上的定性比较：</strong> (a) 验证器挽救了一个被 vanilla 评估器错误标记的真实故障，(b) 一个 vanilla 误报被拒绝，(c) 两种方法都检测到但定位不同的故障。</p>
+<h2 id="section-14">5 结论</h2>
+<p>我们提出了 <strong>RoboGaze</strong>，一个无需训练、模型无关的评估器，它将单一的 VLM 评估器转变为时间定位的机器人视频诊断器。在三个基准分区和八个 VLM 骨干模型上，评估器结构——任务-场景接地、路由专家和批评验证——是可靠诊断一致性的主要驱动力。我们将结构化故障报告视为标量偏好信号在离线基准测试、数据集整理和闭环世界模型开发中的补充。</p>
+<p><strong>局限性。</strong> 仍存在一些局限性。剩余的人类差距集中在物理合理性和视觉质量上，这可能需要显式的 3D 几何或像素级信号（如光流），而非基于文本的提示。RoboGazeBench 也仅来自一个生成器家族，因此更广泛的声明需要更广泛的具身形态、相机布局和架构覆盖。最后，我们与视角无关的专家可能会遗漏依赖于视角的证据，面向精确率的验证器可能会抑制罕见的瞬态故障（将精确率-召回率权衡留给下游应用），而封闭世界的分类法与多智能体编排的成本高于单一评估器。</p>
+<h2 id="section-15">参考文献</h2>
+<p>[1] A. Ali et al. World simulation with video foundation models for physical ai. <em>arXiv preprint arXiv:2511.00062</em>, 2025. [2] A. Hu et al. Gaia-1: A generative world model for autonomous driving. <em>arXiv preprint arXiv:2309.17080</em>, 2023. [3] J. Bruce et al. Genie: Generative interactive environments. In <em>Forty-first International Conference on Machine Learning</em>, 2024. [4] Z. Yang et al. Unisim: A neural closed-loop sensor simulator. In <em>Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition</em>, pages 1389–1399, 2023. [5] W. Hong et al. Cogvideo: Large-scale pretraining for text-to-video generation via transformers. In <em>The Eleventh International Conference on Learning Representations</em>. [6] D. M. Nguyen et al. FOCA: Future-oriented conditioning for data-efficient vision-language-action adaptation. In <em>Proceedings of the International Conference on Machine Learning (ICML)</em>, 2026. [7] N. Agarwal et al. Cosmos 3: Omnimodal world models for physical ai. <em>arXiv preprint arXiv:2606.02800</em>, 2026. [8] Z. Huang et al. Vbench: Comprehensive benchmark suite for video generative models. In <em>Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition</em>, pages 21807–21818, 2024. [9] H. Wu et al. Exploring video quality assessment on user generated contents from aesthetic and technical perspectives. In <em>Proceedings of the IEEE/CVF international conference on computer vision</em>, pages 20144–20154, 2023. [10] X. He et al. Videoscore: Building automatic metrics to simulate fine-grained human feedback for video generation. In <em>Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing</em>, pages 2105–2123, 2024. [11] Q. Zhang et al. Physion-eval: Evaluating physical realism in generated video via human reasoning. <em>arXiv preprint arXiv:2603.19607</em>, 2026. [12] X. He et al. Videoscore2: Think before you score in generative video evaluation. <em>arXiv preprint arXiv:2509.22799</em>, 2025. [13] Z. Mou et al. Gradeo: Towards human-like evaluation for text-to-video generation via multi-step reasoning. In <em>International Conference on Machine Learning</em>, pages 44971–44996. PMLR, 2025. [14] K. Inbasekar et al. Worldjen: An end-to-end multi-dimensional benchmark for generative video models. <em>arXiv preprint arXiv:2605.03475</em>, 2026. [15] D. Zheng et al. Vbench-2.0: Advancing video generation benchmark suite for intrinsic faithfulness. <em>arXiv preprint arXiv:2503.21755</em>, 2025. [16] C. Zhang et al. Morpheus: Benchmarking physical reasoning of video generative models with real physical experiments. <em>arXiv preprint arXiv:2504.02918</em>, 2025. [17] F. Jiang et al. Robowm-bench: A benchmark for evaluating world models in robotic manipulation. <em>arXiv preprint arXiv:2604.19092</em>, 2026. [18] Y. Yang et al. Videogen-eval: Agent-based system for video generation evaluation. <em>arXiv preprint arXiv:2503.23452</em>, 2025. [19] F. Zhou et al. Pai-bench: A comprehensive benchmark for physical ai, 2025. URL https://arxiv.org/abs/2512.01989. [20] Z. Li et al. Videohallu: Evaluating and mitigating multi-modal hallucinations on synthetic video understanding. <em>Advances in Neural Information Processing Systems</em>, 38:76046–76078, 2026. [21] M. R. Taesiri et al. Glitchbench: Can large multimodal models detect video game glitches? In <em>Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition</em>, pages 22444–22455, 2024. [22] M. Zheng et al. Open-ended video game glitch detection with agentic reasoning and temporal grounding. <em>arXiv preprint arXiv:2604.07818</em>, 2026. [23] Y. Qin et al. Worldsimbench: Towards video generation models as world simulators. <em>arXiv preprint arXiv:2410.18072</em>, 2024. [24] Y. Deng et al. Rethinking video generation model for the embodied world. <em>arXiv preprint arXiv:2601.15282</em>, 2026. [25] Y. Wang et al. Survey of video diffusion models: Foundations, implementations, and applications. <em>Transactions on Machine Learning Research</em>. [26] J. Jang et al. Dreamgen: Unlocking generalization in robot learning through video world models. In <em>Conference on Robot Learning</em>, pages 5170–5194. PMLR, 2025. [27] S. Gao et al. Dreamdojo: A generalist robot world model from large-scale human videos. <em>arXiv preprint arXiv:2602.06949</em>, 2026. [28] M. J. Kim et al. OpenVLA: An open-source vision-language-action model. In <em>Conference on Robot Learning (CoRL)</em>, 2024. URL https://openvla.github.io. [29] A. Brohan et al. RT-2: Vision-language-action models transfer web knowledge to robotic control. <em>Conference on Robot Learning (CoRL)</em>, 2023. URL https://arxiv.org/abs/2307.15818. [30] N. Chung et al. Rethinking progression of memory state in robotic manipulation: An object-centric perspective. In <em>Proceedings of the AAAI Conference on Artificial Intelligence</em>, 2026. [31] T. Hanyu et al. SlotVLA: Towards modeling of object-relation representations in robotic manipulation. In <em>IEEE International Conference on Robotics and Automation (ICRA)</em>, 2026. [32] K. Vo et al. Clutter-resistant vision–language–action models through object-centric and geometry grounding. <em>arXiv preprint arXiv:2512.22519</em>, 2026. URL https://arxiv.org/abs/2512.22519. [33] D. M. Nguyen et al. Self-improving VLA policies: Selected diffusion noise for spurious-robust action smoothing. <em>arXiv preprint arXiv:2606.14084</em>, 2026. URL https://arxiv.org/abs/2606.14084. [34] A. Authors. Ctrl-world: A controllable generative world model for robot manipulation. <em>arXiv preprint arXiv:2510.10125</em>, 2025. URL https://arxiv.org/abs/2510.10125. [35] A. Authors. Closed-loop learning of video world model and VLA policy. <em>arXiv preprint arXiv:2602.06508</em>, 2026. URL https://arxiv.org/abs/2602.06508. [36] Z. Wang et al. Image quality assessment: from error visibility to structural similarity. <em>IEEE transactions on image processing</em>, 13(4):600–612, 2004. [37] R. Zhang et al. The unreasonable effectiveness of deep features as a perceptual metric. In <em>Proceedings of the IEEE conference on computer vision and pattern recognition</em>, pages 586–595, 2018. [38] T. Unterthiner et al. Towards accurate generative models of video: A new metric &amp; challenges. <em>arXiv preprint arXiv:1812.01717</em>, 2018. [39] H. Han et al. Video-bench: Human-aligned video generation benchmark. In <em>Proceedings of the Computer Vision and Pattern Recognition Conference</em>, pages 18858–18868, 2025. [40] Y. Qi et al. Vcr-bench: A comprehensive evaluation framework for video chain-of-thought reasoning. <em>arXiv preprint arXiv:2504.07956</em>, 2025. [41] G. Team et al. Gemini: a family of highly capable multimodal models. <em>arXiv preprint arXiv:2312.11805</em>, 2023. [42] A. Singh et al. Openai gpt-5 system card. <em>arXiv preprint arXiv:2601.03267</em>, 2025. [43] G. Team et al. Gemma: Open models based on gemini research and technology. <em>arXiv preprint arXiv:2403.08295</em>, 2024. [44] S. Bai et al. Qwen3-vl technical report. <em>arXiv preprint arXiv:2511.21631</em>, 2025. [45] A. Yang et al. Qwen3 technical report. <em>arXiv preprint arXiv:2505.09388</em>, 2025. [46] B. Li et al. Llava-onevision: Easy visual task transfer. <em>arXiv preprint arXiv:2408.03326</em>, 2024. [47] W. Wang et al. Internvl3. 5: Advancing open-source multimodal models in versatility, reasoning, and efficiency. <em>arXiv preprint arXiv:2508.18265</em>, 2025. [48] H. W. Kuhn. The hungarian method for the assignment problem. <em>Naval research logistics quarterly</em>, 2(1-2):83–97, 1955. [49] A. Khazatsky et al. Droid: A large-scale in-the-wild robot manipulation dataset. <em>arXiv preprint arXiv:2403.12945</em>, 2024.</p></div>
+        </section>
+      </div>
+      
+      <section class="source-card reveal">
+        <div><p class="eyebrow">ORIGINAL SOURCE</p><h2>继续查看原文</h2><p>中文译文用于高效理解；需要核对语境、图表或引用时，请返回作者原始页面。</p></div>
+        <a href="https://arxiv.org/html/2606.28385v1" target="_blank" rel="noopener noreferrer">访问文章原文 <span>↗</span></a>
+      </section>
+    </article>
+  </main>
+  <footer class="site-footer" aria-label="Powered by @Madarame87 × @aswrise"><span>Powered by</span> <a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></footer>
+  <script src="../assets/app.js?v=b4fdf5df7243" defer></script>
+</body>
+</html>

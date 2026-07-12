@@ -22,6 +22,42 @@ def import_host():
 
 
 class InfoCollectorHostTest(unittest.TestCase):
+    def test_open_output_only_opens_registered_generated_file_under_home(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            old_home = os.environ.get("INFO_COLLECTOR_HOME")
+            os.environ["INFO_COLLECTOR_HOME"] = str(home)
+            try:
+                host = import_host()
+                state = home / ".info-collector" / "state"
+                output = home / "Documents" / "InfoCollector" / "周报" / "本周回顾.md"
+                state.mkdir(parents=True)
+                output.parent.mkdir(parents=True)
+                output.write_text("# 本周回顾\n", encoding="utf-8")
+                (state / "weekly-report-status.json").write_text(json.dumps({
+                    "latestReport": str(output),
+                }), encoding="utf-8")
+                opened = []
+                host.open_local_path = lambda path: opened.append(path)
+                result = host.handle_open_output({"processingType": "weekly-report"})
+                self.assertTrue(result["ok"])
+                self.assertEqual(opened, [output.resolve()])
+
+                outside = home.parent / "outside-report.md"
+                outside.write_text("blocked", encoding="utf-8")
+                (state / "weekly-report-status.json").write_text(json.dumps({
+                    "latestReport": str(outside),
+                }), encoding="utf-8")
+                denied = host.handle_open_output({"processingType": "weekly-report"})
+                self.assertFalse(denied["ok"])
+                self.assertIn("用户目录", denied["error"])
+                outside.unlink()
+            finally:
+                if old_home is None:
+                    os.environ.pop("INFO_COLLECTOR_HOME", None)
+                else:
+                    os.environ["INFO_COLLECTOR_HOME"] = old_home
+
     def test_trigger_env_adds_user_node_bins(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)

@@ -90,7 +90,28 @@ test('主视图与关键词筛选取交集', () => {
   assert.equal(items.filter((item) => api.matchesView(item.state, 'all')).length, 3);
   assert.equal(api.emptyMessageFor('pending', '全部'), '待整理已清空');
   assert.equal(api.emptyMessageFor('favorites', '全部'), '还没有收藏文章');
+  assert.equal(api.emptyMessageFor('weekly', '全部'), '本周还没有精选文章');
   assert.equal(api.emptyMessageFor('favorites', '世界模型'), '没有符合条件的文章');
+});
+
+test('本周精选只收录本周收藏并可导出可追溯 Markdown', () => {
+  const api = loadApi();
+  const now = new Date(2026, 6, 12, 12, 0, 0);
+  assert.equal(api.isDateInCurrentWeek(new Date(2026, 6, 6, 9, 0, 0), now), true);
+  assert.equal(api.isDateInCurrentWeek(new Date(2026, 6, 12, 23, 59, 0), now), true);
+  assert.equal(api.isDateInCurrentWeek(new Date(2026, 6, 5, 23, 59, 0), now), false);
+  assert.equal(api.matchesView({ reviewedAt: 'x', favorite: true }, 'weekly', true), true);
+  assert.equal(api.matchesView({ reviewedAt: 'x', favorite: true }, 'weekly', false), false);
+  const markdown = api.buildWeeklyPicksMarkdown([{
+    title: '世界模型进展',
+    source: 'https://example.test/world-model',
+    tags: '世界模型|机器人',
+    summary: '一段可核验的摘要。',
+  }], now);
+  assert.match(markdown, /# 本周精选｜2026-07-06 — 2026-07-12/);
+  assert.match(markdown, /共 1 篇/);
+  assert.match(markdown, /关键词：世界模型、机器人/);
+  assert.match(markdown, /\[查看原文\]\(https:\/\/example\.test\/world-model\)/);
 });
 
 test('复制资料卡字段顺序准确，旧文缺失值使用未知和整理时间', () => {

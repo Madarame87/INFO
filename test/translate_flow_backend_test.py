@@ -197,6 +197,32 @@ print(json.dumps({{
                 "",
             )
 
+    def test_blocked_source_fallback_is_explicit_and_never_calls_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+
+            def blocked(_url):
+                raise flow.SourceAccessBlockedError(_url, 401)
+
+            flow.fetch_article_source = blocked
+            flow.deepseek_request = lambda *_args, **_kwargs: self.fail("受限来源不应调用模型")
+            markdown = flow.translate_article_deepseek(
+                "https://www.reuters.com/technology/apptronik-launches-robot-2026-06-30/",
+                "Apptronik launches Apollo 2 humanoid robot",
+                {"model": "deepseek-v4-flash"},
+            )
+            document, enrichment = flow.prepare_enriched_markdown(
+                markdown,
+                "https://www.reuters.com/technology/apptronik-launches-robot-2026-06-30/",
+                "Apptronik launches Apollo 2 humanoid robot",
+                {"provider": "deepseek"},
+            )
+            self.assertIn('content_status: "source_blocked"', document)
+            self.assertIn("系统未伪造正文或译文", document)
+            self.assertIn("机器人", enrichment["tags"])
+            self.assertIn("具身智能", enrichment["tags"])
+            self.assertEqual(flow.frontmatter_scalar(document, "published_at"), "2026-06-30")
+
     def test_deterministic_metadata_overrides_model_values(self):
         with tempfile.TemporaryDirectory() as tmp:
             flow = import_flow(Path(tmp))
@@ -414,6 +440,7 @@ print(json.dumps({{
             req = MockDeepSeekHandler.api_requests[0]
             self.assertEqual(req["authorization"], "Bearer sk-test000000000000000000000")
             self.assertEqual(req["payload"]["model"], "deepseek-v4-flash")
+            self.assertEqual(req["payload"]["max_tokens"], flow.MAX_DEEPSEEK_OUTPUT_TOKENS)
             self.assertEqual(req["payload"]["thinking"], {"type": "disabled"})
             self.assertIn("原文提取文本", req["payload"]["messages"][1]["content"])
             self.assertIn("正文提取器: defuddle", req["payload"]["messages"][1]["content"])
