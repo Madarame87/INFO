@@ -529,25 +529,37 @@ def render_index(articles, asset_version=""):
     </section>
     <section class="discovery-panel reveal" aria-labelledby="filter-title">
       <div class="weekly-activity" aria-labelledby="weekly-activity-title">
-        <div class="weekly-activity-title">
-          <small>WEEKLY ACTIVITY</small>
-          <h2 id="weekly-activity-title">每周阅读</h2>
-          <p id="weekly-range">本周</p>
+        <div class="weekly-activity-head">
+          <div class="weekly-activity-title">
+            <small>WEEKLY ACTIVITY</small>
+            <h2 id="weekly-activity-title">每周阅读趋势</h2>
+            <p>最近六周的人工判断节奏</p>
+          </div>
+          <div class="weekly-activity-meta">
+            <p><span id="weekly-range">本周</span><small id="weekly-breakdown">收藏 0 · 已整理 0</small></p>
+            <button class="weekly-export" id="export-weekly" type="button" disabled>导出本周 Markdown</button>
+          </div>
         </div>
         <div class="weekly-trend" role="img" aria-label="最近六周人工判断文章数量趋势">
-          <svg viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true">
-            <path class="weekly-chart-guide" d="M 7 63 L 293 63"></path>
+          <div class="weekly-chart-caption"><span>人工判断文章数</span><span>周一至周日</span></div>
+          <svg viewBox="0 0 760 160" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="weekly-area-gradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#4f9299" stop-opacity=".22"></stop>
+                <stop offset="72%" stop-color="#4f9299" stop-opacity=".045"></stop>
+                <stop offset="100%" stop-color="#4f9299" stop-opacity="0"></stop>
+              </linearGradient>
+            </defs>
+            <path class="weekly-chart-grid" d="M 18 28 L 742 28 M 18 82 L 742 82 M 18 136 L 742 136"></path>
+            <path class="weekly-chart-area" id="weekly-chart-area" d=""></path>
             <path class="weekly-chart-line" id="weekly-chart-line" d=""></path>
-            <g class="weekly-chart-points" id="weekly-chart-points"></g>
+            <line class="weekly-chart-marker-line" id="weekly-chart-marker-line" x1="0" y1="0" x2="0" y2="0"></line>
+            <circle class="weekly-chart-halo" id="weekly-chart-halo" cx="0" cy="0" r="10"></circle>
+            <circle class="weekly-chart-marker" id="weekly-chart-marker" cx="0" cy="0" r="4"></circle>
+            <text class="weekly-chart-value" id="weekly-chart-value" x="0" y="0" text-anchor="middle">0</text>
           </svg>
           <div class="weekly-periods" id="weekly-periods" aria-hidden="true"></div>
         </div>
-        <div class="weekly-total">
-          <strong id="weekly-count">0</strong>
-          <span>本周已判断</span>
-          <small id="weekly-breakdown">收藏 0 · 已整理 0</small>
-        </div>
-        <button class="weekly-export" id="export-weekly" type="button" disabled>导出本周 Markdown</button>
       </div>
       <div class="filter-heading"><h2 id="filter-title">按关键词浏览</h2><output id="result-count" aria-live="polite" aria-atomic="true">显示 {len(articles)} 篇</output></div>
       <div class="tag-filters" id="tag-filters" role="group" aria-label="文章关键词筛选">{all_button}{tag_buttons}</div>

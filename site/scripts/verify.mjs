@@ -24,7 +24,8 @@ if (index.includes("搜索标题、摘要或关键词") || index.includes('id="a
 if (index.includes("从关键词进入主题，从摘要判断价值")) throw new Error("Removed hero subtitle remains");
 if (!index.includes('id="result-count" aria-live="polite" aria-atomic="true"')) throw new Error("Filter result count is not an accessible live region");
 if (index.includes('data-view="weekly"')) throw new Error("Weekly activity must not behave as a fourth article filter");
-if (!index.includes('id="export-weekly"') || !index.includes('id="weekly-chart-line"') || !index.includes('id="weekly-periods"')) throw new Error("Weekly activity chart/export controls are missing");
+if (!index.includes('id="export-weekly"') || !index.includes('id="weekly-chart-line"') || !index.includes('id="weekly-chart-area"') || !index.includes('id="weekly-chart-marker"') || !index.includes('id="weekly-chart-value"') || !index.includes('id="weekly-periods"')) throw new Error("Premium weekly activity chart/export controls are missing");
+if (index.includes('id="weekly-chart-points"') || index.includes('id="weekly-count"')) throw new Error("Legacy weekly chart points or detached total remain");
 if (!index.includes('class="brand-signal"') || index.includes('class="brand-mark"')) throw new Error("Legacy boxed IC mark remains");
 const styleVersion = index.match(/href="assets\/style\.css\?v=([0-9a-f]{12})"/)?.[1];
 const appVersion = index.match(/src="assets\/app\.js\?v=([0-9a-f]{12})"/)?.[1];
@@ -68,7 +69,7 @@ for (const [selector, required] of [
   const rule = cssRule(selector);
   if (!rule || required.some((phrase) => !rule.includes(phrase))) throw new Error(`Missing frameless CSS contract for ${selector}`);
 }
-if (app.includes("article-search") || !app.includes("info-collector:reader-state:v1") || !app.includes("buildInfoCardMarkdown") || !app.includes("weeklyActivitySeries") || !app.includes("buildWeeklyReviewMarkdown")) {
+if (app.includes("article-search") || !app.includes("info-collector:reader-state:v1") || !app.includes("buildInfoCardMarkdown") || !app.includes("weeklyActivitySeries") || !app.includes("smoothChartPath") || !app.includes("buildWeeklyReviewMarkdown")) {
   throw new Error("Second-pass reader script contract is incomplete");
 }
 
