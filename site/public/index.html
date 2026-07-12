@@ -6,7 +6,7 @@
   <meta name="description" content="Info Collector 本地中文技术文章阅读库">
   <meta name="color-scheme" content="light">
   <title>文章情报库 · Info Collector</title>
-  <link rel="stylesheet" href="assets/style.css?v=b4fdf5df7243">
+  <link rel="stylesheet" href="assets/style.css?v=dce21faffce1">
 </head>
 <body class="library-page">
   <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
@@ -36,13 +36,26 @@
       </div>
     </section>
     <section class="discovery-panel reveal" aria-labelledby="filter-title">
-      <div class="weekly-picks-strip">
-        <button class="weekly-view" type="button" data-view="weekly" aria-pressed="false">
-          <span><small>WEEKLY PICKS</small>本周精选</span>
-          <strong data-count-view="weekly">0</strong>
-        </button>
-        <p>本周点为“收藏”的文章会自动汇成清单；旧文章本周重新发现，也可以入选。</p>
-        <button class="weekly-export" id="export-weekly" type="button" disabled>导出 Markdown ↓</button>
+      <div class="weekly-activity" aria-labelledby="weekly-activity-title">
+        <div class="weekly-activity-title">
+          <small>WEEKLY ACTIVITY</small>
+          <h2 id="weekly-activity-title">每周阅读</h2>
+          <p id="weekly-range">本周</p>
+        </div>
+        <div class="weekly-trend" role="img" aria-label="最近六周人工判断文章数量趋势">
+          <svg viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true">
+            <path class="weekly-chart-guide" d="M 7 63 L 293 63"></path>
+            <path class="weekly-chart-line" id="weekly-chart-line" d=""></path>
+            <g class="weekly-chart-points" id="weekly-chart-points"></g>
+          </svg>
+          <div class="weekly-periods" id="weekly-periods" aria-hidden="true"></div>
+        </div>
+        <div class="weekly-total">
+          <strong id="weekly-count">0</strong>
+          <span>本周已判断</span>
+          <small id="weekly-breakdown">收藏 0 · 已整理 0</small>
+        </div>
+        <button class="weekly-export" id="export-weekly" type="button" disabled>导出本周 Markdown</button>
       </div>
       <div class="filter-heading"><h2 id="filter-title">按关键词浏览</h2><output id="result-count" aria-live="polite" aria-atomic="true">显示 14 篇</output></div>
       <div class="tag-filters" id="tag-filters" role="group" aria-label="文章关键词筛选"><button class="tag-filter is-active" type="button" data-tag="全部" aria-pressed="true">全部</button><button class="tag-filter" type="button" data-tag="智能体" aria-pressed="false">智能体</button><button class="tag-filter" type="button" data-tag="模型评估" aria-pressed="false">模型评估</button><button class="tag-filter" type="button" data-tag="世界模型" aria-pressed="false">世界模型</button><button class="tag-filter" type="button" data-tag="产业动态" aria-pressed="false">产业动态</button><button class="tag-filter" type="button" data-tag="人工智能" aria-pressed="false">人工智能</button><button class="tag-filter" type="button" data-tag="机器人" aria-pressed="false">机器人</button><button class="tag-filter" type="button" data-tag="具身智能" aria-pressed="false">具身智能</button><button class="tag-filter" type="button" data-tag="大模型" aria-pressed="false">大模型</button><button class="tag-filter" type="button" data-tag="产品" aria-pressed="false">产品</button><button class="tag-filter" type="button" data-tag="推理" aria-pressed="false">推理</button><button class="tag-filter" type="button" data-tag="融资" aria-pressed="false">融资</button><button class="tag-filter" type="button" data-tag="学术研究" aria-pressed="false">学术研究</button><button class="tag-filter" type="button" data-tag="数据" aria-pressed="false">数据</button><button class="tag-filter" type="button" data-tag="训练" aria-pressed="false">训练</button><button class="tag-filter" type="button" data-tag="记忆系统" aria-pressed="false">记忆系统</button></div>
@@ -289,6 +302,6 @@
     <section class="empty-state" id="empty-state" hidden><span>—</span><h2 id="empty-title">没有符合条件的文章</h2></section>
   </main>
   <footer class="site-footer" aria-label="Powered by @Madarame87 × @aswrise"><span>Powered by</span> <a href="https://github.com/Madarame87" target="_blank" rel="noopener noreferrer">@Madarame87</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></footer>
-  <script src="assets/app.js?v=b4fdf5df7243" defer></script>
+  <script src="assets/app.js?v=dce21faffce1" defer></script>
 </body>
 </html>

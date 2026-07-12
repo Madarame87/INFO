@@ -90,26 +90,36 @@ test('主视图与关键词筛选取交集', () => {
   assert.equal(items.filter((item) => api.matchesView(item.state, 'all')).length, 3);
   assert.equal(api.emptyMessageFor('pending', '全部'), '待整理已清空');
   assert.equal(api.emptyMessageFor('favorites', '全部'), '还没有收藏文章');
-  assert.equal(api.emptyMessageFor('weekly', '全部'), '本周还没有精选文章');
   assert.equal(api.emptyMessageFor('favorites', '世界模型'), '没有符合条件的文章');
 });
 
-test('本周精选只收录本周收藏并可导出可追溯 Markdown', () => {
+test('每周阅读统计不可筛选文章，并可导出带状态的七天回顾', () => {
   const api = loadApi();
   const now = new Date(2026, 6, 12, 12, 0, 0);
   assert.equal(api.isDateInCurrentWeek(new Date(2026, 6, 6, 9, 0, 0), now), true);
   assert.equal(api.isDateInCurrentWeek(new Date(2026, 6, 12, 23, 59, 0), now), true);
   assert.equal(api.isDateInCurrentWeek(new Date(2026, 6, 5, 23, 59, 0), now), false);
-  assert.equal(api.matchesView({ reviewedAt: 'x', favorite: true }, 'weekly', true), true);
-  assert.equal(api.matchesView({ reviewedAt: 'x', favorite: true }, 'weekly', false), false);
-  const markdown = api.buildWeeklyPicksMarkdown([{
+  const series = api.weeklyActivitySeries([
+    { reviewedAt: new Date(2026, 6, 12, 10).toISOString(), favorite: true },
+    { reviewedAt: new Date(2026, 6, 8, 10).toISOString(), favorite: false },
+    { reviewedAt: new Date(2026, 6, 3, 10).toISOString(), favorite: true },
+  ], now, 2);
+  assert.deepEqual({ ...series[0] }, {
+    start: '2026-06-29', end: '2026-07-05', shortStart: '06.29', shortEnd: '07.05', count: 1, favorites: 1,
+  });
+  assert.deepEqual({ ...series[1] }, {
+    start: '2026-07-06', end: '2026-07-12', shortStart: '07.06', shortEnd: '07.12', count: 2, favorites: 1,
+  });
+  const markdown = api.buildWeeklyReviewMarkdown([{
     title: '世界模型进展',
     source: 'https://example.test/world-model',
     tags: '世界模型|机器人',
     summary: '一段可核验的摘要。',
+    favorite: true,
   }], now);
-  assert.match(markdown, /# 本周精选｜2026-07-06 — 2026-07-12/);
-  assert.match(markdown, /共 1 篇/);
+  assert.match(markdown, /# 每周阅读回顾｜2026-07-06 — 2026-07-12/);
+  assert.match(markdown, /共判断 1 篇｜收藏 1 篇｜已整理 0 篇/);
+  assert.match(markdown, /状态：收藏/);
   assert.match(markdown, /关键词：世界模型、机器人/);
   assert.match(markdown, /\[查看原文\]\(https:\/\/example\.test\/world-model\)/);
 });

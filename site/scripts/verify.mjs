@@ -11,7 +11,7 @@ const style = await readFile(path.join(root, "public", "assets", "style.css"), "
 const app = await readFile(path.join(root, "public", "assets", "app.js"), "utf8");
 
 await access(workerPath);
-for (const phrase of ["文章情报库", "按关键词浏览", "待整理", "我的收藏", "全部收录", "本周精选", "导出 Markdown", "复制资料卡", "Info Collector", "@Madarame87", "@aswrise"]) {
+for (const phrase of ["文章情报库", "按关键词浏览", "待整理", "我的收藏", "全部收录", "每周阅读", "导出本周 Markdown", "复制资料卡", "Info Collector", "@Madarame87", "@aswrise"]) {
   if (!index.includes(phrase)) throw new Error(`Missing index phrase: ${phrase}`);
 }
 if ((index.match(/href="https:\/\/github\.com\/Madarame87"/g) || []).length !== 2 || (index.match(/href="https:\/\/github\.com\/aswrise"/g) || []).length !== 2) {
@@ -23,7 +23,8 @@ if (index.includes("搜索标题、摘要或关键词") || index.includes('id="a
 }
 if (index.includes("从关键词进入主题，从摘要判断价值")) throw new Error("Removed hero subtitle remains");
 if (!index.includes('id="result-count" aria-live="polite" aria-atomic="true"')) throw new Error("Filter result count is not an accessible live region");
-if (!index.includes('data-view="weekly"') || !index.includes('id="export-weekly"')) throw new Error("Weekly picks view/export controls are missing");
+if (index.includes('data-view="weekly"')) throw new Error("Weekly activity must not behave as a fourth article filter");
+if (!index.includes('id="export-weekly"') || !index.includes('id="weekly-chart-line"') || !index.includes('id="weekly-periods"')) throw new Error("Weekly activity chart/export controls are missing");
 if (!index.includes('class="brand-signal"') || index.includes('class="brand-mark"')) throw new Error("Legacy boxed IC mark remains");
 const styleVersion = index.match(/href="assets\/style\.css\?v=([0-9a-f]{12})"/)?.[1];
 const appVersion = index.match(/src="assets\/app\.js\?v=([0-9a-f]{12})"/)?.[1];
@@ -67,7 +68,7 @@ for (const [selector, required] of [
   const rule = cssRule(selector);
   if (!rule || required.some((phrase) => !rule.includes(phrase))) throw new Error(`Missing frameless CSS contract for ${selector}`);
 }
-if (app.includes("article-search") || !app.includes("info-collector:reader-state:v1") || !app.includes("buildInfoCardMarkdown") || !app.includes("buildWeeklyPicksMarkdown")) {
+if (app.includes("article-search") || !app.includes("info-collector:reader-state:v1") || !app.includes("buildInfoCardMarkdown") || !app.includes("weeklyActivitySeries") || !app.includes("buildWeeklyReviewMarkdown")) {
   throw new Error("Second-pass reader script contract is incomplete");
 }
 

@@ -528,13 +528,26 @@ def render_index(articles, asset_version=""):
       </div>
     </section>
     <section class="discovery-panel reveal" aria-labelledby="filter-title">
-      <div class="weekly-picks-strip">
-        <button class="weekly-view" type="button" data-view="weekly" aria-pressed="false">
-          <span><small>WEEKLY PICKS</small>本周精选</span>
-          <strong data-count-view="weekly">0</strong>
-        </button>
-        <p>本周点为“收藏”的文章会自动汇成清单；旧文章本周重新发现，也可以入选。</p>
-        <button class="weekly-export" id="export-weekly" type="button" disabled>导出 Markdown ↓</button>
+      <div class="weekly-activity" aria-labelledby="weekly-activity-title">
+        <div class="weekly-activity-title">
+          <small>WEEKLY ACTIVITY</small>
+          <h2 id="weekly-activity-title">每周阅读</h2>
+          <p id="weekly-range">本周</p>
+        </div>
+        <div class="weekly-trend" role="img" aria-label="最近六周人工判断文章数量趋势">
+          <svg viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true">
+            <path class="weekly-chart-guide" d="M 7 63 L 293 63"></path>
+            <path class="weekly-chart-line" id="weekly-chart-line" d=""></path>
+            <g class="weekly-chart-points" id="weekly-chart-points"></g>
+          </svg>
+          <div class="weekly-periods" id="weekly-periods" aria-hidden="true"></div>
+        </div>
+        <div class="weekly-total">
+          <strong id="weekly-count">0</strong>
+          <span>本周已判断</span>
+          <small id="weekly-breakdown">收藏 0 · 已整理 0</small>
+        </div>
+        <button class="weekly-export" id="export-weekly" type="button" disabled>导出本周 Markdown</button>
       </div>
       <div class="filter-heading"><h2 id="filter-title">按关键词浏览</h2><output id="result-count" aria-live="polite" aria-atomic="true">显示 {len(articles)} 篇</output></div>
       <div class="tag-filters" id="tag-filters" role="group" aria-label="文章关键词筛选">{all_button}{tag_buttons}</div>
