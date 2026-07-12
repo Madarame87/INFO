@@ -60,8 +60,11 @@ class MockDeepSeekHandler(BaseHTTPRequestHandler):
                     "content": (
                         "---\n"
                         "title: 后端 DeepSeek 测试\n"
+                        "article_key: model-invented-key\n"
                         "source: http://example.test/article\n"
-                        "published: \n"
+                        "published_at: 2026-07-04\n"
+                        "collected_at: 1999-01-01T00:00:00Z\n"
+                        "processed_at: 1999-01-02T00:00:00Z\n"
                         "date: 2026-07-05T12:00\n"
                         "authors: \n"
                         "summary: \"文章说明了为什么应以评估驱动的方式持续改进智能体记忆系统。\"\n"
@@ -176,6 +179,54 @@ print(json.dumps({{
             self.assertEqual(enrichment["tags"], ["人工智能", "智能体", "记忆系统"])
             enriched = flow.ensure_summary_section(markdown, enrichment["summary"])
             self.assertIn("## 摘要\n\n这是一段用于测试的摘要。", enriched)
+
+    def test_published_date_validation_and_conservative_url_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            self.assertEqual(flow.normalize_published_at("2026-07-02"), "2026-07-02")
+            self.assertEqual(flow.normalize_published_at("2026-07"), "2026-07")
+            self.assertEqual(flow.normalize_published_at("2026"), "2026")
+            self.assertEqual(flow.normalize_published_at("2026-02-31"), "")
+            self.assertEqual(flow.normalize_published_at("2026-13"), "")
+            self.assertEqual(
+                flow.published_at_from_url("https://example.test/2026/07/02/article"),
+                "2026-07-02",
+            )
+            self.assertEqual(
+                flow.published_at_from_url("https://example.test/archive/2026-02-31/article"),
+                "",
+            )
+
+    def test_deterministic_metadata_overrides_model_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            model_markdown = (
+                "---\n"
+                "title: 确定性测试\n"
+                "article_key: invented\n"
+                "source: https://wrong.test/\n"
+                "published: 2026-07\n"
+                "date: 1999-01-01\n"
+                "collected_at: guessed\n"
+                "processed_at: guessed\n"
+                "summary: 摘要内容\n"
+                'tags: ["智能体", "产品"]\n'
+                "---\n\n正文"
+            )
+            finalized = flow.finalize_deterministic_metadata(model_markdown, {
+                "articleKey": "stable-key",
+                "url": "https://example.test/2026/07/02/article",
+                "enqueuedAt": "2026-07-11T12:34:56.000Z",
+            }, "2026-07-12T01:02:03Z")
+            self.assertIn('article_key: "stable-key"', finalized)
+            self.assertIn('source: "https://example.test/2026/07/02/article"', finalized)
+            self.assertIn('published_at: "2026-07-02"', finalized)
+            self.assertIn('collected_at: "2026-07-11T12:34:56.000Z"', finalized)
+            self.assertIn('processed_at: "2026-07-12T01:02:03Z"', finalized)
+            self.assertNotRegex(finalized, r"(?m)^date:")
+            self.assertNotRegex(finalized, r"(?m)^published:")
+            self.assertNotIn("invented", finalized)
+            self.assertNotIn("wrong.test", finalized)
 
     def test_normalizer_accepts_preface_and_markdown_fence(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -344,6 +395,7 @@ print(json.dumps({{
                     "articleKey": "article-1",
                     "url": "https://example.test/article",
                     "title": "Backend DeepSeek Test",
+                    "enqueuedAt": "2026-07-11T12:34:56.000Z",
                 }],
             }), encoding="utf-8")
 
@@ -373,6 +425,14 @@ print(json.dumps({{
             saved_text = saved[0].read_text(encoding="utf-8")
             self.assertIn("## 摘要", saved_text)
             self.assertIn("# 后端 DeepSeek 测试", saved_text)
+            self.assertIn('article_key: "article-1"', saved_text)
+            self.assertIn('source: "https://example.test/article"', saved_text)
+            self.assertIn('published_at: "2026-07-04"', saved_text)
+            self.assertIn('collected_at: "2026-07-11T12:34:56.000Z"', saved_text)
+            self.assertRegex(saved_text, r'(?m)^processed_at: "\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"$')
+            self.assertNotRegex(saved_text, r"(?m)^date:")
+            self.assertNotIn("model-invented-key", saved_text)
+            self.assertNotIn("1999-01", saved_text)
 
             reports = [
                 json.loads(p.read_text(encoding="utf-8"))
@@ -384,6 +444,9 @@ print(json.dumps({{
             ]
             self.assertEqual(len(final_reports), 1)
             result_meta = final_reports[0]["results"][0]["meta"]
+            result_item = final_reports[0]["results"][0]
+            self.assertEqual(result_item["articleKey"], "article-1")
+            self.assertIn(result_item["processedAt"], saved_text)
             self.assertEqual(result_meta["savedTo"], str(saved[0]))
             self.assertEqual(result_meta["title"], "后端 DeepSeek 测试")
             self.assertEqual(result_meta["summary"], "文章说明了为什么应以评估驱动的方式持续改进智能体记忆系统。")

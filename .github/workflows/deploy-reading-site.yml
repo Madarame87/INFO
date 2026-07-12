@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - agent/windows-port
     paths:
       - "site/public/**"
       - ".github/workflows/deploy-reading-site.yml"

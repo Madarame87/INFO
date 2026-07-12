@@ -33,9 +33,11 @@ class ReadingSiteTest(unittest.TestCase):
         (output / "agent.md").write_text(
             "---\n"
             'title: "智能体如何理解代码"\n'
+            'article_key: "stable-agent-key"\n'
             "source: https://example.test/agent\n"
-            "published: 2026-07-10\n"
-            "date: 2026-07-11T13:30\n"
+            "published_at: 2026-07-10\n"
+            "collected_at: 2026-07-11T13:30:00-04:00\n"
+            "processed_at: 2026-07-11T13:35:00-04:00\n"
             'authors: "研究团队"\n'
             'summary: "本文讨论智能体时代的人类代码理解问题，并给出可执行的评估方法。"\n'
             'tags: ["智能体", "模型评估"]\n'
@@ -51,8 +53,7 @@ class ReadingSiteTest(unittest.TestCase):
         (output / "fallback.md").write_text(
             "---\n"
             "title: 产品设计中的未知因素\n"
-            "source: https://example.test/fallback\n"
-            "published: 2026-07-09\n"
+            "date: 2026-07-09T09:00\n"
             "---\n\n"
             "# 产品设计中的未知因素\n\n"
             "这是一段足够长的正文，用来验证没有 frontmatter 摘要时能够自动形成可读的卡片摘要，并在进入全文前帮助读者判断文章价值。\n\n"
@@ -72,6 +73,13 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertIn("文章情报库", index)
             self.assertIn('data-tag="智能体"', index)
             self.assertIn("本文讨论智能体时代", index)
+            self.assertIn('id="view-filters"', index)
+            self.assertIn('data-view="pending" aria-pressed="true"', index)
+            self.assertIn('data-view="favorites" aria-pressed="false"', index)
+            self.assertIn('data-view="all" aria-pressed="false"', index)
+            self.assertIn("待整理", index)
+            self.assertIn("我的收藏", index)
+            self.assertIn("全部收录", index)
             self.assertNotIn("搜索标题、摘要或关键词", index)
             self.assertNotIn("从关键词进入主题，从摘要判断价值", index)
             self.assertNotIn('id="article-search"', index)
@@ -92,15 +100,26 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertNotIn("INFO COLLECTOR / READING DESK", index)
             self.assertIn('class="brand-signal"', index)
             self.assertNotIn('class="brand-mark"', index)
-            self.assertEqual(index.count('class="article-card reveal" href="articles/'), 2)
-            self.assertNotIn('role="article"', index)
+            self.assertEqual(index.count('<article class="article-card reveal"'), 2)
+            self.assertNotIn('<a class="article-card', index)
+            self.assertEqual(index.count('class="article-title-link" href="articles/'), 2)
+            self.assertIn('data-article-id="stable-agent-key"', index)
+            self.assertIn('data-article-id="article-', index)
+            self.assertEqual(index.count('data-action="favorite" aria-pressed="false"'), 2)
+            self.assertEqual(index.count('data-action="review"'), 2)
+            self.assertEqual(index.count('data-action="copy-card"'), 2)
+            self.assertEqual(index.count('class="card-source-link"'), 1)
+            self.assertNotIn('href=""', index)
             self.assertIn('class="card-meta"', index)
             self.assertIn('class="card-main"', index)
-            self.assertIn('<time class="card-date" datetime="2026-07-10">2026-07-10</time>', index)
-            self.assertIn('<time class="card-date" datetime="2026-07-09">2026-07-09</time>', index)
+            self.assertIn("发布于 2026-07-10", index)
+            self.assertIn("收录于 2026-07-11", index)
+            self.assertIn("发布时间未知", index)
+            self.assertIn("整理于 2026-07-09", index)
+            self.assertNotIn(">DATE<", index)
             self.assertNotIn("阅读中文全文", index)
             self.assertNotIn('class="card-foot"', index)
-            self.assertNotIn("研究团队", index)
+            self.assertIn("作者：研究团队", index)
             article_path = index_path.parent / "articles" / f"{articles[0]['slug']}.html"
             article = article_path.read_text(encoding="utf-8")
             self.assertIn("EXECUTIVE SUMMARY", article)
@@ -108,6 +127,9 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertIn("CHINESE TRANSLATION", article)
             self.assertIn("访问文章原文", article)
             self.assertIn("作者 研究团队", article)
+            self.assertIn("发布于 2026-07-10", article)
+            self.assertIn("收录于 2026-07-11", article)
+            self.assertIn('data-article-id="stable-agent-key"', article)
             self.assertIn('href="https://example.test/agent" target="_blank" rel="noopener noreferrer"', article)
             self.assertRegex(article, r'href="\.\./assets/style\.css\?v=[0-9a-f]{12}"')
             self.assertRegex(article, r'src="\.\./assets/app\.js\?v=[0-9a-f]{12}"')
@@ -129,10 +151,12 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertIn(".tag-filter { position: relative; min-height: 40px; padding: 8px 0 7px; border: 0;", style)
             self.assertIn("var(--aquatic-soft)", style)
             self.assertIn("text-overflow: ellipsis", style)
-            self.assertIn(".card-meta time", style)
+            self.assertIn(".article-title-link", style)
+            self.assertIn(".card-action", style)
             self.assertNotIn("article-search", app)
-            self.assertIn("card.hidden = !show", app)
-            self.assertIn("applyFilters();", app)
+            self.assertIn("info-collector:reader-state:v1", app)
+            self.assertIn("buildInfoCardMarkdown", app)
+            self.assertIn("matchesView", app)
 
     def test_falls_back_to_summary_and_keywords_without_model_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -143,14 +167,50 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertIn("没有 frontmatter 摘要", article["summary"])
             self.assertIn("产品", article["tags"])
 
-    def test_date_label_falls_back_when_published_date_is_incomplete(self):
+    def test_date_semantics_preserve_precision_and_never_impersonate_collection(self):
         with tempfile.TemporaryDirectory() as tmp:
             reader = import_reader(Path(tmp))
-            self.assertEqual(reader.date_label({
-                "published": "2026-07",
-                "collected": "2026-07-11T13:30:00-04:00",
-            }), "2026-07-11")
-            self.assertEqual(reader.date_label({"published": "", "collected": ""}), "已收录")
+            self.assertEqual(reader.normalize_published_at("2026-07-02"), "2026-07-02")
+            self.assertEqual(reader.normalize_published_at("2026-07"), "2026-07")
+            self.assertEqual(reader.normalize_published_at("2026"), "2026")
+            self.assertEqual(reader.normalize_published_at("2026-02-31"), "")
+            self.assertEqual(
+                reader.normalize_published_at("", "https://www.geoffreylitt.com/2026/07/02/article"),
+                "2026-07-02",
+            )
+            self.assertEqual(
+                reader.normalize_published_at("2026-07", "https://www.geoffreylitt.com/2026/07/02/article"),
+                "2026-07-02",
+            )
+            partial = {"published_at": "2026-07", "collected_at": "2026-07-11T13:30:00-04:00"}
+            self.assertEqual(reader.published_label(partial), "发布于 2026-07（精确到月）")
+            self.assertEqual(reader.activity_label(partial), "收录于 2026-07-11")
+            unknown = {"published_at": "", "collected_at": "", "processed_at": "", "legacy_date": "2026-07-11"}
+            self.assertEqual(reader.published_label(unknown), "发布时间未知")
+            self.assertEqual(reader.activity_label(unknown), "整理于 2026-07-11")
+
+    def test_collection_sort_uses_collected_then_processing_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            reader = import_reader(Path(tmp))
+            output = Path(tmp) / "translated"
+            output.mkdir()
+            for name, title, collected, processed in (
+                ("old.md", "旧收录", "2026-07-01T10:00:00Z", "2026-07-12T10:00:00Z"),
+                ("new.md", "新收录", "2026-07-11T10:00:00Z", "2026-07-11T10:01:00Z"),
+                ("legacy.md", "旧格式", "", "2026-07-10T10:00:00Z"),
+            ):
+                (output / name).write_text(
+                    "---\n"
+                    f"title: {title}\n"
+                    f"collected_at: {collected}\n"
+                    f"processed_at: {processed}\n"
+                    'summary: "测试摘要内容足够用于卡片。"\n'
+                    'tags: ["智能体", "产品"]\n'
+                    "---\n\n正文",
+                    encoding="utf-8",
+                )
+            articles = reader.collect_articles(output)
+            self.assertEqual([article["title"] for article in articles], ["新收录", "旧格式", "旧收录"])
 
     def test_main_writes_status_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as tmp:

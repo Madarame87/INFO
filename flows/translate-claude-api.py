@@ -16,6 +16,7 @@
 """
 
 from html.parser import HTMLParser
+import datetime as dt
 import json
 import os
 from pathlib import Path
@@ -29,6 +30,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 
 try:
     from info_collector_platform import acquire_lock as acquire_file_lock
@@ -97,6 +99,8 @@ SYSTEM_PROMPT = (
     "代码块、命令、路径原样保留不翻译；图片保留原远程链接；"
     "文章主标题用「中文（English）」双语形式。"
     + ENRICHMENT_RULES +
+    "frontmatter 只填写 title、published_at、authors、summary、tags；"
+    "不要填写 article_key、source、collected_at、processed_at 或 date，这些字段由本机确定。"
     "你的最终回复必须只包含完成的 Markdown 文档本身"
     "（以 --- 开头的 YAML frontmatter 开始），"
     "不要有任何解释、前言或代码围栏。"
@@ -269,12 +273,10 @@ def translate_article(url, title, cfg):
 
 def translate_article_anthropic(url, title, cfg):
     """翻译一篇文章，返回 Markdown 文本。失败抛 RuntimeError。"""
-    now_local = time.strftime("%Y-%m-%dT%H:%M")
     user_prompt = (
         f"翻译这篇文章：{url}\n\n"
-        f"frontmatter 需包含：title（中文标题）、source（原文 URL）、"
-        f"published（原文发布日期，YYYY-MM-DD，找不到就留空）、"
-        f"date: {now_local}（收录时间，原样使用这个值）、"
+        f"frontmatter 只需包含：title（中文标题）、"
+        f"published_at（可信原文发布日期，可为 YYYY-MM-DD、YYYY-MM、YYYY；找不到就留空）、"
         f"authors（作者，找不到就留空）、summary 和 tags。"
     )
     messages = [{"role": "user", "content": user_prompt}]
@@ -455,7 +457,6 @@ def fetch_article_source(url):
 
 
 def translate_article_deepseek(url, title, cfg):
-    now_local = time.strftime("%Y-%m-%dT%H:%M")
     article = fetch_article_source(url)
     article_text = article["content"]
     truncated = ""
@@ -480,9 +481,8 @@ def translate_article_deepseek(url, title, cfg):
         f"原文标题: {article['title']}\n"
         f"原文发布日期: {article['published']}\n"
         f"作者: {article['authors']}\n\n"
-        f"frontmatter 需包含：title（中文标题）、source（原文 URL）、"
-        f"published（优先使用上面的原文发布日期，YYYY-MM-DD，找不到就留空）、"
-        f"date: {now_local}（收录时间，原样使用这个值）、"
+        f"frontmatter 只需包含：title（中文标题）、"
+        f"published_at（优先使用上面的原文发布日期，可为 YYYY-MM-DD、YYYY-MM、YYYY；找不到就留空）、"
         f"authors（优先使用上面的作者，找不到就留空）、summary 和 tags。{truncated}\n\n"
         f"原文提取文本：\n\n{article_text}"
     )
@@ -534,7 +534,7 @@ def normalize_markdown_document(text):
         body_heading = re.search(r"(?m)^#{1,6}[ \t]+\S", tail)
         if body_heading:
             header = tail[:body_heading.start()]
-            required = ("title", "source", "summary", "tags")
+            required = ("title", "summary", "tags")
             if all(re.search(rf"(?m)^{field}:\s*", header) for field in required):
                 prefix = text[:start.start()]
                 has_outer_fence = bool(re.search(
@@ -552,8 +552,6 @@ def normalize_markdown_document(text):
         end = separators[index + 1]
         header = text[start.end():end.start()]
         if not re.search(r"(?m)^title:\s*", header):
-            continue
-        if not re.search(r"(?m)^source:\s*", header):
             continue
         prefix = text[:start.start()]
         has_outer_fence = bool(re.search(
@@ -608,6 +606,100 @@ def parse_frontmatter_scalar(raw):
         return raw.strip("'\"")
 
 
+def normalize_published_at(value):
+    """Validate a published date without inventing missing precision."""
+    value = parse_frontmatter_scalar(str(value or "")).strip()
+    match = re.fullmatch(r"(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?", value)
+    if not match:
+        return ""
+    year = int(match.group(1))
+    month_text = match.group(2)
+    day_text = match.group(3)
+    if not 1000 <= year <= 9999:
+        return ""
+    if month_text is None:
+        return f"{year:04d}"
+    month = int(month_text)
+    if not 1 <= month <= 12:
+        return ""
+    if day_text is None:
+        return f"{year:04d}-{month:02d}"
+    day = int(day_text)
+    try:
+        dt.date(year, month, day)
+    except ValueError:
+        return ""
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def published_at_from_url(url):
+    """Use only explicit full dates encoded in the URL path."""
+    path = urlparse(str(url or "")).path
+    for pattern in (
+        r"(?<!\d)(\d{4})/(\d{2})/(\d{2})(?!\d)",
+        r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)",
+    ):
+        match = re.search(pattern, path)
+        if match:
+            value = normalize_published_at("-".join(match.groups()))
+            if value:
+                return value
+    return ""
+
+
+def frontmatter_scalar(markdown, *names):
+    match = re.match(r"\A---\s*\r?\n(.*?)\r?\n---(?:\r?\n|\Z)", markdown, re.DOTALL)
+    if not match:
+        return ""
+    frontmatter = match.group(1)
+    for name in names:
+        found = re.search(rf"(?m)^{re.escape(name)}:[ \t]*(.*)$", frontmatter)
+        if found:
+            return parse_frontmatter_scalar(found.group(1))
+    return ""
+
+
+def finalize_deterministic_metadata(markdown, article, processed_at):
+    """Replace identity and lifecycle metadata after model output is validated."""
+    match = re.match(r"\A---\s*\r?\n(.*?)\r?\n---(?P<tail>\r?\n|\Z)", markdown, re.DOTALL)
+    if not match:
+        raise RuntimeError("译文缺少 YAML frontmatter")
+    published_at = normalize_published_at(
+        frontmatter_scalar(markdown, "published_at", "published")
+    )
+    url_published_at = published_at_from_url(article.get("url"))
+    if not published_at or (len(published_at) < 10 and url_published_at):
+        published_at = url_published_at
+    deterministic = {
+        "article_key": str(article.get("articleKey") or article.get("url") or "").strip(),
+        "source": str(article.get("url") or "").strip(),
+        "published_at": published_at,
+        "collected_at": str(article.get("enqueuedAt") or "").strip(),
+        "processed_at": str(processed_at or "").strip(),
+    }
+    lifecycle_fields = {
+        "article_key", "source", "published_at", "published",
+        "collected_at", "processed_at", "date",
+    }
+    preserved = []
+    for line in match.group(1).splitlines():
+        key = line.split(":", 1)[0].strip() if ":" in line else ""
+        if key in lifecycle_fields:
+            continue
+        preserved.append(line)
+    insertion = next(
+        (index + 1 for index, line in enumerate(preserved) if line.startswith("title:")),
+        0,
+    )
+    canonical = [
+        f"{key}: {json.dumps(value, ensure_ascii=False)}"
+        for key, value in deterministic.items()
+    ]
+    final_lines = preserved[:insertion] + canonical + preserved[insertion:]
+    body = markdown[match.end():].lstrip("\r\n")
+    return "---\n" + "\n".join(final_lines).strip() + "\n---\n\n" + body
+
+
 def normalize_tag(tag):
     tag = re.sub(r"\s+", " ", str(tag)).strip().lstrip("#＃").strip()
     tag = TAG_ALIASES.get(tag.casefold(), tag)
@@ -621,7 +713,7 @@ def extract_enrichment(markdown):
         raise RuntimeError("译文缺少 YAML frontmatter")
     frontmatter = match.group(1)
 
-    summary_match = re.search(r"(?m)^summary:\s*(.*)$", frontmatter)
+    summary_match = re.search(r"(?m)^summary:[ \t]*(.*)$", frontmatter)
     summary = parse_frontmatter_scalar(summary_match.group(1)) if summary_match else ""
     summary = re.sub(r"\s+", " ", summary).strip()
     if len(summary) > MAX_SUMMARY_CHARS:
@@ -630,7 +722,7 @@ def extract_enrichment(markdown):
         raise RuntimeError("译文 frontmatter 缺少 summary")
 
     tags = []
-    tags_match = re.search(r"(?m)^tags:\s*(.*)$", frontmatter)
+    tags_match = re.search(r"(?m)^tags:[ \t]*(.*)$", frontmatter)
     if tags_match:
         raw_tags = tags_match.group(1).strip()
         if raw_tags:
@@ -671,16 +763,17 @@ def repair_markdown_output(markdown, url, title, cfg):
     """Ask the configured model once to repair structure without re-fetching."""
     if len(markdown) > MAX_REPAIR_INPUT_CHARS:
         raise RuntimeError("模型输出过长，无法安全执行格式修复")
-    now_local = time.strftime("%Y-%m-%dT%H:%M")
     system_prompt = (
         "你是一名 Markdown 格式修复器。保留输入中的中文译文内容与信息，不要删减正文，"
         "只修复文档结构。输出必须直接以 --- 开头，不要代码围栏、解释或前言。"
-        + ENRICHMENT_RULES
+        + ENRICHMENT_RULES +
+        "frontmatter 只保留 title、published_at、authors、summary、tags；"
+        "不要生成 article_key、source、collected_at、processed_at 或 date。"
     )
     user_prompt = (
-        f"来源 URL: {url}\n"
+        f"页面 URL（仅供格式修复上下文）: {url}\n"
         f"书签标题: {title}\n"
-        f"收录时间: {now_local}\n\n"
+        "身份、来源和时间字段会由本机在修复后写入。\n\n"
         "下面是一次模型生成的译文，但它的文档结构不符合要求。"
         "请保留全文并修复为完整 Markdown：\n\n"
         + markdown
@@ -911,20 +1004,22 @@ def main():
         for a in pending:
             url, title = a["url"], a.get("title", "?")
             log(f"🌐 翻译中: {title}")
-            now_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             try:
                 md = translate_article(url, title, cfg)
                 md, enrichment = prepare_enriched_markdown(md, url, title, cfg)
+                now_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                md = finalize_deterministic_metadata(md, a, now_utc)
                 translated_title = extract_title(md, title)
                 path = save_markdown(md, translated_title, out_dir)
-                results.append({"url": url, "status": "done", "processedAt": now_utc,
+                results.append({"articleKey": a.get("articleKey"), "url": url, "status": "done", "processedAt": now_utc,
                                 "meta": {"savedTo": path, "title": translated_title, **enrichment}})
                 state[a.get("articleKey") or url] = now_utc
                 done += 1
                 log(f"  ✅ 已保存: {path}")
             except Exception as e:
+                now_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                 err = str(e)[:300]
-                results.append({"url": url, "status": "failed", "processedAt": now_utc,
+                results.append({"articleKey": a.get("articleKey"), "url": url, "status": "failed", "processedAt": now_utc,
                                 "meta": {"error": err}})
                 log(f"  ❌ 失败: {err}")
 
