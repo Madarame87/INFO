@@ -1,21 +1,20 @@
 <svg width="1440" height="460" viewBox="0 0 1440 460" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="1440" height="460" rx="28" fill="#F4F1EA"/>
-  <rect x="32" y="32" width="1376" height="396" rx="22" fill="#FFFDF8" stroke="#DDD5C8"/>
-  <text x="72" y="82" fill="#8A8175" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="3">VALIDATION &amp; COMPLETED ROADMAP</text>
-  <text x="72" y="122" fill="#25221E" font-family="Georgia, Microsoft YaHei, serif" font-size="30">只展示已经跑通、已经验证的结果</text>
+  <rect width="1440" height="460" rx="28" fill="#F4F1EA"/><rect x="32" y="32" width="1376" height="396" rx="22" fill="#FFFDF8" stroke="#DDD5C8"/>
+  <text x="72" y="82" fill="#8A8175" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="3">VERIFICATION BASELINE</text>
+  <text x="72" y="122" fill="#25221E" font-family="Georgia, Microsoft YaHei, serif" font-size="30">只呈现已实现、已测试、可重复验证的能力</text>
   <g font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
-    <g transform="translate(72 164)"><rect width="186" height="116" rx="16" fill="#25221E"/><text x="22" y="34" fill="#CFC7BC" font-size="12" font-weight="700" letter-spacing="2">NODE</text><text x="22" y="76" fill="#FFFDF8" font-family="Georgia, serif" font-size="38">38 / 38</text><text x="22" y="99" fill="#BEE2CB" font-size="13">PASSING</text></g>
-    <g transform="translate(274 164)"><rect width="186" height="116" rx="16" fill="#25221E"/><text x="22" y="34" fill="#CFC7BC" font-size="12" font-weight="700" letter-spacing="2">PYTHON</text><text x="22" y="76" fill="#FFFDF8" font-family="Georgia, serif" font-size="38">27 / 27</text><text x="22" y="99" fill="#BEE2CB" font-size="13">PASSING</text></g>
+    <g transform="translate(72 164)"><rect width="186" height="116" rx="16" fill="#25221E"/><text x="22" y="34" fill="#CFC7BC" font-size="12" font-weight="700" letter-spacing="2">NODE</text><text x="22" y="76" fill="#FFFDF8" font-family="Georgia, serif" font-size="38">46 / 46</text><text x="22" y="99" fill="#BEE2CB" font-size="13">PASSING</text></g>
+    <g transform="translate(274 164)"><rect width="186" height="116" rx="16" fill="#25221E"/><text x="22" y="34" fill="#CFC7BC" font-size="12" font-weight="700" letter-spacing="2">PYTHON</text><text x="22" y="76" fill="#FFFDF8" font-family="Georgia, serif" font-size="38">32 / 32</text><text x="22" y="99" fill="#BEE2CB" font-size="13">PASSING</text></g>
     <g transform="translate(476 164)"><rect width="186" height="116" rx="16" fill="#EAF3ED" stroke="#AED0BC"/><text x="22" y="34" fill="#2E8B67" font-size="12" font-weight="700" letter-spacing="2">NATIVE HOST</text><text x="22" y="76" fill="#25221E" font-family="Georgia, serif" font-size="32">PING OK</text><text x="22" y="99" fill="#2E8B67" font-size="13">WINDOWS 11</text></g>
     <line x1="704" y1="164" x2="704" y2="376" stroke="#DDD5C8"/>
-    <text x="744" y="184" fill="#8A8175" font-size="12" font-weight="700" letter-spacing="2">ROADMAP · DONE</text>
-    <g fill="#25221E" font-size="17" font-weight="600">
-      <circle cx="758" cy="224" r="12" fill="#2E8B67"/><path d="M752 224L756 228L764 219" stroke="white" stroke-width="2" fill="none"/><text x="784" y="231">Windows Native Host 与一键安装器</text>
-      <circle cx="758" cy="270" r="12" fill="#2E8B67"/><path d="M752 270L756 274L764 265" stroke="white" stroke-width="2" fill="none"/><text x="784" y="277">真实文章抓取、翻译与 Markdown 输出</text>
-      <circle cx="758" cy="316" r="12" fill="#2E8B67"/><path d="M752 316L756 320L764 311" stroke="white" stroke-width="2" fill="none"/><text x="784" y="323">Summary / Tags 提取、展示与同类筛选</text>
-      <circle cx="758" cy="362" r="12" fill="#2E8B67"/><path d="M752 362L756 366L764 357" stroke="white" stroke-width="2" fill="none"/><text x="784" y="369">本地确定性技术动态周报</text>
-      <circle cx="758" cy="404" r="12" fill="#2E8B67"/><path d="M752 404L756 408L764 399" stroke="white" stroke-width="2" fill="none"/><text x="784" y="411">关键词驱动的静态文章阅读前台</text>
+    <text x="744" y="184" fill="#8A8175" font-size="12" font-weight="700" letter-spacing="2">VERIFIED CAPABILITIES</text>
+    <g fill="#25221E" font-size="16" font-weight="600">
+      <circle cx="758" cy="224" r="12" fill="#2E8B67"/><path d="M752 224L756 228L764 219" stroke="white" stroke-width="2" fill="none"/><text x="784" y="231">Windows 11 Native Host 与 PowerShell 安装器</text>
+      <circle cx="758" cy="270" r="12" fill="#2E8B67"/><path d="M752 270L756 274L764 265" stroke="white" stroke-width="2" fill="none"/><text x="784" y="277">真实网页抽取、中文译文与 Markdown 输出</text>
+      <circle cx="758" cy="316" r="12" fill="#2E8B67"/><path d="M752 316L756 320L764 311" stroke="white" stroke-width="2" fill="none"/><text x="784" y="323">结构化摘要、主题标签与人工研判状态</text>
+      <circle cx="758" cy="362" r="12" fill="#2E8B67"/><path d="M752 362L756 366L764 357" stroke="white" stroke-width="2" fill="none"/><text x="784" y="369">静态阅读站、周度统计与 Markdown 导出</text>
+      <circle cx="758" cy="404" r="12" fill="#2E8B67"/><path d="M752 404L756 408L764 399" stroke="white" stroke-width="2" fill="none"/><text x="784" y="411">失败恢复、UTF-8、长文输出与页面契约</text>
     </g>
-    <rect x="72" y="306" width="590" height="70" rx="14" fill="#F8F5EE" stroke="#D9D0C3"/><text x="94" y="334" fill="#25221E" font-size="14" font-weight="700">覆盖范围</text><text x="94" y="358" fill="#665E54" font-size="13">队列状态机 · 跨端同步 · 模型异常输出 · UTF-8 · 周报聚合 · 页面契约</text>
+    <rect x="72" y="306" width="590" height="70" rx="14" fill="#F8F5EE" stroke="#D9D0C3"/><text x="94" y="334" fill="#25221E" font-size="14" font-weight="700">回归范围</text><text x="94" y="358" fill="#665E54" font-size="13">任务状态机 · 跨端契约 · 模型异常 · UTF-8 · 阅读状态 · 周度聚合 · 页面契约</text>
   </g>
 </svg>
