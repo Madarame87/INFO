@@ -15,9 +15,9 @@ test('README 描述二次整理与浏览器本地状态，不再声称全文搜�
   assert.ok(readme.includes('不代表行业趋势或世界动态'));
 });
 
-test('Pages 自动部署只监听 main，同时保留手动触发', () => {
+test('Pages 部署只允许手动触发，避免项目站自动占用账号自定义域名路径', () => {
   const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'deploy-reading-site.yml'), 'utf8');
-  assert.match(workflow, /branches:\s*\n\s*- main/);
-  assert.equal(workflow.includes('agent/windows-port'), false);
   assert.match(workflow, /workflow_dispatch:/);
+  assert.equal(workflow.includes('push:'), false);
+  assert.equal(workflow.includes('pull_request:'), false);
 });

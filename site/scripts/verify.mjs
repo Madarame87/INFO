@@ -7,17 +7,25 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const index = await readFile(path.join(root, "public", "index.html"), "utf8");
 const articleDir = path.join(root, "public", "articles");
 const workerPath = path.join(root, "dist", "server", "index.js");
+const socialImagePath = path.join(root, "public", "og.png");
 const style = await readFile(path.join(root, "public", "assets", "style.css"), "utf8");
 const app = await readFile(path.join(root, "public", "assets", "app.js"), "utf8");
 
 await access(workerPath);
-for (const phrase of ["文章情报库", "按关键词浏览", "待整理", "我的收藏", "全部收录", "每周阅读", "导出本周 Markdown", "复制资料卡", "Info Collector", "@Madarame87", "@aswrise"]) {
+await access(socialImagePath);
+for (const phrase of ["文章情报库", "将公开技术文章转化为中文摘要、主题线索与可追溯的人工研判。", "按关键词浏览", "待整理", "我的收藏", "全部收录", "每周阅读", "导出本周 Markdown", "复制资料卡", "Info Collector", "@130U", "@aswrise"]) {
   if (!index.includes(phrase)) throw new Error(`Missing index phrase: ${phrase}`);
 }
-if ((index.match(/href="https:\/\/github\.com\/Madarame87"/g) || []).length !== 2 || (index.match(/href="https:\/\/github\.com\/aswrise"/g) || []).length !== 2) {
+if ((index.match(/href="https:\/\/github\.com\/130U"/g) || []).length !== 2 || (index.match(/href="https:\/\/github\.com\/aswrise"/g) || []).length !== 2) {
   throw new Error("Header and footer contributor credits are not unified");
 }
-if (index.includes("@THEO") || index.includes("@AQUA")) throw new Error("Legacy display-name credits remain");
+if (index.includes("@THEO") || index.includes("@AQUA") || index.includes("Madarame87")) throw new Error("Legacy contributor credits remain");
+for (const socialPhrase of [
+  '<meta property="og:image" content="https://info-collector-reading-desk.jiligualapiqiu.chatgpt.site/og.png">',
+  '<meta name="twitter:card" content="summary_large_image">',
+]) {
+  if (!index.includes(socialPhrase)) throw new Error(`Missing social-preview metadata: ${socialPhrase}`);
+}
 if (index.includes("搜索标题、摘要或关键词") || index.includes('id="article-search"') || index.includes('class="search-box"') || index.includes("data-search=")) {
   throw new Error("Removed search UI or search data remains in the reading index");
 }
@@ -50,7 +58,7 @@ const articleGridRule = style.match(/\.article-grid\s*\{([^}]*)\}/)?.[1] || "";
 if (!articleGridRule.includes("grid-template-columns: 1fr") || articleGridRule.includes("repeat(2")) {
   throw new Error("Reading index does not use a one-column article grid");
 }
-for (const cssPhrase of ["--aquatic-soft", "text-overflow: ellipsis", ".article-title-link", ".card-action", ".view-filter"]) {
+for (const cssPhrase of ["--aquatic-soft", "system-ui", ".hero-lede", ".article-title-link", ".card-action", ".view-filter", "prefers-reduced-motion", "prefers-reduced-transparency"]) {
   if (!style.includes(cssPhrase)) throw new Error(`Missing reading-site CSS contract: ${cssPhrase}`);
 }
 if (!/\[hidden\]\s*\{[^}]*display:\s*none\s*!important;?[^}]*\}/.test(style)) {
@@ -113,5 +121,8 @@ for (const article of uniqueLinks) {
 const publicText = [index, style, app, ...await Promise.all(uniqueLinks.map((article) => readFile(path.join(articleDir, article), "utf8")))].join("\n");
 if (/sk-[A-Za-z0-9_-]{16,}/.test(publicText) || /[A-Za-z]:\\Users\\/i.test(publicText) || publicText.includes("chrome-extension://")) {
   throw new Error("Public snapshot contains a secret or local browser/path data");
+}
+if (/Madarame87|(?:href|src)="\/(?:INFO|info)\//.test(publicText)) {
+  throw new Error("Public snapshot contains a stale account reference or repository-coupled base path");
 }
 console.log(`Verified ${uniqueLinks.length} article pages and production worker output.`);
