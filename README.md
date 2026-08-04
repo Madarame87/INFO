@@ -3,15 +3,17 @@
 </p>
 
 <p align="center">
-  <a href="https://madarame87.github.io/INFO/"><strong>在线体验文章情报库 →</strong></a>
+  <a href="https://info-collector-reading-desk.jiligualapiqiu.chatgpt.site/"><strong>在线体验文章情报库 →</strong></a>
+  <br>
+  <sub>独立 Sites 体验入口 · 收藏与整理状态仅保存在当前浏览器</sub>
 </p>
 
 <p align="center">
-  <a href="SETUP-WINDOWS.md"><img alt="Windows 11" src="https://img.shields.io/badge/Windows_11-supported-2E8B67?style=flat-square"></a>
+  <a href="SETUP-WINDOWS.md"><img alt="Windows 11" src="https://img.shields.io/badge/Windows_11-supported-456B5A?style=flat-square"></a>
   <img alt="Chrome Extension" src="https://img.shields.io/badge/Chrome-Manifest_V3-C65F3D?style=flat-square">
   <img alt="Local first" src="https://img.shields.io/badge/data-local--first-25221E?style=flat-square">
-  <img alt="Node tests" src="https://img.shields.io/badge/Node_tests-46_passing-2E8B67?style=flat-square">
-  <img alt="Python tests" src="https://img.shields.io/badge/Python_tests-32_passing-2E8B67?style=flat-square">
+  <img alt="Node tests" src="https://img.shields.io/badge/Node_tests-46_passing-456B5A?style=flat-square">
+  <img alt="Python tests" src="https://img.shields.io/badge/Python_tests-32_passing-456B5A?style=flat-square">
 </p>
 
 <p align="center">
@@ -21,6 +23,12 @@
 Info Collector 是一套面向 **Windows 11** 的本地优先技术阅读与情报整理工作台。它把 Chrome 书签中的公开文章转化为中文译文、结构化摘要、主题标签和可追溯 Markdown，并通过任务面板、阅读工作台与周度回顾，完成从采集到人工研判的闭环。
 
 它解决的不是“保存更多”，而是让已经保存的内容经过机器提炼与人工判断，成为可检索、可迁移、可复用的个人知识资产。
+
+## 60 秒项目导览
+
+- **产品价值**：把分散在 Chrome 书签里的公开文章，变成可追溯的中文摘要、主题线索和 Markdown 知识资产。
+- **完整闭环**：采集、任务编排、AI 辅助提炼、人工研判、收藏归档和周度回顾均有可运行实现。
+- **工程可信度**：本地优先、API Key 不进入公开页面，关键状态机和跨端契约由 Node 与 Python 回归测试覆盖。
 
 ## 产品工作台
 
@@ -55,8 +63,8 @@ Chrome 扩展的同步存储承担任务状态的 **system of record**。Windows
 ### 1. 下载项目
 
 ```powershell
-git clone https://github.com/Madarame87/INFO.git
-cd INFO
+git clone https://github.com/130U/info.git
+cd info
 ```
 
 ### 2. 运行安装器
@@ -136,5 +144,5 @@ npm.cmd test
 ---
 
 <p align="center">
-  <sub>Powered by <a href="https://github.com/Madarame87">@Madarame87</a> × <a href="https://github.com/aswrise">@aswrise</a> · Personal Technology Intelligence</sub>
+  <sub>Built by <a href="https://github.com/130U">@130U</a> × <a href="https://github.com/aswrise">@aswrise</a> · Personal Technology Intelligence</sub>
 </p>

@@ -1,7 +1,7 @@
 # Windows 移植清单
 
 **审计基线：** `aswrise/info-collector@9d5935b`  
-**目标仓库：** `Madarame87/INFO`  
+**目标仓库：** `130U/info`
 **范围：** 阶段 1 只移植文章翻译流水线；不改变扩展与 Native Messaging 的消息协议。
 
 ## 审计结论

@@ -1,12 +1,6 @@
-name: Deploy reading site
+name: Deploy reading site to GitHub Pages (manual)
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "site/public/**"
-      - ".github/workflows/deploy-reading-site.yml"
   workflow_dispatch:
 
 permissions:
