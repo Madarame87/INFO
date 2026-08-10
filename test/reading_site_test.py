@@ -282,7 +282,9 @@ class ReadingSiteTest(unittest.TestCase):
             status = json.loads(reader.STATUS_FILE.read_text(encoding="utf-8"))
             self.assertEqual(status["lastRun"]["outcome"], "success")
             self.assertEqual(status["lastRun"]["count"], 3)
-            self.assertEqual(status["siteIndex"], str(site / "index.html"))
+            # Compare filesystem identity so Windows long paths and their 8.3
+            # aliases do not create a false negative in CI.
+            self.assertTrue(Path(status["siteIndex"]).samefile(site / "index.html"))
 
 
 if __name__ == "__main__":

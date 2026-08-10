@@ -107,7 +107,9 @@ class InfoCollectorHostTest(unittest.TestCase):
             path_parts = env["PATH"].split(os.pathsep)
             self.assertIn(str(node_bin), path_parts)
             self.assertLess(path_parts.index(str(node_bin)), len(path_parts))
-            self.assertEqual(env["HOME"], str(home))
+            # Windows CI may expose the same temp directory through its long
+            # path in one place and an 8.3 alias (RUNNER~1) in another.
+            self.assertTrue(Path(env["HOME"]).samefile(home))
             self.assertEqual(env["PYTHONUTF8"], "1")
             self.assertEqual(env["PYTHONIOENCODING"], "utf-8")
 
