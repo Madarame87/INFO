@@ -6,6 +6,13 @@ import { collectTagCounts, jobSummary, jobTags } from './lib/enrichment.js';
 const $ = (id) => document.getElementById(id);
 
 const STATUS_TEXT = { pending: '⏳ 待处理', processing: '⚙ 处理中', done: '✓ 已完成', failed: '✕ 失败', ignored: '– 已忽略' };
+const RECOVERY_TEXT = {
+  open_and_capture: '打开原文，在页面上点击扩展并重新保存',
+  recapture_page: '重新打开页面并采集可见正文',
+  retry_later: '系统将在退避时间后有限重试',
+  check_api_credentials: '检查本机 API 凭据后重新排队',
+  inspect_logs: '查看本机 translate-flow.log',
+};
 
 let meta;
 let active = new Map();
@@ -251,6 +258,15 @@ function renderTable() {
       chip.title = j.lastError || '';
       tdS.appendChild(chip);
       if (j.attempts > 1) tdS.append(` ×${j.attempts}`);
+      if (j.status === 'failed') {
+        const detail = document.createElement('div');
+        detail.className = 'failure-detail';
+        const code = j.meta?.code || 'pipeline_failed';
+        const recovery = RECOVERY_TEXT[j.meta?.operatorAction] || j.lastError || '需要人工检查';
+        const next = j.meta?.nextAttemptAt ? ` · 下次 ${fmtDateTime(j.meta.nextAttemptAt)}` : '';
+        detail.textContent = `${code} · ${recovery}${next}`;
+        tdS.appendChild(detail);
+      }
     } else {
       tdS.textContent = '—';
     }
@@ -269,7 +285,12 @@ function renderTable() {
     tdOps.className = 'ops';
     if (!archived && j) {
       if (j.status === 'pending' || j.status === 'failed') {
-        if (flows[view.type]?.triggerable) tdOps.append(opBtn('▶ 立即处理', 'trigger'));
+        if (j.meta?.operatorAction === 'open_and_capture' || j.meta?.operatorAction === 'recapture_page') {
+          tdOps.append(opBtn('打开并重新采集', 'open-source'));
+        }
+        if (flows[view.type]?.triggerable && (j.status === 'pending' || j.meta?.retryable !== false)) {
+          tdOps.append(opBtn('▶ 立即处理', 'trigger'));
+        }
         tdOps.append(opBtn('完成', 'done'), opBtn('忽略', 'ignored'));
       } else if (j.status === 'processing') {
         tdOps.append(opBtn('完成', 'done'), opBtn('重新排队', 'pending'));
@@ -303,6 +324,12 @@ $('rows').addEventListener('click', async (e) => {
   if (!btn) return;
   const key = btn.closest('tr').dataset.key;
   const op = btn.dataset.op;
+  if (op === 'open-source') {
+    const rec = active.get(key) || archive.get(key);
+    if (rec?.url) chrome.tabs.create({ url: rec.url });
+    toast('请在原文页点击 Info Collector，系统会保存你当前可见的正文并重新排队');
+    return;
+  }
   if (op === 'trigger') {
     toast('触发中：先桥接刷新 outbox，再启动流程…');
     await send({ cmd: 'bridgeNow' });

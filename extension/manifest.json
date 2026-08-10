@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Info Collector",
-  "version": "0.1.0",
-  "description": "把收藏的文章变成持久处理队列：从书签只读导入，处理状态归扩展所有，外部流程经文件桥回报完成。",
+  "version": "0.2.0",
+  "description": "本地优先的文章采集、可恢复处理与中文情报阅读工作台。",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAiaOKbg2Y3QOqZdd1fvqVBt5UGiAoNxSdszndFf8gH2uPffkAwIOF3ELAgMroTjcfnHKMLNi2LF0JLRp3Pf3KSoGd0nCtR0xOqWTLCPW0lEXzZPMP6p/DFDgLQdUgot065IcoZeK5/9JMIAv32RRK6pt/AaseSY0IFqN9ZV+j+nIU3vplh1cQm6/hH0/cuypuKA42s94OahNY98UM51OqU9VRBFkKdOrzVfxQ6ZRC0hvkvsPn7PLleB2C8ANPCjLZ7psuBP8LK5/6RGQJ3qkD/p2zzNLbIu+g5qytAiq0ae66GwoRDidO/UXrUwprTFkqDWltoByVIzC4vy5nsqMIaQIDAQAB",
-  "permissions": ["bookmarks", "storage", "alarms", "nativeMessaging", "activeTab"],
+  "permissions": ["bookmarks", "storage", "alarms", "nativeMessaging", "activeTab", "scripting"],
   "background": { "service_worker": "background.js", "type": "module" },
   "action": { "default_popup": "popup.html", "default_title": "Info Collector" },
   "options_page": "dashboard.html"

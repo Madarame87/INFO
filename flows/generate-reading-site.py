@@ -258,6 +258,23 @@ def activity_label(article):
     return "收录时间未知"
 
 
+def content_quality_status(summary, body, current_status=""):
+    if current_status:
+        return current_status
+    privacy_text = f"{summary}\n{body[:200000]}".casefold()
+    privacy_markers = ("user_id", "hidden_profile", "budget", "location")
+    if sum(1 for marker in privacy_markers if marker in privacy_text) >= 3:
+        return "privacy_review_required"
+    text = f"{summary}\n{body[:12000]}".casefold()
+    phrases = (
+        "新用户？立即注册", "使用 google 注册", "使用 apple 注册", "登录后继续",
+        "create an account", "sign up with google", "sign up with apple",
+        "log in to continue", "verify you are human", "enable javascript and cookies",
+    )
+    hits = sum(1 for phrase in phrases if phrase in text)
+    return "quality_rejected" if hits >= 2 else ""
+
+
 def read_article(path):
     text = Path(path).read_text(encoding="utf-8")
     meta, body = split_document(text)
@@ -267,6 +284,15 @@ def read_article(path):
     tags = list(dict.fromkeys(meta.get("tags") or infer_tags(title, summary, body)))[:5]
     slug = article_slug(source, title)
     article_key = str(meta.get("article_key") or "").strip()
+    content_status = content_quality_status(
+        summary,
+        body,
+        str(meta.get("content_status") or "").strip(),
+    )
+    if content_status == "quality_rejected":
+        summary = "抓取结果疑似登录页或页面样板，已从译文库隔离；请在可见原文页重新采集。"
+    elif content_status == "privacy_review_required":
+        summary = "正文包含结构化用户画像或类似敏感字段，已从公开译文库隔离并等待人工隐私审查。"
     return {
         "title": title,
         "source": source,
@@ -279,7 +305,7 @@ def read_article(path):
         "processed_at": str(meta.get("processed_at") or "").strip(),
         "legacy_date": str(meta.get("date") or "").strip(),
         "authors": str(meta.get("authors") or "").strip(),
-        "content_status": str(meta.get("content_status") or "").strip(),
+        "content_status": content_status,
         "summary": summary,
         "tags": tags,
         "body": body,
@@ -463,7 +489,7 @@ def page_shell(title, description, content, asset_prefix="assets", body_class=""
       </div>
     </div>
   </header>
-  {content}
+{content}
   <footer class="site-footer" aria-label="Built by @130U × @aswrise"><span>Built by</span> <a href="https://github.com/130U" target="_blank" rel="noopener noreferrer">@130U</a> <i aria-hidden="true">×</i> <a href="https://github.com/aswrise" target="_blank" rel="noopener noreferrer">@aswrise</a></footer>
   <script src="{asset_prefix}/app.js{asset_suffix}" defer></script>
 </body>
@@ -482,15 +508,13 @@ def render_tag(tag, active=False, button=False, count=None):
 
 
 def render_index(articles, asset_version=""):
-    counts = Counter(tag for article in articles for tag in article["tags"])
+    ready = [article for article in articles if not article["content_status"]]
+    recovery = [article for article in articles if article["content_status"]]
+    counts = Counter(tag for article in ready for tag in article["tags"])
     ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
     cards = []
-    for article in articles:
+    for index, article in enumerate(ready):
         tag_html = "".join(render_tag(tag) for tag in article["tags"])
-        status_badge = (
-            '<span class="content-status-badge">原文受限</span>'
-            if article["content_status"] == "source_blocked" else ""
-        )
         article_href = f"articles/{article['slug']}.html"
         source_link = (
             f'<a class="card-source-link" href="{escape_attr(article["source"])}" '
@@ -502,9 +526,10 @@ def render_index(articles, asset_version=""):
             if article["authors"] else ""
         )
         cards.append(f"""
-        <article class="article-card reveal" data-article-id="{escape_attr(article['article_id'])}" data-tags="{escape_attr('|'.join(article['tags']))}" data-title="{escape_attr(article['title'])}" data-summary="{escape_attr(article['summary'])}" data-authors="{escape_attr(article['authors'])}" data-source="{escape_attr(article['source'])}" data-published-value="{escape_attr(article['published_at'])}" data-collected-value="{escape_attr(article['collected_at'])}" data-processed-value="{escape_attr(article['processed_at'] or article['legacy_date'])}" data-content-status="{escape_attr(article['content_status'])}">
+        <article class="article-card editorial-card{' is-wide' if index in {0, 5} else ''} reveal" data-article-id="{escape_attr(article['article_id'])}" data-tags="{escape_attr('|'.join(article['tags']))}" data-title="{escape_attr(article['title'])}" data-summary="{escape_attr(article['summary'])}" data-authors="{escape_attr(article['authors'])}" data-source="{escape_attr(article['source'])}" data-published-value="{escape_attr(article['published_at'])}" data-collected-value="{escape_attr(article['collected_at'])}" data-processed-value="{escape_attr(article['processed_at'] or article['legacy_date'])}" data-content-status="">
           <div class="card-main">
-            <div class="keyword-row">{tag_html}{status_badge}</div>
+            <div class="card-index" aria-hidden="true">{index + 1:02d}</div>
+            <div class="keyword-row">{tag_html}</div>
             <h2 title="{escape_attr(article['title'])}"><a class="article-title-link" href="{article_href}">{html.escape(article['title'])}</a></h2>
             <p class="card-summary">{html.escape(article['summary'])}</p>{author_html}
             <div class="card-actions">
@@ -514,67 +539,85 @@ def render_index(articles, asset_version=""):
               {source_link}
             </div>
           </div>
-          <div class="card-meta" aria-label="文章时间">
+          <div class="card-meta" aria-label="文章时间与主题">
             <span class="published-label">{html.escape(published_label(article))}</span>
             <span class="activity-label">{html.escape(activity_label(article))}</span>
           </div>
         </article>""")
     all_button = render_tag("全部", active=True, button=True)
-    tag_buttons = "".join(render_tag(tag, button=True) for tag, _count in ranked)
+    tag_buttons = "".join(render_tag(tag, button=True, count=count) for tag, count in ranked[:10])
+    feature = ready[0] if ready else None
+    feature_html = ""
+    if feature:
+        feature_tags = "".join(render_tag(tag) for tag in feature["tags"][:3])
+        feature_html = f"""
+    <section class="feature-stage reveal" aria-labelledby="feature-title">
+      <a class="feature-visual" href="articles/{feature['slug']}.html" aria-label="阅读精选文章：{escape_attr(feature['title'])}">
+        <span>IC / {html.escape((feature['tags'] or ['编辑精选'])[0])}</span>
+        <strong aria-hidden="true">01</strong>
+        <i aria-hidden="true"></i>
+      </a>
+      <div class="feature-copy">
+        <p class="section-label">EDITOR'S PICK</p>
+        <div class="keyword-row">{feature_tags}</div>
+        <h2 id="feature-title"><a href="articles/{feature['slug']}.html">{html.escape(feature['title'])}</a></h2>
+        <p>{html.escape(feature['summary'])}</p>
+        <a class="text-link" href="articles/{feature['slug']}.html">进入全文 <span>↗</span></a>
+      </div>
+    </section>"""
+    recovery_cards = []
+    for article in recovery:
+        if article["content_status"] == "source_blocked":
+            reason = "原站需要授权，匿名抓取已停止。请在有权访问且正文可见的页面上重新采集。"
+        elif article["content_status"] == "privacy_review_required":
+            reason = "正文包含结构化用户画像或类似敏感字段。请在本地完成脱敏与人工隐私审查后再发布。"
+        else:
+            reason = "抓取结果疑似登录页或页面样板，已隔离。请在正文可见的页面上重新采集。"
+        source_link = (
+            f'<a href="{escape_attr(article["source"])}" target="_blank" rel="noopener noreferrer">打开原文 ↗</a>'
+            if article["source"] else ""
+        )
+        recovery_cards.append(f"""
+        <article class="recovery-card" data-article-id="{escape_attr(article['article_id'])}" data-title="{escape_attr(article['title'])}" data-summary="{escape_attr(article['summary'])}" data-tags="{escape_attr('|'.join(article['tags']))}" data-authors="{escape_attr(article['authors'])}" data-source="{escape_attr(article['source'])}" data-published-value="{escape_attr(article['published_at'])}" data-collected-value="{escape_attr(article['collected_at'])}" data-processed-value="{escape_attr(article['processed_at'] or article['legacy_date'])}" data-content-status="{escape_attr(article['content_status'])}" data-article-href="articles/{article['slug']}.html">
+          <span>{html.escape(article['content_status'])}</span>
+          <h3>{html.escape(article['title'])}</h3>
+          <p>{reason}</p>
+          {source_link}
+        </article>""")
+    recovery_html = ""
+    if recovery_cards:
+        recovery_html = f"""
+    <section class="recovery-section reveal" aria-labelledby="recovery-title">
+      <div class="section-heading"><div><p class="section-label">RECOVERY QUEUE</p><h2 id="recovery-title">需要你恢复的来源</h2></div><strong>{len(recovery_cards):02d}</strong></div>
+      <div class="recovery-grid">{''.join(recovery_cards)}</div>
+    </section>"""
     content = f"""
   <main class="library-shell">
-    <section class="library-hero reveal">
-      <p class="eyebrow"><i></i> KNOWLEDGE STREAM</p>
+    <section class="library-hero editorial-hero reveal">
+      <p class="eyebrow"><i></i> CURATED TECHNOLOGY READING</p>
       <div class="hero-grid">
-        <div class="hero-copy">
-          <h1>文章情报库</h1>
-          <p class="hero-lede">将公开技术文章转化为中文摘要、主题线索与可追溯的人工研判。</p>
-        </div>
+        <div class="hero-copy"><h1>不止收藏。<br><em>真正读进去。</em></h1><p class="hero-lede">一个本地优先的技术阅读桌：可信正文进入译文库，受限与污染来源进入恢复队列。</p></div>
         <div class="library-stats view-filters" id="view-filters" role="group" aria-label="整理视图">
-          <button class="view-filter is-active" type="button" data-view="pending" aria-pressed="true"><strong data-count-view="pending">{len(articles)}</strong><span>待整理</span></button>
+          <button class="view-filter is-active" type="button" data-view="pending" aria-pressed="true"><strong data-count-view="pending">{len(ready)}</strong><span>待整理</span></button>
           <button class="view-filter" type="button" data-view="favorites" aria-pressed="false"><strong data-count-view="favorites">0</strong><span>我的收藏</span></button>
-          <button class="view-filter" type="button" data-view="all" aria-pressed="false"><strong data-count-view="all">{len(articles)}</strong><span>全部收录</span></button>
+          <button class="view-filter" type="button" data-view="all" aria-pressed="false"><strong data-count-view="all">{len(ready)}</strong><span>可信译文</span></button>
         </div>
       </div>
     </section>
+{feature_html}
+{recovery_html}
     <section class="discovery-panel reveal" aria-labelledby="filter-title">
-      <div class="weekly-activity" aria-labelledby="weekly-activity-title">
-        <div class="weekly-activity-head">
-          <div class="weekly-activity-title">
-            <small>WEEKLY ACTIVITY</small>
-            <h2 id="weekly-activity-title">每周阅读趋势</h2>
-            <p>最近六周的人工判断节奏</p>
-          </div>
-          <div class="weekly-activity-meta">
-            <p><span id="weekly-range">本周</span><small id="weekly-breakdown">收藏 0 · 已整理 0</small></p>
-            <button class="weekly-export" id="export-weekly" type="button" disabled>导出本周 Markdown</button>
-          </div>
-        </div>
-        <div class="weekly-trend" role="img" aria-label="最近六周人工判断文章数量趋势">
-          <div class="weekly-chart-caption"><span>人工判断文章数</span><span>周一至周日</span></div>
-          <svg viewBox="0 0 760 160" preserveAspectRatio="none" aria-hidden="true">
-            <defs>
-              <linearGradient id="weekly-area-gradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#456b5a" stop-opacity=".22"></stop>
-                <stop offset="72%" stop-color="#456b5a" stop-opacity=".045"></stop>
-                <stop offset="100%" stop-color="#456b5a" stop-opacity="0"></stop>
-              </linearGradient>
-            </defs>
-            <path class="weekly-chart-grid" d="M 18 28 L 742 28 M 18 82 L 742 82 M 18 136 L 742 136"></path>
-            <path class="weekly-chart-area" id="weekly-chart-area" d=""></path>
-            <path class="weekly-chart-line" id="weekly-chart-line" d=""></path>
-            <line class="weekly-chart-marker-line" id="weekly-chart-marker-line" x1="0" y1="0" x2="0" y2="0"></line>
-            <circle class="weekly-chart-halo" id="weekly-chart-halo" cx="0" cy="0" r="10"></circle>
-            <circle class="weekly-chart-marker" id="weekly-chart-marker" cx="0" cy="0" r="4"></circle>
-            <text class="weekly-chart-value" id="weekly-chart-value" x="0" y="0" text-anchor="middle">0</text>
-          </svg>
-          <div class="weekly-periods" id="weekly-periods" aria-hidden="true"></div>
-        </div>
-      </div>
-      <div class="filter-heading"><h2 id="filter-title">按关键词浏览</h2><output id="result-count" aria-live="polite" aria-atomic="true">显示 {len(articles)} 篇</output></div>
-      <div class="tag-filters" id="tag-filters" role="group" aria-label="文章关键词筛选">{all_button}{tag_buttons}</div>
+      <div class="section-heading"><div><p class="section-label">EXPLORE BY THEME</p><h2 id="filter-title">从一个主题出发</h2></div><output id="result-count" aria-live="polite" aria-atomic="true">显示 {len(ready)} 篇</output></div>
+      <div class="tag-filters topic-rail" id="tag-filters" role="group" aria-label="文章关键词筛选">{all_button}{tag_buttons}</div>
     </section>
-    <section class="article-grid" id="article-grid">{''.join(cards)}</section>
+    <section class="collection-section reveal" aria-labelledby="collection-title">
+      <div class="section-heading"><div><p class="section-label">LATEST COLLECTION</p><h2 id="collection-title">最近进入阅读桌</h2></div></div>
+      <section class="article-grid" id="article-grid">{''.join(cards)}</section>
+    </section>
+    <section class="weekly-activity reveal" aria-labelledby="weekly-activity-title">
+      <div class="weekly-activity-head"><div class="weekly-activity-title"><small>YOUR READING RHYTHM</small><h2 id="weekly-activity-title">每周阅读 · 六周节奏</h2><p id="weekly-breakdown">收藏 0 · 已整理 0</p></div><div class="weekly-activity-meta"><p><span id="weekly-range">本周</span></p><button class="weekly-export" id="export-weekly" type="button" disabled>导出本周 Markdown</button></div></div>
+      <div class="weekly-trend" role="img" aria-label="最近六周人工判断文章数量趋势"><svg viewBox="0 0 760 160" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="weekly-area-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#31594a" stop-opacity=".22"></stop><stop offset="100%" stop-color="#31594a" stop-opacity="0"></stop></linearGradient></defs><path class="weekly-chart-grid" d="M 18 28 L 742 28 M 18 82 L 742 82 M 18 136 L 742 136"></path><path class="weekly-chart-area" id="weekly-chart-area" d=""></path><path class="weekly-chart-line" id="weekly-chart-line" d=""></path><line class="weekly-chart-marker-line" id="weekly-chart-marker-line" x1="0" y1="0" x2="0" y2="0"></line><circle class="weekly-chart-halo" id="weekly-chart-halo" cx="0" cy="0" r="10"></circle><circle class="weekly-chart-marker" id="weekly-chart-marker" cx="0" cy="0" r="4"></circle><text class="weekly-chart-value" id="weekly-chart-value" x="0" y="0" text-anchor="middle">0</text></svg><div class="weekly-periods" id="weekly-periods" aria-hidden="true"></div></div>
+    </section>
     <section class="empty-state" id="empty-state" hidden><span>—</span><h2 id="empty-title">没有符合条件的文章</h2></section>
   </main>"""
     return page_shell("文章情报库", "Info Collector 本地中文技术文章阅读库", content, body_class="library-page", asset_version=asset_version)
@@ -591,11 +634,23 @@ def render_article_page(article, asset_version=""):
     meta_items = [item for item in meta_items if item]
     body_html = render_markdown(article["body"], article["title"])
     source_warning = ""
-    if article["content_status"] == "source_blocked":
-        source_warning = """
+    translation_heading = "中文译文"
+    if article["content_status"]:
+        if article["content_status"] == "source_blocked":
+            warning = "原站拒绝匿名访问，因此系统没有读取正文，也没有生成未经核实的译文。请在有权访问且正文可见的原文页重新保存。"
+        elif article["content_status"] == "privacy_review_required":
+            warning = "正文包含结构化用户画像或类似敏感字段，公开副本已隔离。请在本地完成脱敏与人工隐私审查后再发布。"
+        else:
+            warning = "抓取结果疑似登录页、验证页或页面样板，已从译文库隔离。请在正文可见的原文页重新保存。"
+        body_html = (
+            '<div class="quarantined-copy"><h2>没有可发布的译文</h2>'
+            f'<p>{html.escape(warning)}</p></div>'
+        )
+        translation_heading = "隔离状态"
+        source_warning = f"""
       <aside class="source-warning reveal">
-        <span>原文受限</span>
-        <p>原站拒绝了自动访问，因此本页只保留可核验的标题、链接与状态说明，没有把未读取的内容伪装成中文译文。</p>
+        <span>尚未完成</span>
+        <p>{html.escape(warning)}本页不计入可信译文库。</p>
       </aside>"""
     original = ""
     if article["source"]:
@@ -623,7 +678,7 @@ def render_article_page(article, asset_version=""):
       <div class="reading-layout">
         <aside class="toc-card" aria-label="文章目录"><p>本页目录</p><nav id="article-toc"><span>正在整理章节…</span></nav></aside>
         <section class="translated-copy reveal">
-          <div class="section-kicker"><span>02</span><div><p>CHINESE TRANSLATION</p><h2>中文译文</h2></div></div>
+          <div class="section-kicker"><span>02</span><div><p>VALIDATED CONTENT</p><h2>{translation_heading}</h2></div></div>
           <div class="prose" id="article-content">{body_html}</div>
         </section>
       </div>

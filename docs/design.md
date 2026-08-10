@@ -172,14 +172,12 @@ state/<type>-trigger.log   手动触发的流程输出。
 `flows/` 提供两个满足同一 spool 契约的 translate 流，`scripts/setup.sh`
 默认为普通用户安装通用版：
 
-- **`translate-claude-api.py`（通用，随仓库分发）**：纯 python 标准库支持
-  DeepSeek API 和 Claude API 两种 provider。DeepSeek 路径优先调用本机
-  `defuddle parse --json` 提取正文与 metadata，再调 OpenAI-compatible
-  `/chat/completions`；未安装 defuddle 时退回内置简易抓取器。Claude 路径直接
-  调 Anthropic Messages API，用服务端 `web_fetch` 工具抓取原文。逐篇翻译并按篇
-  报告 done/failed。配置在 `~/.info-collector/config.json`（provider/apiKey/
-  baseUrl/model/outputDir），`--check` 自检可验证 Key 与目录。launchd 模板见
-  `templates/`，由 setup.sh 渲染安装。
+- **`translate-claude-api.py`（通用，随仓库分发）**：纯 Python 标准库支持
+  DeepSeek API 和 Claude API。两条 provider 路径共享同一份已验证正文：显式用户
+  页面快照优先，其次是可选的绝对路径抽取器和受限内置抓取。401/403、登录页样板、
+  网络故障和模型故障使用不同的 code/stage/retryable/operatorAction；失败不生成占位
+  译文。长文使用分段检查点，自动重试和成本均有硬预算。Windows 配置只保存
+  `credentialRef`，Key 由 DPAPI 保护；`--check` 验证凭据与目录。
 - **`translate-bookmarks.py`（作者个人流）**：调 `pi` CLI +
   translate-article skill 存入 Obsidian，`scripts/setup-pi-flow.sh` 安装。
 
@@ -203,14 +201,16 @@ inbox 报告，扩展首次桥接时即把它们记为 done。
   行内操作：标记完成、忽略、重新排队、删除；全局操作：立即导入、立即同步、
   生成并打开静态阅读库、生成周报、批量粘贴已完成 URL（自动化桥失效时的手动兜底）、导出 JSON；
   设置区：书签文件夹名、新增 Processing Type（v1 只增不删）。
-- **popup**：显示当前标签页入队状态，一键「保存到队列」，入口到 Dashboard。
+- **popup**：显示当前标签页入队状态。用户点击保存时，从当前标签页提取可见文章正文，
+  排除导航、表单、账户控件和常见样板，再经 Native Host 写入有界本地快照；不复制 Cookie、
+  Authorization 或密码。受限来源可通过这一显式手势重新排队。
 
 ## 静态文章阅读前台
 
 `flows/generate-reading-site.py` 读取 `config.json` 中 `outputDir` 根目录的中文
 Markdown，确定性生成 `阅读站/index.html`、`阅读站/articles/*.html` 和前端资源：
 
-- 索引页先展示关键词、Summary、作者与日期，并提供本地搜索和标签筛选；
+- 索引页按精选、恢复队列、主题与最近收录组织；登录页/受限来源不会混入可信译文；
 - 单篇页按关键词 → Summary → 中文译文 → 原文链接的阅读顺序组织；
 - Markdown 原始 HTML 一律转义，外链只允许 `http` / `https`；
 - 缺少旧版 Summary/Tags 时，用正文首段与固定关键词规则生成展示兜底；

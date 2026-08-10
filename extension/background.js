@@ -3,7 +3,7 @@
 
 import * as store from './lib/storage.js';
 import { importFromBookmarks } from './lib/importer.js';
-import { bridgeSync, openFlowOutput, triggerFlow } from './lib/bridge.js';
+import { bridgeSync, openFlowOutput, savePageCapture, triggerFlow } from './lib/bridge.js';
 import { mergeSource, setJobStatus, applyResult, manualSaveTypes } from './lib/queue.js';
 import { normalizeUrl } from './lib/normalize.js';
 
@@ -86,16 +86,46 @@ async function handle(msg) {
         const now = new Date().toISOString();
         // 已归档＝处理历史已完成，和导入/桥接一样跳过，避免复活成新的活跃记录被重复处理。
         const archive = await store.loadArchive();
-        if (archive.has(key)) return { ok: true, articleKey: key, existed: true, archived: true };
+        const archivedRecord = archive.get(key);
+        const canRecoverBlocked = archivedRecord?.jobs?.translate?.meta?.contentStatus === 'source_blocked'
+          && !!msg.capture;
+        if (archivedRecord && !canRecoverBlocked) {
+          return { ok: true, articleKey: key, existed: true, archived: true };
+        }
+        if (canRecoverBlocked) await store.removeRecords([key]);
         const meta = await store.loadMeta();
         const autoTypes = manualSaveTypes(meta, msg.types);
-        const prev = await store.getRecord(key);
+        const prev = canRecoverBlocked ? null : await store.getRecord(key);
+        let captureInfo = null;
+        let captureWarning = '';
+        if (msg.capture) {
+          try {
+            captureInfo = await savePageCapture(key, msg.url, msg.capture);
+          } catch (error) {
+            captureWarning = String(error?.message || error);
+          }
+        }
         const { record, changed } = mergeSource(prev, {
           articleKey: key, url: msg.url, title: msg.title || '',
           source: { kind: 'manual' }, autoTypes, now,
         });
-        if (changed) await store.putRecords([record]);
-        return { ok: true, articleKey: key, existed: !!prev };
+        if (captureInfo && record.jobs.translate) {
+          record.jobs.translate.meta = {
+            ...record.jobs.translate.meta,
+            captureAvailable: true,
+            captureChars: captureInfo.chars,
+          };
+          record.updatedAt = now;
+        }
+        if (changed || captureInfo) await store.putRecords([record]);
+        return {
+          ok: true,
+          articleKey: key,
+          existed: !!prev,
+          captureSaved: !!captureInfo,
+          captureWarning,
+          recoveredBlocked: canRecoverBlocked,
+        };
       });
 
     case 'getTabStatus': {

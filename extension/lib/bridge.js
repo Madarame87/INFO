@@ -133,3 +133,21 @@ export async function openFlowOutput(type) {
   if (!resp || !resp.ok) throw new Error(resp?.error || 'host 返回异常');
   return resp;
 }
+
+export async function savePageCapture(articleKey, url, capture) {
+  const port = chrome.runtime.connectNative(HOST_NAME);
+  let resp;
+  try {
+    resp = await exchange(port, {
+      type: 'capture',
+      articleKey,
+      url,
+      capturedAt: new Date().toISOString(),
+      capture,
+    });
+  } finally {
+    try { port.disconnect(); } catch { /* 已断开 */ }
+  }
+  if (!resp || !resp.ok) throw new Error(resp?.error || '页面快照保存失败');
+  return resp;
+}

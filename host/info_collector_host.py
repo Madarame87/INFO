@@ -11,6 +11,7 @@ Info Collector 的 Native Messaging host：文件搬运工 + 流程触发器（A
 """
 
 import json
+import hashlib
 import os
 from pathlib import Path
 import struct
@@ -31,8 +32,12 @@ OUTBOX = os.path.join(SPOOL, "outbox")
 INBOX = os.path.join(SPOOL, "inbox")
 PROCESSED = os.path.join(INBOX, "processed")
 STATE = os.path.join(SPOOL, "state")
+CAPTURES = os.path.join(SPOOL, "captures")
 FLOWS_FILE = os.path.join(SPOOL, "flows.json")
 _TRIGGERED_PROCESSES = []
+MAX_NATIVE_MESSAGE_BYTES = 2_000_000
+MAX_SYNC_TYPES = 32
+MAX_OUTBOX_ARTICLES = 2000
 OPENABLE_OUTPUTS = {
     "weekly-report": ("weekly-report-status.json", "latestReport"),
     "reading-site": ("reading-site-status.json", "siteIndex"),
@@ -89,6 +94,8 @@ def read_message():
     if len(raw) < 4:
         return None
     (length,) = struct.unpack("<I", raw)
+    if length > MAX_NATIVE_MESSAGE_BYTES:
+        raise ValueError("native message exceeds 2 MB limit")
     data = sys.stdin.buffer.read(length)
     if len(data) < length:
         return None
@@ -154,19 +161,39 @@ def flow_statuses():
 
 
 def handle_sync(msg):
-    for d in (OUTBOX, INBOX, PROCESSED, STATE):
+    for d in (OUTBOX, INBOX, PROCESSED, STATE, CAPTURES):
         os.makedirs(d, exist_ok=True)
 
     errors = []
 
-    for ptype, articles in (msg.get("outbox") or {}).items():
+    outbox_map = msg.get("outbox") or {}
+    if not isinstance(outbox_map, dict) or len(outbox_map) > MAX_SYNC_TYPES:
+        return {"ok": False, "error": "outbox 类型数量超过限制"}
+    for ptype, articles in outbox_map.items():
         if not safe_name(ptype):
             errors.append(f"非法类型名: {ptype}")
             continue
+        if not isinstance(articles, list) or len(articles) > MAX_OUTBOX_ARTICLES:
+            errors.append(f"{ptype}: outbox 文章数量超过限制")
+            continue
+        enriched_articles = []
+        for article in articles if isinstance(articles, list) else []:
+            if not isinstance(article, dict):
+                continue
+            enriched = dict(article)
+            article_key = str(article.get("articleKey") or "")
+            if article_key:
+                capture_path = os.path.join(
+                    CAPTURES,
+                    hashlib.sha256(article_key.encode("utf-8")).hexdigest() + ".json",
+                )
+                if os.path.isfile(capture_path):
+                    enriched["captureFile"] = capture_path
+            enriched_articles.append(enriched)
         atomic_write_json(os.path.join(OUTBOX, ptype + ".json"), {
             "processingType": ptype,
             "generatedAt": msg.get("generatedAt"),
-            "articles": articles,
+            "articles": enriched_articles,
         })
 
     for rid in (msg.get("acks") or []):
@@ -194,6 +221,39 @@ def handle_sync(msg):
     return {"ok": True, "reports": reports, "errors": errors, "flows": flow_statuses()}
 
 
+def handle_capture(msg):
+    """Persist a user-initiated rendered-page snapshot without cookies or headers."""
+    article_key = str(msg.get("articleKey") or "").strip()
+    url = str(msg.get("url") or "").strip()
+    capture = msg.get("capture") or {}
+    content = str(capture.get("content") or "").strip()
+    if not article_key or len(article_key) > 4096:
+        return {"ok": False, "error": "页面快照缺少有效 articleKey"}
+    if not (url.startswith("https://") or url.startswith("http://")):
+        return {"ok": False, "error": "页面快照只接受 http/https 来源"}
+    if len(content) < 160:
+        return {"ok": False, "error": "页面正文过短，未保存快照"}
+    if len(content.encode("utf-8")) > 1_500_000:
+        return {"ok": False, "error": "页面正文超过 1.5 MB 快照上限"}
+    os.makedirs(CAPTURES, exist_ok=True)
+    capture_path = os.path.join(
+        CAPTURES,
+        hashlib.sha256(article_key.encode("utf-8")).hexdigest() + ".json",
+    )
+    atomic_write_json(capture_path, {
+        "schemaVersion": 1,
+        "articleKey": article_key,
+        "url": url,
+        "capturedAt": str(msg.get("capturedAt") or ""),
+        "extractor": "browser-rendered-user-initiated",
+        "title": str(capture.get("title") or "")[:1000],
+        "published": str(capture.get("published") or "")[:100],
+        "authors": str(capture.get("authors") or "")[:1000],
+        "content": content,
+    })
+    return {"ok": True, "captureFile": capture_path, "chars": len(content)}
+
+
 def handle_trigger(msg):
     _TRIGGERED_PROCESSES[:] = [p for p in _TRIGGERED_PROCESSES if p.poll() is None]
     ptype = msg.get("processingType")
@@ -202,6 +262,9 @@ def handle_trigger(msg):
     cfg = load_flows().get(ptype)
     if not cfg or not isinstance(cfg.get("command"), list) or not cfg["command"]:
         return {"ok": False, "error": f"flows.json 未注册可触发的流程: {ptype}"}
+    command_error = validate_flow_command(cfg)
+    if command_error:
+        return {"ok": False, "error": command_error}
     if lock_is_held(os.path.expanduser(cfg.get("lockFile") or "")):
         return {"ok": True, "started": False, "alreadyRunning": True}
     os.makedirs(STATE, exist_ok=True)
@@ -216,6 +279,30 @@ def handle_trigger(msg):
         )
     _TRIGGERED_PROCESSES.append(proc)
     return {"ok": True, "started": True}
+
+
+def validate_flow_command(cfg):
+    command = cfg.get("command") if isinstance(cfg, dict) else None
+    if not isinstance(command, list) or len(command) < 2 or len(command) > 8:
+        return "流程命令必须是受限 argv 数组"
+    if any(not isinstance(part, str) or not part or len(part) > 4096 for part in command):
+        return "流程命令参数无效"
+    executable = Path(command[0]).expanduser().resolve()
+    script = Path(command[1]).expanduser().resolve()
+    trusted_bin = (HOME / ".info-collector" / "bin").resolve()
+    try:
+        script.relative_to(trusted_bin)
+    except ValueError:
+        return "流程脚本不在受信任 bin 目录内"
+    if not executable.is_file() or not script.is_file():
+        return "流程可执行文件或脚本不存在"
+    expected = str(cfg.get("scriptSha256") or "").casefold()
+    if not expected:
+        return "流程缺少 scriptSha256，请重新运行安装器"
+    actual = hashlib.sha256(script.read_bytes()).hexdigest()
+    if actual != expected:
+        return "流程脚本哈希不匹配，请重新安装后再触发"
+    return ""
 
 
 def open_local_path(path):
@@ -270,6 +357,8 @@ def main():
                 send_message(handle_trigger(msg))
             elif mtype == "open-output":
                 send_message(handle_open_output(msg))
+            elif mtype == "capture":
+                send_message(handle_capture(msg))
             elif mtype == "ping":
                 send_message({"ok": True, "pong": True})
             else:

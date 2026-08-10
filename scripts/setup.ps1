@@ -20,6 +20,7 @@ $ReadingSiteBin = Join-Path $BinDir "reading-site.py"
 $ReaderAssetsDir = Join-Path $BinDir "reader-assets"
 $HostBin = Join-Path $BinDir "info-collector-host.py"
 $CompatBin = Join-Path $BinDir "info_collector_platform.py"
+$CredentialBin = Join-Path $BinDir "credential_store.py"
 $ConfigPath = Join-Path $Spool "config.json"
 $FlowsPath = Join-Path $Spool "flows.json"
 $HostName = "com.pi.info_collector"
@@ -154,6 +155,7 @@ Copy-Item -LiteralPath (Join-Path $Repo "flows\generate-reading-site.py") -Desti
 Copy-Item -Path (Join-Path $Repo "reader\assets\*") -Destination $ReaderAssetsDir -Force
 Copy-Item -LiteralPath (Join-Path $Repo "host\info_collector_host.py") -Destination $HostBin -Force
 Copy-Item -LiteralPath (Join-Path $Repo "info_collector_platform.py") -Destination $CompatBin -Force
+Copy-Item -LiteralPath (Join-Path $Repo "credential_store.py") -Destination $CredentialBin -Force
 
 Write-Host "== 3/5 配置翻译引擎"
 $config = Read-JsonMap -Path $ConfigPath
@@ -223,15 +225,23 @@ if ($engine -ne "skip") {
     }
     if (-not $baseUrl) { $baseUrl = $defaultBaseUrl }
 
+    $credentialRef = "info-collector:$provider"
+    if ($apiKey) {
+        $apiKey | & $PythonExe $CredentialBin --store $credentialRef | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "API Key 无法写入 Windows DPAPI 凭据存储" }
+    }
     $config["provider"] = $provider
-    $config["apiKey"] = $apiKey
+    $config["credentialRef"] = $credentialRef
+    $config.Remove("apiKey")
     $config["model"] = $model
     $config["baseUrl"] = $baseUrl.TrimEnd("/")
     $config["outputDir"] = (Resolve-Path -LiteralPath $outputDir).Path
     Write-Utf8NoBom -Path $ConfigPath -Content ($config | ConvertTo-Json -Depth 10)
+    $apiKey = ""
 
     $flows["translate"] = [ordered]@{
         command = @($PythonExe, $FlowBin, "--manual")
+        scriptSha256 = (Get-FileHash -LiteralPath $FlowBin -Algorithm SHA256).Hash.ToLowerInvariant()
         lockFile = (Join-Path $Spool "state\translate.lock")
         intervalSeconds = $null
         label = "manual"
@@ -244,12 +254,14 @@ else {
 
 $flows["weekly-report"] = [ordered]@{
     command = @($PythonExe, $WeeklyReportBin)
+    scriptSha256 = (Get-FileHash -LiteralPath $WeeklyReportBin -Algorithm SHA256).Hash.ToLowerInvariant()
     lockFile = (Join-Path $Spool "state\weekly-report.lock")
     intervalSeconds = $null
     label = "manual"
 }
 $flows["reading-site"] = [ordered]@{
     command = @($PythonExe, $ReadingSiteBin, "--open")
+    scriptSha256 = (Get-FileHash -LiteralPath $ReadingSiteBin -Algorithm SHA256).Hash.ToLowerInvariant()
     lockFile = (Join-Path $Spool "state\reading-site.lock")
     intervalSeconds = $null
     label = "manual"

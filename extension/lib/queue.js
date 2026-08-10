@@ -4,6 +4,15 @@
 import { normalizeSummaryTags } from './enrichment.js';
 
 export const STATUSES = ['pending', 'processing', 'done', 'failed', 'ignored'];
+export const MAX_AUTO_ATTEMPTS = 3;
+
+const DEFAULT_RETRY_DELAYS_SECONDS = [60, 300, 1800];
+
+function retryDelaySeconds(meta, attempts) {
+  const requested = Number(meta?.retryAfterSeconds);
+  if (Number.isFinite(requested) && requested > 0) return Math.min(requested, 21600);
+  return DEFAULT_RETRY_DELAYS_SECONDS[Math.min(Math.max(attempts - 1, 0), DEFAULT_RETRY_DELAYS_SECONDS.length - 1)];
+}
 
 export function newRecord(articleKey, url, title, now) {
   return { articleKey, url, title: title || '', sources: [], jobs: {}, createdAt: now, updatedAt: now };
@@ -68,6 +77,20 @@ export function applyResult(record, { articleKey, url, type, status, processedAt
     j.status = 'failed';
     j.attempts = (j.attempts || 0) + 1;
     j.lastError = (resultMeta && resultMeta.error) || 'failed';
+    const retryable = resultMeta?.retryable !== false;
+    const exhausted = j.attempts >= MAX_AUTO_ATTEMPTS;
+    j.meta = {
+      ...j.meta,
+      ...(resultMeta || {}),
+      retryable,
+      retryExhausted: retryable && exhausted,
+    };
+    if (retryable && !exhausted) {
+      const delayMs = retryDelaySeconds(resultMeta, j.attempts) * 1000;
+      j.meta.nextAttemptAt = new Date(new Date(now).getTime() + delayMs).toISOString();
+    } else {
+      delete j.meta.nextAttemptAt;
+    }
   } else if (status === 'processing') {
     if (j.status === 'done' || j.status === 'ignored' || j.status === 'processing') {
       return { record: rec, changed: !record };
@@ -93,6 +116,9 @@ export function setJobStatus(record, type, status, now) {
   if (status === 'pending') {
     j.processedAt = null;
     j.lastError = null;
+    j.attempts = 0;
+    j.meta = { ...j.meta, retryExhausted: false };
+    delete j.meta.nextAttemptAt;
   }
   rec.jobs[type] = j;
   rec.updatedAt = now;
@@ -127,12 +153,22 @@ export function isFinished(record) {
 }
 
 // 某类型的 outbox 内容：pending 与 failed（failed 留在清单里等待重试）。
-export function outboxEntries(recordsMap, type) {
+export function outboxEntries(recordsMap, type, now = new Date().toISOString()) {
   const out = [];
   for (const rec of recordsMap.values()) {
     const j = rec.jobs[type];
-    if (j && (j.status === 'pending' || j.status === 'failed')) {
-      out.push({ articleKey: rec.articleKey, url: rec.url, title: rec.title, enqueuedAt: rec.createdAt });
+    const retryableFailure = j?.status === 'failed'
+      && j.meta?.retryable !== false
+      && (j.attempts || 0) < MAX_AUTO_ATTEMPTS
+      && (!j.meta?.nextAttemptAt || j.meta.nextAttemptAt <= now);
+    if (j && (j.status === 'pending' || retryableFailure)) {
+      out.push({
+        articleKey: rec.articleKey,
+        url: rec.url,
+        title: rec.title,
+        enqueuedAt: rec.createdAt,
+        attempt: j.attempts || 0,
+      });
     }
   }
   out.sort((a, b) => (a.enqueuedAt < b.enqueuedAt ? -1 : 1));

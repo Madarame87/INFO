@@ -6,13 +6,13 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-test('README 描述二次整理与浏览器本地状态，不再声称全文搜索或行业趋势', () => {
+test('README 保持简洁，并明确恢复、安全与商业边界', () => {
   const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
-  for (const phrase of ['待整理', '我的收藏', '全部收录', '复制资料卡', 'localStorage', '不会跨浏览器或跨设备同步']) {
+  for (const phrase of ['info-collector-2026.git', '401', '恢复队列', 'DPAPI', '最多 3 次', '受控商业 pilot']) {
     assert.ok(readme.includes(phrase), `README 缺少：${phrase}`);
   }
-  assert.equal(readme.includes('全文搜索'), false);
-  assert.ok(readme.includes('不代表行业趋势或世界动态'));
+  assert.ok(readme.split(/\r?\n/).length < 70, 'README 应控制在 70 行内');
+  assert.equal(readme.includes('工业级'), false);
 });
 
 test('Pages 部署只允许手动触发，避免项目站自动占用账号自定义域名路径', () => {

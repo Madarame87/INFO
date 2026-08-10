@@ -13,7 +13,7 @@ const app = await readFile(path.join(root, "public", "assets", "app.js"), "utf8"
 
 await access(workerPath);
 await access(socialImagePath);
-for (const phrase of ["文章情报库", "将公开技术文章转化为中文摘要、主题线索与可追溯的人工研判。", "按关键词浏览", "待整理", "我的收藏", "全部收录", "每周阅读", "导出本周 Markdown", "复制资料卡", "Info Collector", "@130U", "@aswrise"]) {
+for (const phrase of ["不止收藏", "真正读进去", "需要你恢复的来源", "从一个主题出发", "最近进入阅读桌", "待整理", "我的收藏", "可信译文", "每周阅读", "导出本周 Markdown", "复制资料卡", "Info Collector", "@130U", "@aswrise"]) {
   if (!index.includes(phrase)) throw new Error(`Missing index phrase: ${phrase}`);
 }
 if ((index.match(/href="https:\/\/github\.com\/130U"/g) || []).length !== 2 || (index.match(/href="https:\/\/github\.com\/aswrise"/g) || []).length !== 2) {
@@ -42,7 +42,7 @@ if (index.includes("阅读中文全文")) throw new Error("Index still includes 
 if (index.includes("WINDOWS 11 · LOCAL-FIRST") || index.includes("INFO COLLECTOR / READING DESK")) {
   throw new Error("Index still includes the retired system labels");
 }
-if (!index.includes('<article class="article-card reveal"') || index.includes('<a class="article-card')) {
+if (!index.includes('<article class="article-card editorial-card') || index.includes('<a class="article-card')) {
   throw new Error("Article cards must be semantic containers, not full-card links");
 }
 if (!index.includes('class="article-title-link" href="articles/')) throw new Error("Article title links are missing");
@@ -55,9 +55,7 @@ if (index.includes(">DATE<")) throw new Error("Generic DATE label remains");
 if (!index.includes("发布于 2026-07-02")) throw new Error("Geoffrey Litt URL date fallback is missing");
 if (!index.includes("发布时间未知")) throw new Error("Unknown publication dates are not explicit");
 const articleGridRule = style.match(/\.article-grid\s*\{([^}]*)\}/)?.[1] || "";
-if (!articleGridRule.includes("grid-template-columns: 1fr") || articleGridRule.includes("repeat(2")) {
-  throw new Error("Reading index does not use a one-column article grid");
-}
+if (!style.includes("grid-template-columns: repeat(3, minmax(0, 1fr))")) throw new Error("Editorial collection grid is missing");
 for (const cssPhrase of ["--aquatic-soft", "system-ui", ".hero-lede", ".article-title-link", ".card-action", ".view-filter", "prefers-reduced-motion", "prefers-reduced-transparency"]) {
   if (!style.includes(cssPhrase)) throw new Error(`Missing reading-site CSS contract: ${cssPhrase}`);
 }
@@ -106,10 +104,13 @@ const infoCard = readerApi.buildInfoCardMarkdown({ title: "Test", tags: "智能�
 if (!infoCard.includes("原文：未知") || !infoCard.includes("收录时间：未知") || infoCard.includes("undefined") || infoCard.includes("null")) {
   throw new Error("Portable Markdown info card fallback is invalid");
 }
-const articleLinks = [...index.matchAll(/href="articles\/(article-[^"]+\.html)"/g)].map((match) => match[1]);
+const articleLinks = [...index.matchAll(/\shref="articles\/(article-[^"]+\.html)"/g)].map((match) => match[1]);
 const uniqueLinks = [...new Set(articleLinks)];
 if (uniqueLinks.length < 5) throw new Error(`Expected at least 5 articles, found ${uniqueLinks.length}`);
-if (articleLinks.length !== uniqueLinks.length) throw new Error("Index contains duplicate article links");
+if (!index.includes('data-content-status="source_blocked"') || !index.includes('data-content-status="quality_rejected"') || !index.includes('data-content-status="privacy_review_required"')) {
+  throw new Error("Typed source, contamination and privacy-review states are not present in the recovery queue");
+}
+if ((index.match(/class="recovery-card"/g) || []).length !== 3) throw new Error("Expected exactly three quarantined recovery records");
 for (const article of uniqueLinks) {
   const html = await readFile(path.join(articleDir, article), "utf8");
   const order = ["EXECUTIVE SUMMARY", "CHINESE TRANSLATION", "ORIGINAL SOURCE"].map((text) => html.indexOf(text));
@@ -121,6 +122,9 @@ for (const article of uniqueLinks) {
 const publicText = [index, style, app, ...await Promise.all(uniqueLinks.map((article) => readFile(path.join(articleDir, article), "utf8")))].join("\n");
 if (/sk-[A-Za-z0-9_-]{16,}/.test(publicText) || /[A-Za-z]:\\Users\\/i.test(publicText) || publicText.includes("chrome-extension://")) {
   throw new Error("Public snapshot contains a secret or local browser/path data");
+}
+if (publicText.includes('"hidden_profile"') || publicText.includes('&quot;hidden_profile&quot;') || publicText.includes('"user_id"') || publicText.includes('&quot;user_id&quot;')) {
+  throw new Error("Public snapshot contains structured profile data that should be quarantined");
 }
 if (/Madarame87|(?:href|src)="\/(?:INFO|info)\//.test(publicText)) {
   throw new Error("Public snapshot contains a stale account reference or repository-coupled base path");
