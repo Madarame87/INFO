@@ -54,7 +54,7 @@ if (!index.includes('class="card-source-link"') || !index.includes('<span>原文
 if (index.includes(">DATE<")) throw new Error("Generic DATE label remains");
 if (!index.includes("发布于 2026-07-02")) throw new Error("Geoffrey Litt URL date fallback is missing");
 if (!index.includes("发布时间未知")) throw new Error("Unknown publication dates are not explicit");
-if (!style.includes(".terminal-layout { display: grid;") || !style.includes("grid-template-columns: 248px minmax(0, 1fr)")) throw new Error("Reading-terminal workbench layout is missing");
+if (!style.includes(".terminal-layout { display: grid;") || !style.includes("grid-template-columns: 260px minmax(0, 1fr)")) throw new Error("Reading-terminal workbench layout is missing");
 for (const cssPhrase of ["--aquatic-soft", "system-ui", ".workspace-intro", ".search-control", ".terminal-sidebar", ".reader-feedback", ".article-title-link", ".card-action", ".view-filter", "prefers-reduced-motion", "prefers-reduced-transparency"]) {
   if (!style.includes(cssPhrase)) throw new Error(`Missing reading-site CSS contract: ${cssPhrase}`);
 }
@@ -112,6 +112,9 @@ if (!index.includes('data-content-status="source_blocked"') || !index.includes('
 if ((index.match(/class="recovery-card"/g) || []).length !== 3) throw new Error("Expected exactly three quarantined recovery records");
 for (const article of uniqueLinks) {
   const html = await readFile(path.join(articleDir, article), "utf8");
+  if (!html.includes(`../assets/style.css?v=${styleVersion}`) || !html.includes(`../assets/app.js?v=${appVersion}`)) {
+    throw new Error(`Stale asset version in ${article}`);
+  }
   const order = ["EXECUTIVE SUMMARY", "CHINESE TRANSLATION", "ORIGINAL SOURCE"].map((text) => html.indexOf(text));
   if (order.some((value) => value < 0) || !(order[0] < order[1] && order[1] < order[2])) {
     throw new Error(`Invalid content order in ${article}`);
