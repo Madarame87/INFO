@@ -89,6 +89,9 @@ class MockDeepSeekHandler(BaseHTTPRequestHandler):
 class TranslateFlowBackendTest(unittest.TestCase):
     def setUp(self):
         MockDeepSeekHandler.api_requests = []
+        self.old_insecure_api_base = os.environ.get("INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS")
+        self.old_custom_api_base = os.environ.get("INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE")
+        os.environ["INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS"] = "1"
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), MockDeepSeekHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -98,6 +101,37 @@ class TranslateFlowBackendTest(unittest.TestCase):
         self.server.shutdown()
         self.thread.join(timeout=5)
         self.server.server_close()
+        if self.old_insecure_api_base is None:
+            os.environ.pop("INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS", None)
+        else:
+            os.environ["INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS"] = self.old_insecure_api_base
+        if self.old_custom_api_base is None:
+            os.environ.pop("INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE", None)
+        else:
+            os.environ["INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE"] = self.old_custom_api_base
+
+    def test_api_base_url_requires_official_or_explicit_https_proxy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            official = {
+                "provider": "deepseek",
+                "apiKey": "sk-test000000000000000000000",
+                "baseUrl": "https://api.deepseek.com",
+            }
+            self.assertIsNone(flow.config_error(official))
+
+            os.environ.pop("INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS", None)
+            self.assertIn("必须使用 HTTPS", flow.api_base_url_error({**official, "baseUrl": self.base_url}))
+            self.assertIn("显式设置", flow.api_base_url_error({**official, "baseUrl": "https://proxy.example.test/v1"}))
+            os.environ["INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE"] = "1"
+            try:
+                self.assertIsNone(flow.api_base_url_error({**official, "baseUrl": "https://proxy.example.test/v1"}))
+            finally:
+                if self.old_custom_api_base is None:
+                    os.environ.pop("INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE", None)
+                else:
+                    os.environ["INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE"] = self.old_custom_api_base
+                os.environ["INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS"] = "1"
 
     def install_fake_defuddle(self, home):
         bin_dir = home / "bin"

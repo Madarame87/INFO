@@ -230,6 +230,19 @@ class InfoCollectorHostTest(unittest.TestCase):
                     "capture": {"content": "too short"},
                 })
                 self.assertFalse(rejected["ok"])
+                invalid_urls = [
+                    "https://",
+                    "https://user:pass@example.test/article",
+                    "javascript:alert(1)",
+                ]
+                for invalid_url in invalid_urls:
+                    with self.subTest(url=invalid_url):
+                        invalid = host.handle_capture({
+                            "articleKey": article_key,
+                            "url": invalid_url,
+                            "capture": {"content": "Visible content. " * 20},
+                        })
+                        self.assertFalse(invalid["ok"])
             finally:
                 if old_home is None:
                     os.environ.pop("INFO_COLLECTOR_HOME", None)

@@ -18,6 +18,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlparse
 
 try:
     from info_collector_platform import lock_is_held, user_home
@@ -229,7 +230,17 @@ def handle_capture(msg):
     content = str(capture.get("content") or "").strip()
     if not article_key or len(article_key) > 4096:
         return {"ok": False, "error": "页面快照缺少有效 articleKey"}
-    if not (url.startswith("https://") or url.startswith("http://")):
+    try:
+        parsed_url = urlparse(url)
+    except ValueError:
+        parsed_url = None
+    if (
+        parsed_url is None
+        or parsed_url.scheme not in {"https", "http"}
+        or not parsed_url.hostname
+        or parsed_url.username
+        or parsed_url.password
+    ):
         return {"ok": False, "error": "页面快照只接受 http/https 来源"}
     if len(content) < 160:
         return {"ok": False, "error": "页面正文过短，未保存快照"}

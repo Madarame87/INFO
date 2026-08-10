@@ -224,6 +224,21 @@ if ($engine -ne "skip") {
         $baseUrl = [string]$config["baseUrl"]
     }
     if (-not $baseUrl) { $baseUrl = $defaultBaseUrl }
+    $baseUrl = $baseUrl.TrimEnd("/")
+    if ($baseUrl -ne $defaultBaseUrl) {
+        if ([string]$env:INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE -ne "1") {
+            throw "自定义 INFO_COLLECTOR_BASE_URL 需要同时设置 INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE=1"
+        }
+        $parsedBaseUrl = $null
+        if (-not [Uri]::TryCreate($baseUrl, [UriKind]::Absolute, [ref]$parsedBaseUrl) -or
+            $parsedBaseUrl.Scheme -ne "https" -or
+            -not $parsedBaseUrl.Host -or
+            $parsedBaseUrl.UserInfo -or
+            $parsedBaseUrl.Query -or
+            $parsedBaseUrl.Fragment) {
+            throw "自定义 INFO_COLLECTOR_BASE_URL 必须是无凭据、query 和 fragment 的 HTTPS URL"
+        }
+    }
 
     $credentialRef = "info-collector:$provider"
     if ($apiKey) {
@@ -234,7 +249,7 @@ if ($engine -ne "skip") {
     $config["credentialRef"] = $credentialRef
     $config.Remove("apiKey")
     $config["model"] = $model
-    $config["baseUrl"] = $baseUrl.TrimEnd("/")
+    $config["baseUrl"] = $baseUrl
     $config["outputDir"] = (Resolve-Path -LiteralPath $outputDir).Path
     Write-Utf8NoBom -Path $ConfigPath -Content ($config | ConvertTo-Json -Depth 10)
     $apiKey = ""
