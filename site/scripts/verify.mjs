@@ -13,7 +13,7 @@ const app = await readFile(path.join(root, "public", "assets", "app.js"), "utf8"
 
 await access(workerPath);
 await access(socialImagePath);
-for (const phrase of ["不止收藏", "真正读进去", "需要你恢复的来源", "从一个主题出发", "最近进入阅读桌", "待整理", "我的收藏", "可信译文", "每周阅读", "导出本周 Markdown", "复制资料卡", "Info Collector", "@130U", "@aswrise"]) {
+for (const phrase of ["阅读收件箱", "先判断价值，再进入全文", "快速定位", "恢复队列", "主题筛选", "待整理", "我的收藏", "可信译文", "阅读进度", "导出 Markdown", "复制资料卡", "Info Collector", "@130U", "@aswrise"]) {
   if (!index.includes(phrase)) throw new Error(`Missing index phrase: ${phrase}`);
 }
 if ((index.match(/href="https:\/\/github\.com\/130U"/g) || []).length !== 2 || (index.match(/href="https:\/\/github\.com\/aswrise"/g) || []).length !== 2) {
@@ -26,10 +26,10 @@ for (const socialPhrase of [
 ]) {
   if (!index.includes(socialPhrase)) throw new Error(`Missing social-preview metadata: ${socialPhrase}`);
 }
-if (index.includes("搜索标题、摘要或关键词") || index.includes('id="article-search"') || index.includes('class="search-box"') || index.includes("data-search=")) {
-  throw new Error("Removed search UI or search data remains in the reading index");
+if (!index.includes("搜索标题、摘要、作者或主题") || !index.includes('id="article-search"') || !index.includes('class="command-bar"')) {
+  throw new Error("Reading-terminal search control is missing");
 }
-if (index.includes("从关键词进入主题，从摘要判断价值")) throw new Error("Removed hero subtitle remains");
+if (index.includes("data-search=")) throw new Error("Redundant search data remains in the reading index");
 if (!index.includes('id="result-count" aria-live="polite" aria-atomic="true"')) throw new Error("Filter result count is not an accessible live region");
 if (index.includes('data-view="weekly"')) throw new Error("Weekly activity must not behave as a fourth article filter");
 if (!index.includes('id="export-weekly"') || !index.includes('id="weekly-chart-line"') || !index.includes('id="weekly-chart-area"') || !index.includes('id="weekly-chart-marker"') || !index.includes('id="weekly-chart-value"') || !index.includes('id="weekly-periods"')) throw new Error("Premium weekly activity chart/export controls are missing");
@@ -42,7 +42,7 @@ if (index.includes("阅读中文全文")) throw new Error("Index still includes 
 if (index.includes("WINDOWS 11 · LOCAL-FIRST") || index.includes("INFO COLLECTOR / READING DESK")) {
   throw new Error("Index still includes the retired system labels");
 }
-if (!index.includes('<article class="article-card editorial-card') || index.includes('<a class="article-card')) {
+if (!index.includes('<article class="article-card terminal-row') || index.includes('<a class="article-card')) {
   throw new Error("Article cards must be semantic containers, not full-card links");
 }
 if (!index.includes('class="article-title-link" href="articles/')) throw new Error("Article title links are missing");
@@ -50,32 +50,31 @@ if (!index.includes('data-article-id="')) throw new Error("Stable article IDs ar
 if ((index.match(/data-action="favorite"/g) || []).length < 5 || (index.match(/data-action="review"/g) || []).length < 5 || (index.match(/data-action="copy-card"/g) || []).length < 5) {
   throw new Error("Second-pass card actions are incomplete");
 }
-if (!index.includes('target="_blank" rel="noopener noreferrer">原文 ↗</a>')) throw new Error("Direct source links are missing");
+if (!index.includes('class="card-source-link"') || !index.includes('<span>原文 ↗</span>')) throw new Error("Direct source links are missing");
 if (index.includes(">DATE<")) throw new Error("Generic DATE label remains");
 if (!index.includes("发布于 2026-07-02")) throw new Error("Geoffrey Litt URL date fallback is missing");
 if (!index.includes("发布时间未知")) throw new Error("Unknown publication dates are not explicit");
-const articleGridRule = style.match(/\.article-grid\s*\{([^}]*)\}/)?.[1] || "";
-if (!style.includes("grid-template-columns: repeat(3, minmax(0, 1fr))")) throw new Error("Editorial collection grid is missing");
-for (const cssPhrase of ["--aquatic-soft", "system-ui", ".hero-lede", ".article-title-link", ".card-action", ".view-filter", "prefers-reduced-motion", "prefers-reduced-transparency"]) {
+if (!style.includes(".terminal-layout { display: grid;") || !style.includes("grid-template-columns: 248px minmax(0, 1fr)")) throw new Error("Reading-terminal workbench layout is missing");
+for (const cssPhrase of ["--aquatic-soft", "system-ui", ".workspace-intro", ".search-control", ".terminal-sidebar", ".reader-feedback", ".article-title-link", ".card-action", ".view-filter", "prefers-reduced-motion", "prefers-reduced-transparency"]) {
   if (!style.includes(cssPhrase)) throw new Error(`Missing reading-site CSS contract: ${cssPhrase}`);
 }
 if (!/\[hidden\]\s*\{[^}]*display:\s*none\s*!important;?[^}]*\}/.test(style)) {
   throw new Error("Hidden article cards are not guaranteed to leave the layout");
 }
-if (style.includes(".search-box") || style.includes(".brand-mark")) throw new Error("Removed framed UI CSS remains");
+if (style.includes(".brand-mark")) throw new Error("Removed boxed brand CSS remains");
 const cssRule = (selector) => {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return style.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] || "";
 };
 for (const [selector, required] of [
-  [".library-hero", ["border: 0", "background: transparent"]],
+  [".workspace-intro", ["display: grid", "border-bottom: 1px solid var(--line)"]],
   [".site-credits", ["border: 0", "background: transparent"]],
-  [".tag-filter", ["border: 0", "background: transparent"]],
+  [".terminal-workspace", ["min-width: 0", "border-left: 1px solid var(--line)"]],
 ]) {
   const rule = cssRule(selector);
   if (!rule || required.some((phrase) => !rule.includes(phrase))) throw new Error(`Missing frameless CSS contract for ${selector}`);
 }
-if (app.includes("article-search") || !app.includes("info-collector:reader-state:v1") || !app.includes("buildInfoCardMarkdown") || !app.includes("weeklyActivitySeries") || !app.includes("smoothChartPath") || !app.includes("buildWeeklyReviewMarkdown")) {
+if (!app.includes("article-search") || !app.includes("matchesQuery") || !app.includes("syncUrlState") || !app.includes("info-collector:reader-state:v1") || !app.includes("buildInfoCardMarkdown") || !app.includes("weeklyActivitySeries") || !app.includes("smoothChartPath") || !app.includes("buildWeeklyReviewMarkdown")) {
   throw new Error("Second-pass reader script contract is incomplete");
 }
 

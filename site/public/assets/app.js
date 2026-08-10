@@ -130,6 +130,23 @@
     return activeTag === '全部' || String(tags || '').split('|').includes(activeTag);
   }
 
+  function normalizeSearch(value) {
+    return String(value || '').normalize('NFKC').toLocaleLowerCase('zh-CN').replace(/\s+/g, ' ').trim();
+  }
+
+  function matchesQuery(data, query) {
+    const needle = normalizeSearch(query);
+    if (!needle) return true;
+    const haystack = normalizeSearch([
+      data?.title,
+      data?.summary,
+      data?.authors,
+      data?.tags,
+      data?.source,
+    ].filter(Boolean).join(' '));
+    return needle.split(' ').every((token) => haystack.includes(token));
+  }
+
   function toggleFavoriteState(articleState, now) {
     return articleState.favorite
       ? { reviewedAt: articleState.reviewedAt || now, favorite: false }
@@ -245,6 +262,8 @@
     smoothChartPath,
     buildWeeklyReviewMarkdown,
     matchesTag,
+    matchesQuery,
+    normalizeSearch,
     toggleFavoriteState,
     toggleReviewedState,
     emptyMessageFor,
@@ -273,11 +292,14 @@
   function initLibrary() {
     const viewFilters = document.getElementById('view-filters');
     const filters = document.getElementById('tag-filters');
+    const search = document.getElementById('article-search');
     const grid = document.getElementById('article-grid');
     const cards = [...document.querySelectorAll('.article-card')];
     const count = document.getElementById('result-count');
+    const feedback = document.getElementById('reader-feedback');
     const empty = document.getElementById('empty-state');
     const emptyTitle = document.getElementById('empty-title');
+    const resetFilters = document.getElementById('reset-filters');
     const weeklyExport = document.getElementById('export-weekly');
     const weeklyBreakdown = document.getElementById('weekly-breakdown');
     const weeklyRange = document.getElementById('weekly-range');
@@ -297,8 +319,50 @@
       storage = null;
     }
     let readerState = loadReaderState(storage);
+    const urlState = new URL(window.location.href);
+    const requestedView = urlState.searchParams.get('view');
+    const requestedTag = urlState.searchParams.get('topic');
+    const requestedQuery = urlState.searchParams.get('q') || '';
+    const requestedAnchor = urlState.searchParams.get('anchor');
+    const requestedViewButton = requestedView && [...viewFilters.querySelectorAll('[data-view]')].find((item) => item.dataset.view === requestedView);
+    const requestedTagButton = requestedTag && [...filters.querySelectorAll('[data-tag]')].find((item) => item.dataset.tag === requestedTag);
+    if (requestedViewButton) {
+      viewFilters.querySelectorAll('[data-view]').forEach((item) => {
+        item.classList.toggle('is-active', item === requestedViewButton);
+        item.setAttribute('aria-pressed', item === requestedViewButton ? 'true' : 'false');
+      });
+    }
+    if (requestedTagButton) {
+      filters.querySelectorAll('[data-tag]').forEach((item) => {
+        item.classList.toggle('is-active', item === requestedTagButton);
+        item.setAttribute('aria-pressed', item === requestedTagButton ? 'true' : 'false');
+      });
+    }
+    if (search) search.value = requestedQuery;
     let activeView = viewFilters.querySelector('[data-view][aria-pressed="true"]')?.dataset.view || 'pending';
     let activeTag = filters.querySelector('[data-tag][aria-pressed="true"]')?.dataset.tag || '全部';
+    let activeQuery = search?.value || '';
+    let feedbackTimer = null;
+
+    function announce(message) {
+      if (!feedback) return;
+      window.clearTimeout(feedbackTimer);
+      feedback.textContent = '';
+      window.setTimeout(() => { feedback.textContent = message; }, 0);
+      feedbackTimer = window.setTimeout(() => { feedback.textContent = ''; }, 1800);
+    }
+
+    function syncUrlState(anchorId = '') {
+      const next = new URL(window.location.href);
+      next.searchParams.set('view', activeView);
+      if (activeTag === '全部') next.searchParams.delete('topic');
+      else next.searchParams.set('topic', activeTag);
+      if (normalizeSearch(activeQuery)) next.searchParams.set('q', activeQuery.trim());
+      else next.searchParams.delete('q');
+      if (anchorId) next.searchParams.set('anchor', anchorId);
+      else next.searchParams.delete('anchor');
+      window.history.replaceState(null, '', next);
+    }
 
     function cardState(card) {
       return stateFor(readerState, card.dataset.articleId);
@@ -407,7 +471,8 @@
       let visible = 0;
       for (const card of cards) {
         const tagMatch = matchesTag(card.dataset.tags, activeTag);
-        const show = tagMatch && matchesView(cardState(card), activeView);
+        const queryMatch = matchesQuery(cardData(card), activeQuery);
+        const show = tagMatch && queryMatch && matchesView(cardState(card), activeView);
         card.hidden = !show;
         if (show) visible += 1;
       }
@@ -431,6 +496,7 @@
         item.setAttribute('aria-pressed', item === button ? 'true' : 'false');
       });
       applyFilters();
+      syncUrlState();
     });
 
     weeklyExport?.addEventListener('click', () => {
@@ -462,9 +528,56 @@
         item.setAttribute('aria-pressed', item === button ? 'true' : 'false');
       });
       applyFilters();
+      syncUrlState();
+    });
+
+    search?.addEventListener('input', () => {
+      activeQuery = search.value;
+      applyFilters();
+      syncUrlState();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      const editable = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target?.isContentEditable;
+      if (event.key === '/' && !editable) {
+        event.preventDefault();
+        search?.focus();
+      }
+      if (event.key === 'Escape' && document.activeElement === search && search?.value) {
+        search.value = '';
+        activeQuery = '';
+        applyFilters();
+        syncUrlState();
+      }
+    });
+
+    resetFilters?.addEventListener('click', () => {
+      activeView = 'pending';
+      activeTag = '全部';
+      activeQuery = '';
+      if (search) search.value = '';
+      viewFilters.querySelectorAll('[data-view]').forEach((item) => {
+        const selected = item.dataset.view === activeView;
+        item.classList.toggle('is-active', selected);
+        item.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+      filters.querySelectorAll('[data-tag]').forEach((item) => {
+        const selected = item.dataset.tag === activeTag;
+        item.classList.toggle('is-active', selected);
+        item.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+      renderLibrary();
+      syncUrlState();
+      search?.focus();
     });
 
     grid.addEventListener('click', async (event) => {
+      const articleLink = event.target.closest('a[href^="articles/"]');
+      if (articleLink) {
+        const linkedCard = articleLink.closest('.article-card');
+        if (linkedCard) syncUrlState(linkedCard.dataset.articleId);
+        return;
+      }
       const action = event.target.closest('[data-action]');
       if (!action) return;
       const card = action.closest('.article-card');
@@ -478,12 +591,14 @@
         readerState[articleId] = toggleFavoriteState(current, now);
         saveReaderState(storage, readerState);
         renderLibrary();
+        announce(readerState[articleId].favorite ? '已收藏文章' : '已取消收藏');
         return;
       }
       if (action.dataset.action === 'review') {
         readerState[articleId] = toggleReviewedState(current, new Date().toISOString());
         saveReaderState(storage, readerState);
         renderLibrary();
+        announce(readerState[articleId].reviewedAt ? '已完成整理' : '已恢复到待整理');
         return;
       }
       if (action.dataset.action === 'copy-card') {
@@ -491,6 +606,7 @@
         const markdown = buildInfoCardMarkdown(cardData(card));
         const copied = await copyText(markdown);
         action.textContent = copied ? '已复制' : '复制失败';
+        announce(copied ? '资料卡已复制' : '资料卡复制失败');
         window.setTimeout(() => {
           if (action.isConnected) action.textContent = originalLabel;
         }, 1400);
@@ -498,12 +614,28 @@
     });
 
     renderLibrary();
+    if (requestedAnchor) {
+      window.requestAnimationFrame(() => {
+        const anchorCard = cards.find((card) => card.dataset.articleId === requestedAnchor && !card.hidden);
+        anchorCard?.scrollIntoView({ block: 'center' });
+        anchorCard?.querySelector('.article-title-link')?.focus({ preventScroll: true });
+      });
+    }
   }
 
   function initArticle() {
     const content = document.getElementById('article-content');
     const toc = document.getElementById('article-toc');
     if (!content || !toc) return;
+    const backLink = document.querySelector('[data-return-library]');
+    backLink?.addEventListener('click', (event) => {
+      if (!document.referrer) return;
+      const referrer = new URL(document.referrer);
+      const fromLibrary = referrer.origin === window.location.origin && !referrer.pathname.includes('/articles/');
+      if (!fromLibrary) return;
+      event.preventDefault();
+      window.history.back();
+    });
     const headings = [...content.querySelectorAll('h2[id], h3[id]')];
     if (!headings.length) {
       toc.innerHTML = '<span>本文没有分节标题</span>';
