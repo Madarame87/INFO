@@ -108,6 +108,14 @@ def quarantined_article_from_page(path, generator):
     }
 
 
+def refresh_asset_version(path, version):
+    """Keep retained article bodies while moving every page to the current assets."""
+    text = path.read_text(encoding="utf-8")
+    text = re.sub(r"(assets/style\.css\?v=)[0-9a-f]{12}", rf"\g<1>{version}", text)
+    text = re.sub(r"(assets/app\.js\?v=)[0-9a-f]{12}", rf"\g<1>{version}", text)
+    path.write_text(text, encoding="utf-8", newline="\n")
+
+
 def main():
     generator = load_generator()
     parser = SnapshotIndexParser()
@@ -135,6 +143,8 @@ def main():
                 PUBLIC / "articles" / f"{article['slug']}.html",
                 generator.render_article_page(article, version),
             )
+    for path in sorted((PUBLIC / "articles").glob("article-*.html")):
+        refresh_asset_version(path, version)
     print(f"refreshed {len(articles)} public records; quarantined {sum(bool(a['content_status']) for a in articles)}")
 
 
