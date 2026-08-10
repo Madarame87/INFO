@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 import os
 import struct
@@ -106,7 +107,9 @@ class InfoCollectorHostTest(unittest.TestCase):
             path_parts = env["PATH"].split(os.pathsep)
             self.assertIn(str(node_bin), path_parts)
             self.assertLess(path_parts.index(str(node_bin)), len(path_parts))
-            self.assertEqual(env["HOME"], str(home))
+            # Windows CI may expose the same temp directory through its long
+            # path in one place and an 8.3 alias (RUNNER~1) in another.
+            self.assertTrue(Path(env["HOME"]).samefile(home))
             self.assertEqual(env["PYTHONUTF8"], "1")
             self.assertEqual(env["PYTHONIOENCODING"], "utf-8")
 
@@ -150,13 +153,20 @@ class InfoCollectorHostTest(unittest.TestCase):
                 self.assertEqual(outbox["articles"][0]["title"], "A")
 
                 marker = home / "triggered.txt"
+                trusted_bin = home / ".info-collector" / "bin"
+                trusted_bin.mkdir(parents=True)
+                flow_script = trusted_bin / "test-flow.py"
+                flow_script.write_text(
+                    f"from pathlib import Path\nPath({str(marker)!r}).write_text('ok', encoding='utf-8')\n",
+                    encoding="utf-8",
+                )
                 flows = {
                     "translate": {
                         "command": [
                             sys.executable,
-                            "-c",
-                            f"from pathlib import Path; Path({str(marker)!r}).write_text('ok', encoding='utf-8')",
+                            str(flow_script),
                         ],
+                        "scriptSha256": hashlib.sha256(flow_script.read_bytes()).hexdigest(),
                         "lockFile": str(home / ".info-collector" / "state" / "translate.lock"),
                         "intervalSeconds": None,
                     },
@@ -172,6 +182,93 @@ class InfoCollectorHostTest(unittest.TestCase):
                 self.assertEqual(marker.read_text(encoding="utf-8"), "ok")
                 for proc in host._TRIGGERED_PROCESSES:
                     proc.wait(timeout=5)
+            finally:
+                if old_home is None:
+                    os.environ.pop("INFO_COLLECTOR_HOME", None)
+                else:
+                    os.environ["INFO_COLLECTOR_HOME"] = old_home
+
+    def test_user_capture_is_bounded_and_enriches_matching_outbox_item(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            old_home = os.environ.get("INFO_COLLECTOR_HOME")
+            os.environ["INFO_COLLECTOR_HOME"] = str(home)
+            try:
+                host = import_host()
+                article_key = "https://example.test/private-article"
+                result = host.handle_capture({
+                    "articleKey": article_key,
+                    "url": article_key,
+                    "capturedAt": "2026-08-10T12:00:00Z",
+                    "capture": {
+                        "title": "Visible article",
+                        "content": "Visible paragraph with verified article content. " * 12,
+                    },
+                })
+                self.assertTrue(result["ok"])
+                capture_path = Path(result["captureFile"])
+                self.assertTrue(capture_path.is_file())
+                stored = json.loads(capture_path.read_text(encoding="utf-8"))
+                self.assertEqual(stored["extractor"], "browser-rendered-user-initiated")
+                self.assertNotIn("cookies", stored)
+
+                host.handle_sync({
+                    "generatedAt": "2026-08-10T12:01:00Z",
+                    "outbox": {"translate": [{
+                        "articleKey": article_key,
+                        "url": article_key,
+                        "title": "Visible article",
+                    }]},
+                    "acks": [],
+                })
+                outbox = json.loads((home / ".info-collector" / "outbox" / "translate.json").read_text(encoding="utf-8"))
+                self.assertEqual(outbox["articles"][0]["captureFile"], str(capture_path))
+
+                rejected = host.handle_capture({
+                    "articleKey": article_key,
+                    "url": article_key,
+                    "capture": {"content": "too short"},
+                })
+                self.assertFalse(rejected["ok"])
+                invalid_urls = [
+                    "https://",
+                    "https://user:pass@example.test/article",
+                    "javascript:alert(1)",
+                ]
+                for invalid_url in invalid_urls:
+                    with self.subTest(url=invalid_url):
+                        invalid = host.handle_capture({
+                            "articleKey": article_key,
+                            "url": invalid_url,
+                            "capture": {"content": "Visible content. " * 20},
+                        })
+                        self.assertFalse(invalid["ok"])
+            finally:
+                if old_home is None:
+                    os.environ.pop("INFO_COLLECTOR_HOME", None)
+                else:
+                    os.environ["INFO_COLLECTOR_HOME"] = old_home
+
+    def test_trigger_rejects_untrusted_or_modified_script(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            old_home = os.environ.get("INFO_COLLECTOR_HOME")
+            os.environ["INFO_COLLECTOR_HOME"] = str(home)
+            try:
+                host = import_host()
+                outside = home / "outside.py"
+                outside.write_text("print('no')", encoding="utf-8")
+                (home / ".info-collector").mkdir(parents=True, exist_ok=True)
+                (home / ".info-collector" / "flows.json").write_text(json.dumps({
+                    "translate": {
+                        "command": [sys.executable, str(outside)],
+                        "scriptSha256": hashlib.sha256(outside.read_bytes()).hexdigest(),
+                        "lockFile": str(home / ".info-collector" / "state" / "translate.lock"),
+                    },
+                }), encoding="utf-8")
+                denied = host.handle_trigger({"processingType": "translate"})
+                self.assertFalse(denied["ok"])
+                self.assertIn("受信任", denied["error"])
             finally:
                 if old_home is None:
                     os.environ.pop("INFO_COLLECTOR_HOME", None)

@@ -76,6 +76,43 @@ test('failed 递增 attempts 且记录错误；不降级 done', () => {
   assert.equal(record.jobs.translate.status, 'done');
 });
 
+test('授权失败是不可自动重试的可恢复终态', () => {
+  const rec = applyResult(fresh(), {
+    articleKey: KEY,
+    url: KEY,
+    type: 'translate',
+    status: 'failed',
+    now: NOW,
+    meta: {
+      error: 'HTTP 401',
+      code: 'source_auth_required',
+      stage: 'extract',
+      retryable: false,
+      operatorAction: 'open_and_capture',
+    },
+  }).record;
+  assert.equal(rec.jobs.translate.meta.code, 'source_auth_required');
+  assert.equal(rec.jobs.translate.meta.retryable, false);
+  assert.equal(rec.jobs.translate.meta.nextAttemptAt, undefined);
+  assert.deepEqual(outboxEntries(new Map([[KEY, rec]]), 'translate', LATER), []);
+});
+
+test('可重试失败遵守退避时间和三次预算，手动重排会重置预算', () => {
+  let rec = applyResult(fresh(), {
+    articleKey: KEY, url: KEY, type: 'translate', status: 'failed', now: NOW,
+    meta: { error: '429', retryable: true, retryAfterSeconds: 300 },
+  }).record;
+  assert.deepEqual(outboxEntries(new Map([[KEY, rec]]), 'translate', '2026-07-05T10:04:59Z'), []);
+  assert.equal(outboxEntries(new Map([[KEY, rec]]), 'translate', '2026-07-05T10:05:00Z').length, 1);
+  rec = applyResult(rec, { articleKey: KEY, url: KEY, type: 'translate', status: 'failed', now: LATER, meta: { retryable: true } }).record;
+  rec = applyResult(rec, { articleKey: KEY, url: KEY, type: 'translate', status: 'failed', now: LATER, meta: { retryable: true } }).record;
+  assert.equal(rec.jobs.translate.meta.retryExhausted, true);
+  assert.deepEqual(outboxEntries(new Map([[KEY, rec]]), 'translate', '2026-07-06T00:00:00Z'), []);
+  rec = setJobStatus(rec, 'translate', 'pending', '2026-07-06T01:00:00Z');
+  assert.equal(rec.jobs.translate.attempts, 0);
+  assert.equal(outboxEntries(new Map([[KEY, rec]]), 'translate').length, 1);
+});
+
 test('翻译完成报告保留并规范化 summary/tags', () => {
   const rec = applyResult(fresh(), {
     articleKey: KEY,

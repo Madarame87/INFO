@@ -93,6 +93,22 @@ test('主视图与关键词筛选取交集', () => {
   assert.equal(api.emptyMessageFor('favorites', '世界模型'), '没有符合条件的文章');
 });
 
+test('搜索覆盖标题、摘要、作者、主题与来源，并支持多词交集', () => {
+  const api = loadApi();
+  const article = {
+    title: '世界模型的机器人应用',
+    summary: '一份关于具身智能评估的技术综述',
+    authors: 'Research Team',
+    tags: '世界模型|机器人|模型评估',
+    source: 'https://example.test/research/world-model',
+  };
+  assert.equal(api.matchesQuery(article, ''), true);
+  assert.equal(api.matchesQuery(article, '机器人 评估'), true);
+  assert.equal(api.matchesQuery(article, 'RESEARCH TEAM'), true);
+  assert.equal(api.matchesQuery(article, 'example.test'), true);
+  assert.equal(api.matchesQuery(article, '融资'), false);
+});
+
 test('每周阅读统计不可筛选文章，并可导出带状态的七天回顾', () => {
   const api = loadApi();
   const now = new Date(2026, 6, 12, 12, 0, 0);

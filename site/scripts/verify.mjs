@@ -13,7 +13,7 @@ const app = await readFile(path.join(root, "public", "assets", "app.js"), "utf8"
 
 await access(workerPath);
 await access(socialImagePath);
-for (const phrase of ["文章情报库", "将公开技术文章转化为中文摘要、主题线索与可追溯的人工研判。", "按关键词浏览", "待整理", "我的收藏", "全部收录", "每周阅读", "导出本周 Markdown", "复制资料卡", "Info Collector", "@130U", "@aswrise"]) {
+for (const phrase of ["阅读收件箱", "先判断价值，再进入全文", "快速定位", "恢复队列", "主题筛选", "待整理", "我的收藏", "可信译文", "阅读进度", "导出 Markdown", "复制资料卡", "Info Collector", "@130U", "@aswrise"]) {
   if (!index.includes(phrase)) throw new Error(`Missing index phrase: ${phrase}`);
 }
 if ((index.match(/href="https:\/\/github\.com\/130U"/g) || []).length !== 2 || (index.match(/href="https:\/\/github\.com\/aswrise"/g) || []).length !== 2) {
@@ -26,10 +26,10 @@ for (const socialPhrase of [
 ]) {
   if (!index.includes(socialPhrase)) throw new Error(`Missing social-preview metadata: ${socialPhrase}`);
 }
-if (index.includes("搜索标题、摘要或关键词") || index.includes('id="article-search"') || index.includes('class="search-box"') || index.includes("data-search=")) {
-  throw new Error("Removed search UI or search data remains in the reading index");
+if (!index.includes("搜索标题、摘要、作者或主题") || !index.includes('id="article-search"') || !index.includes('class="command-bar"')) {
+  throw new Error("Reading-terminal search control is missing");
 }
-if (index.includes("从关键词进入主题，从摘要判断价值")) throw new Error("Removed hero subtitle remains");
+if (index.includes("data-search=")) throw new Error("Redundant search data remains in the reading index");
 if (!index.includes('id="result-count" aria-live="polite" aria-atomic="true"')) throw new Error("Filter result count is not an accessible live region");
 if (index.includes('data-view="weekly"')) throw new Error("Weekly activity must not behave as a fourth article filter");
 if (!index.includes('id="export-weekly"') || !index.includes('id="weekly-chart-line"') || !index.includes('id="weekly-chart-area"') || !index.includes('id="weekly-chart-marker"') || !index.includes('id="weekly-chart-value"') || !index.includes('id="weekly-periods"')) throw new Error("Premium weekly activity chart/export controls are missing");
@@ -42,7 +42,7 @@ if (index.includes("阅读中文全文")) throw new Error("Index still includes 
 if (index.includes("WINDOWS 11 · LOCAL-FIRST") || index.includes("INFO COLLECTOR / READING DESK")) {
   throw new Error("Index still includes the retired system labels");
 }
-if (!index.includes('<article class="article-card reveal"') || index.includes('<a class="article-card')) {
+if (!index.includes('<article class="article-card terminal-row') || index.includes('<a class="article-card')) {
   throw new Error("Article cards must be semantic containers, not full-card links");
 }
 if (!index.includes('class="article-title-link" href="articles/')) throw new Error("Article title links are missing");
@@ -50,34 +50,31 @@ if (!index.includes('data-article-id="')) throw new Error("Stable article IDs ar
 if ((index.match(/data-action="favorite"/g) || []).length < 5 || (index.match(/data-action="review"/g) || []).length < 5 || (index.match(/data-action="copy-card"/g) || []).length < 5) {
   throw new Error("Second-pass card actions are incomplete");
 }
-if (!index.includes('target="_blank" rel="noopener noreferrer">原文 ↗</a>')) throw new Error("Direct source links are missing");
+if (!index.includes('class="card-source-link"') || !index.includes('<span>原文 ↗</span>')) throw new Error("Direct source links are missing");
 if (index.includes(">DATE<")) throw new Error("Generic DATE label remains");
 if (!index.includes("发布于 2026-07-02")) throw new Error("Geoffrey Litt URL date fallback is missing");
 if (!index.includes("发布时间未知")) throw new Error("Unknown publication dates are not explicit");
-const articleGridRule = style.match(/\.article-grid\s*\{([^}]*)\}/)?.[1] || "";
-if (!articleGridRule.includes("grid-template-columns: 1fr") || articleGridRule.includes("repeat(2")) {
-  throw new Error("Reading index does not use a one-column article grid");
-}
-for (const cssPhrase of ["--aquatic-soft", "system-ui", ".hero-lede", ".article-title-link", ".card-action", ".view-filter", "prefers-reduced-motion", "prefers-reduced-transparency"]) {
+if (!style.includes(".terminal-layout { display: grid;") || !style.includes("grid-template-columns: 248px minmax(0, 1fr)")) throw new Error("Reading-terminal workbench layout is missing");
+for (const cssPhrase of ["--aquatic-soft", "system-ui", ".workspace-intro", ".search-control", ".terminal-sidebar", ".reader-feedback", ".article-title-link", ".card-action", ".view-filter", "prefers-reduced-motion", "prefers-reduced-transparency"]) {
   if (!style.includes(cssPhrase)) throw new Error(`Missing reading-site CSS contract: ${cssPhrase}`);
 }
 if (!/\[hidden\]\s*\{[^}]*display:\s*none\s*!important;?[^}]*\}/.test(style)) {
   throw new Error("Hidden article cards are not guaranteed to leave the layout");
 }
-if (style.includes(".search-box") || style.includes(".brand-mark")) throw new Error("Removed framed UI CSS remains");
+if (style.includes(".brand-mark")) throw new Error("Removed boxed brand CSS remains");
 const cssRule = (selector) => {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return style.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] || "";
 };
 for (const [selector, required] of [
-  [".library-hero", ["border: 0", "background: transparent"]],
+  [".workspace-intro", ["display: grid", "border-bottom: 1px solid var(--line)"]],
   [".site-credits", ["border: 0", "background: transparent"]],
-  [".tag-filter", ["border: 0", "background: transparent"]],
+  [".terminal-workspace", ["min-width: 0", "border-left: 1px solid var(--line)"]],
 ]) {
   const rule = cssRule(selector);
   if (!rule || required.some((phrase) => !rule.includes(phrase))) throw new Error(`Missing frameless CSS contract for ${selector}`);
 }
-if (app.includes("article-search") || !app.includes("info-collector:reader-state:v1") || !app.includes("buildInfoCardMarkdown") || !app.includes("weeklyActivitySeries") || !app.includes("smoothChartPath") || !app.includes("buildWeeklyReviewMarkdown")) {
+if (!app.includes("article-search") || !app.includes("matchesQuery") || !app.includes("syncUrlState") || !app.includes("info-collector:reader-state:v1") || !app.includes("buildInfoCardMarkdown") || !app.includes("weeklyActivitySeries") || !app.includes("smoothChartPath") || !app.includes("buildWeeklyReviewMarkdown")) {
   throw new Error("Second-pass reader script contract is incomplete");
 }
 
@@ -106,10 +103,13 @@ const infoCard = readerApi.buildInfoCardMarkdown({ title: "Test", tags: "智能�
 if (!infoCard.includes("原文：未知") || !infoCard.includes("收录时间：未知") || infoCard.includes("undefined") || infoCard.includes("null")) {
   throw new Error("Portable Markdown info card fallback is invalid");
 }
-const articleLinks = [...index.matchAll(/href="articles\/(article-[^"]+\.html)"/g)].map((match) => match[1]);
+const articleLinks = [...index.matchAll(/\shref="articles\/(article-[^"]+\.html)"/g)].map((match) => match[1]);
 const uniqueLinks = [...new Set(articleLinks)];
 if (uniqueLinks.length < 5) throw new Error(`Expected at least 5 articles, found ${uniqueLinks.length}`);
-if (articleLinks.length !== uniqueLinks.length) throw new Error("Index contains duplicate article links");
+if (!index.includes('data-content-status="source_blocked"') || !index.includes('data-content-status="quality_rejected"') || !index.includes('data-content-status="privacy_review_required"')) {
+  throw new Error("Typed source, contamination and privacy-review states are not present in the recovery queue");
+}
+if ((index.match(/class="recovery-card"/g) || []).length !== 3) throw new Error("Expected exactly three quarantined recovery records");
 for (const article of uniqueLinks) {
   const html = await readFile(path.join(articleDir, article), "utf8");
   const order = ["EXECUTIVE SUMMARY", "CHINESE TRANSLATION", "ORIGINAL SOURCE"].map((text) => html.indexOf(text));
@@ -121,6 +121,9 @@ for (const article of uniqueLinks) {
 const publicText = [index, style, app, ...await Promise.all(uniqueLinks.map((article) => readFile(path.join(articleDir, article), "utf8")))].join("\n");
 if (/sk-[A-Za-z0-9_-]{16,}/.test(publicText) || /[A-Za-z]:\\Users\\/i.test(publicText) || publicText.includes("chrome-extension://")) {
   throw new Error("Public snapshot contains a secret or local browser/path data");
+}
+if (publicText.includes('"hidden_profile"') || publicText.includes('&quot;hidden_profile&quot;') || publicText.includes('"user_id"') || publicText.includes('&quot;user_id&quot;')) {
+  throw new Error("Public snapshot contains structured profile data that should be quarantined");
 }
 if (/Madarame87|(?:href|src)="\/(?:INFO|info)\//.test(publicText)) {
   throw new Error("Public snapshot contains a stale account reference or repository-coupled base path");

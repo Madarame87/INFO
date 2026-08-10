@@ -7,7 +7,7 @@
 - DeepSeek：<https://platform.deepseek.com/api_keys>
 - Anthropic：<https://console.anthropic.com/settings/keys>
 
-API Key 只写入 `%USERPROFILE%\.info-collector\config.json`，不要把它放进仓库。
+安装器用当前 Windows 用户的 DPAPI 加密 API Key；`config.json` 只保留 `credentialRef`。不要把 Key 放进仓库、日志或命令历史。
 
 ## 2. 运行安装器
 
@@ -21,7 +21,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 
 1. 探测 Python 3.9+；
 2. 创建 `%USERPROFILE%\.info-collector\`；
-3. 写入本机配置并复制 Host/Flow；
+3. 用 DPAPI 保存凭据，写入无密钥配置并复制 Host/Flow；
 4. 生成 `.bat` Native Host 包装器；
 5. 安装文章翻译、技术周报和静态阅读站生成流程；
 6. 在当前用户注册表注册 Chrome Native Messaging Host。
@@ -68,9 +68,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
 3. 打开 Info Collector Dashboard。
 4. 点击“立即导入书签”，确认任务为“待处理”。
 5. 点击“立即桥接同步”，确认没有 Host 错误。
-6. 点击该任务的“▶ 立即处理”。
+6. 若页面需要登录，先打开正文页并点击扩展“加入文章队列”，保存当前可见正文；再点击该任务的“▶ 立即处理”。
 7. 等待状态变为“处理中”；翻译结束后再次桥接，确认变为“已完成”。
-8. 打开 `%USERPROFILE%\Documents\InfoCollector`（或自定义目录），确认生成中文 Markdown。
+8. 打开 `%USERPROFILE%\Documents\InfoCollector`（或自定义目录），确认生成中文 Markdown；401 或登录页样板必须显示为可恢复失败，不能显示为完成。
 
 建议记录：文章 URL、网站、正文是否完整、最终状态、输出文件、失败原因。
 

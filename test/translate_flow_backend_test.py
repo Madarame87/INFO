@@ -89,6 +89,9 @@ class MockDeepSeekHandler(BaseHTTPRequestHandler):
 class TranslateFlowBackendTest(unittest.TestCase):
     def setUp(self):
         MockDeepSeekHandler.api_requests = []
+        self.old_insecure_api_base = os.environ.get("INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS")
+        self.old_custom_api_base = os.environ.get("INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE")
+        os.environ["INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS"] = "1"
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), MockDeepSeekHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -98,6 +101,37 @@ class TranslateFlowBackendTest(unittest.TestCase):
         self.server.shutdown()
         self.thread.join(timeout=5)
         self.server.server_close()
+        if self.old_insecure_api_base is None:
+            os.environ.pop("INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS", None)
+        else:
+            os.environ["INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS"] = self.old_insecure_api_base
+        if self.old_custom_api_base is None:
+            os.environ.pop("INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE", None)
+        else:
+            os.environ["INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE"] = self.old_custom_api_base
+
+    def test_api_base_url_requires_official_or_explicit_https_proxy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            official = {
+                "provider": "deepseek",
+                "apiKey": "sk-test000000000000000000000",
+                "baseUrl": "https://api.deepseek.com",
+            }
+            self.assertIsNone(flow.config_error(official))
+
+            os.environ.pop("INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS", None)
+            self.assertIn("必须使用 HTTPS", flow.api_base_url_error({**official, "baseUrl": self.base_url}))
+            self.assertIn("显式设置", flow.api_base_url_error({**official, "baseUrl": "https://proxy.example.test/v1"}))
+            os.environ["INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE"] = "1"
+            try:
+                self.assertIsNone(flow.api_base_url_error({**official, "baseUrl": "https://proxy.example.test/v1"}))
+            finally:
+                if self.old_custom_api_base is None:
+                    os.environ.pop("INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE", None)
+                else:
+                    os.environ["INFO_COLLECTOR_ALLOW_CUSTOM_API_BASE"] = self.old_custom_api_base
+                os.environ["INFO_COLLECTOR_ALLOW_INSECURE_API_BASE_FOR_TESTS"] = "1"
 
     def install_fake_defuddle(self, home):
         bin_dir = home / "bin"
@@ -131,7 +165,7 @@ print(json.dumps({{
             script = bin_dir / "defuddle"
             script.write_text(implementation.read_text(encoding="utf-8"), encoding="utf-8")
             script.chmod(script.stat().st_mode | stat.S_IXUSR)
-        return bin_dir, marker
+        return bin_dir, marker, script
 
     def test_startup_logging_survives_cp1252_stdout(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -197,31 +231,71 @@ print(json.dumps({{
                 "",
             )
 
-    def test_blocked_source_fallback_is_explicit_and_never_calls_model(self):
+    def test_blocked_source_is_typed_failure_and_never_calls_model(self):
         with tempfile.TemporaryDirectory() as tmp:
             flow = import_flow(Path(tmp))
 
-            def blocked(_url):
+            def blocked(_url, **_kwargs):
                 raise flow.SourceAccessBlockedError(_url, 401)
 
             flow.fetch_article_source = blocked
             flow.deepseek_request = lambda *_args, **_kwargs: self.fail("受限来源不应调用模型")
-            markdown = flow.translate_article_deepseek(
-                "https://www.reuters.com/technology/apptronik-launches-robot-2026-06-30/",
-                "Apptronik launches Apollo 2 humanoid robot",
-                {"model": "deepseek-v4-flash"},
+            with self.assertRaises(flow.SourceAccessBlockedError) as raised:
+                flow.translate_article(
+                    "https://www.reuters.com/technology/apptronik-launches-robot-2026-06-30/",
+                    "Apptronik launches Apollo 2 humanoid robot",
+                    {"provider": "deepseek", "model": "deepseek-v4-flash"},
+                )
+            self.assertEqual(raised.exception.report_meta(), {
+                "error": "原站要求授权（HTTP 401）；请在浏览器打开页面并重新保存以采集当前可见正文",
+                "code": "source_auth_required",
+                "stage": "extract",
+                "retryable": False,
+                "httpStatus": 401,
+                "operatorAction": "open_and_capture",
+            })
+
+    def test_quality_gate_rejects_login_boilerplate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            contaminated = (
+                "新用户？立即注册。使用 Google 注册。使用 Apple 注册。"
+                "登录后继续查看这一页面。" * 15
             )
-            document, enrichment = flow.prepare_enriched_markdown(
-                markdown,
-                "https://www.reuters.com/technology/apptronik-launches-robot-2026-06-30/",
-                "Apptronik launches Apollo 2 humanoid robot",
-                {"provider": "deepseek"},
-            )
-            self.assertIn('content_status: "source_blocked"', document)
-            self.assertIn("系统未伪造正文或译文", document)
-            self.assertIn("机器人", enrichment["tags"])
-            self.assertIn("具身智能", enrichment["tags"])
-            self.assertEqual(flow.frontmatter_scalar(document, "published_at"), "2026-06-30")
+            with self.assertRaisesRegex(flow.SourceContentRejectedError, "登录页"):
+                flow.validate_article_content(contaminated, "builtin")
+
+    def test_browser_capture_precedes_network_fetch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            flow = import_flow(home)
+            article_key = "https://example.test/protected"
+            capture_dir = home / ".info-collector" / "captures"
+            capture_dir.mkdir(parents=True)
+            capture_path = capture_dir / "capture.json"
+            capture_path.write_text(json.dumps({
+                "url": article_key,
+                "title": "Protected but visible",
+                "published": "2026-08-10",
+                "authors": "Ada",
+                "content": "Verified visible article paragraph with enough meaningful words for quality validation. " * 12,
+            }), encoding="utf-8")
+            flow.fetch_article_with_builtin = lambda _url: self.fail("capture should win")
+            article = flow.fetch_article_source(article_key, capture_file=str(capture_path))
+            self.assertEqual(article["extractor"], "browser-rendered")
+            self.assertEqual(article["authors"], "Ada")
+
+    def test_long_article_segments_are_bounded_and_lossless(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = import_flow(Path(tmp))
+            source = "\n\n".join(f"paragraph-{index} " + ("content " * 800) for index in range(30))
+            segments = flow.split_article_segments(source, limit=5000)
+            self.assertGreater(len(segments), 10)
+            self.assertTrue(all(len(segment) <= 5000 for segment in segments))
+            rebuilt = "\n\n".join(segments)
+            for index in range(30):
+                self.assertIn(f"paragraph-{index}", rebuilt)
+            self.assertGreaterEqual(len(rebuilt), len(source))
 
     def test_deterministic_metadata_overrides_model_values(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -399,10 +473,12 @@ print(json.dumps({{
     def test_deepseek_flow_runs_from_backend_spool_to_inbox(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
-            bin_dir, defuddle_marker = self.install_fake_defuddle(home)
+            bin_dir, defuddle_marker, defuddle_executable = self.install_fake_defuddle(home)
             old_path = os.environ.get("PATH", "")
             old_disable_defuddle = os.environ.pop("INFO_COLLECTOR_DISABLE_DEFUDDLE", None)
+            old_skip_fetch_safety = os.environ.get("INFO_COLLECTOR_SKIP_FETCH_SAFETY_FOR_TESTS")
             os.environ["PATH"] = f"{bin_dir}{os.pathsep}{old_path}"
+            os.environ["INFO_COLLECTOR_SKIP_FETCH_SAFETY_FOR_TESTS"] = "1"
             flow = import_flow(home)
             spool = home / ".info-collector"
             (spool / "outbox").mkdir(parents=True)
@@ -413,6 +489,7 @@ print(json.dumps({{
                 "apiKey": "sk-test000000000000000000000",
                 "baseUrl": self.base_url,
                 "model": "deepseek-v4-flash",
+                "extractorPath": str(defuddle_executable),
                 "outputDir": str(out_dir),
             }), encoding="utf-8")
             (spool / "outbox" / "translate.json").write_text(json.dumps({
@@ -432,6 +509,10 @@ print(json.dumps({{
                 os.environ["PATH"] = old_path
                 if old_disable_defuddle is not None:
                     os.environ["INFO_COLLECTOR_DISABLE_DEFUDDLE"] = old_disable_defuddle
+                if old_skip_fetch_safety is None:
+                    os.environ.pop("INFO_COLLECTOR_SKIP_FETCH_SAFETY_FOR_TESTS", None)
+                else:
+                    os.environ["INFO_COLLECTOR_SKIP_FETCH_SAFETY_FOR_TESTS"] = old_skip_fetch_safety
 
             self.assertEqual(len(MockDeepSeekHandler.api_requests), 1)
             self.assertTrue(defuddle_marker.exists())
