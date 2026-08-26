@@ -479,6 +479,7 @@ def render_markdown(body, document_title=""):
 
 def page_shell(title, description, content, asset_prefix="assets", body_class="", asset_version=""):
     asset_suffix = f"?v={escape_attr(asset_version)}" if asset_version else ""
+    root_prefix = "../" if asset_prefix.startswith("..") else ""
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -494,6 +495,7 @@ def page_shell(title, description, content, asset_prefix="assets", body_class=""
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="https://info-collector-reading-desk.jiligualapiqiu.chatgpt.site/og.png">
   <title>{html.escape(title)} · Info Collector</title>
+  <link rel="icon" type="image/svg+xml" href="{root_prefix}favicon.svg">
   <link rel="stylesheet" href="{asset_prefix}/style.css{asset_suffix}">
 </head>
 <body class="{escape_attr(body_class)}">
@@ -741,6 +743,7 @@ def build_site(output_dir, site_dir=None):
     asset_version = frontend_asset_version(source_assets)
     shutil.copy2(source_assets / "style.css", assets_target / "style.css")
     shutil.copy2(source_assets / "app.js", assets_target / "app.js")
+    shutil.copy2(source_assets.parent / "favicon.svg", site_dir / "favicon.svg")
     atomic_write_text(site_dir / "index.html", render_index(articles, asset_version=asset_version))
     expected = set()
     for article in articles:

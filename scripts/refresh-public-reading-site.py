@@ -157,6 +157,7 @@ def main():
     (PUBLIC / "assets").mkdir(parents=True, exist_ok=True)
     for name in ("style.css", "app.js"):
         shutil.copy2(assets / name, PUBLIC / "assets" / name)
+    shutil.copy2(assets.parent / "favicon.svg", PUBLIC / "favicon.svg")
     version = generator.frontend_asset_version(assets)
     generator.atomic_write_text(PUBLIC / "index.html", generator.render_index(articles, version))
     for article in articles:

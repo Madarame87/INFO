@@ -9,6 +9,7 @@ const index = await readFile(path.join(publicDir, "index.html"), "utf8");
 const articleDir = path.join(publicDir, "articles");
 const workerPath = path.join(root, "dist", "server", "index.js");
 const socialImagePath = path.join(publicDir, "og.png");
+const faviconPath = path.join(publicDir, "favicon.svg");
 const style = await readFile(path.join(publicDir, "assets", "style.css"), "utf8");
 const app = await readFile(path.join(publicDir, "assets", "app.js"), "utf8");
 const robots = await readFile(path.join(publicDir, "robots.txt"), "utf8");
@@ -83,6 +84,7 @@ for (const [relative, html] of htmlDocuments) {
 
 await access(workerPath);
 await access(socialImagePath);
+await access(faviconPath);
 for (const phrase of ["阅读收件箱", "先判断价值，再进入全文", "快速定位", "恢复队列", "主题筛选", "待整理", "我的收藏", "可信译文", "阅读进度", "导出 Markdown", "复制资料卡", "Info Collector", "@130U", "@aswrise"]) {
   if (!index.includes(phrase)) throw new Error(`Missing index phrase: ${phrase}`);
 }
@@ -229,10 +231,10 @@ if (sitemapLocations.length !== expectedLocations.length || expectedLocations.so
 }
 
 const worker = (await import(`${pathToFileURL(workerPath).href}?verify=${Date.now()}`)).default;
-for (const route of ["/", "/index.html", "/robots.txt", "/sitemap.xml", ...articleFiles.map((article) => `/articles/${article}`)]) {
+for (const route of ["/", "/index.html", "/favicon.svg", "/favicon.ico", "/robots.txt", "/sitemap.xml", ...articleFiles.map((article) => `/articles/${article}`)]) {
   const response = await worker.fetch(new Request(`https://example.test${route}`));
   if (response.status !== 200) throw new Error(`Production worker route failed (${response.status}): ${route}`);
-  const expectedType = route.endsWith(".xml") ? "application/xml" : route.endsWith(".txt") ? "text/plain" : "text/html";
+  const expectedType = route.endsWith(".xml") ? "application/xml" : route.endsWith(".txt") ? "text/plain" : route.endsWith(".svg") || route.endsWith(".ico") ? "image/svg+xml" : "text/html";
   if (!response.headers.get("content-type")?.startsWith(expectedType)) throw new Error(`Wrong content type for ${route}`);
   for (const header of ["content-security-policy", "permissions-policy", "referrer-policy", "x-content-type-options", "x-frame-options"]) {
     if (!response.headers.has(header)) throw new Error(`Missing security header ${header} for ${route}`);

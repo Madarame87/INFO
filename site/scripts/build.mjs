@@ -47,6 +47,9 @@ for (const file of files) {
     type: contentTypes[extension] || "application/octet-stream"
   };
 }
+if (assets["/favicon.svg"]) {
+  assets["/favicon.ico"] = { ...assets["/favicon.svg"], type: "image/svg+xml" };
+}
 
 const worker = `const assets = ${JSON.stringify(assets)};
 
