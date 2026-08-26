@@ -23,6 +23,8 @@ const contentTypes = {
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -58,7 +60,15 @@ function decodeBase64(value) {
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    let pathname = decodeURIComponent(url.pathname);
+    let pathname;
+    try {
+      pathname = decodeURIComponent(url.pathname);
+    } catch {
+      return new Response("Bad request", {
+        status: 400,
+        headers: { "content-type": "text/plain; charset=utf-8" }
+      });
+    }
     if (pathname === "/" || pathname === "") pathname = "/index.html";
     if (pathname.endsWith("/")) pathname += "index.html";
     const asset = assets[pathname];
@@ -71,6 +81,8 @@ export default {
     const headers = new Headers({
       "content-type": asset.type,
       "cache-control": pathname.endsWith(".html") ? "public, max-age=60" : "public, max-age=86400",
+      "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'",
+      "permissions-policy": "camera=(), microphone=(), geolocation=()",
       "referrer-policy": "strict-origin-when-cross-origin",
       "x-content-type-options": "nosniff",
       "x-frame-options": "SAMEORIGIN"

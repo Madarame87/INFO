@@ -272,7 +272,28 @@ def content_quality_status(summary, body, current_status=""):
         "log in to continue", "verify you are human", "enable javascript and cookies",
     )
     hits = sum(1 for phrase in phrases if phrase in text)
-    return "quality_rejected" if hits >= 2 else ""
+    if hits >= 2:
+        return "quality_rejected"
+    if not has_publishable_translation(body):
+        return "translation_missing"
+    return ""
+
+
+def has_publishable_translation(body):
+    """Reject records whose page or Markdown source has no rendered translation."""
+    raw = str(body or "")
+    if re.search(r"<html\b|\bid=[\"']article-content[\"']", raw, flags=re.IGNORECASE):
+        match = re.search(
+            r"<div\b[^>]*\bid=[\"']article-content[\"'][^>]*>(.*?)</div>",
+            raw,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        rendered = match.group(1) if match else ""
+    else:
+        rendered = render_markdown(raw)
+    rendered = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", " ", rendered, flags=re.IGNORECASE | re.DOTALL)
+    rendered = re.sub(r"<[^>]+>", " ", rendered)
+    return bool(re.sub(r"\s+", " ", html.unescape(rendered)).strip())
 
 
 def read_article(path):
@@ -553,22 +574,28 @@ def render_index(articles, asset_version=""):
             reason = "原站需要授权，匿名抓取已停止。请在有权访问且正文可见的页面上重新采集。"
         elif article["content_status"] == "privacy_review_required":
             reason = "正文包含结构化用户画像或类似敏感字段。请在本地完成脱敏与人工隐私审查后再发布。"
+        elif article["content_status"] == "translation_missing":
+            reason = "文章摘要已保留，但正文译文为空。请重新采集或翻译后再发布为可信译文。"
         else:
             reason = "抓取结果疑似登录页或页面样板，已隔离。请在正文可见的页面上重新采集。"
         source_link = (
-            f'\n          <a href="{escape_attr(article["source"])}" target="_blank" rel="noopener noreferrer">打开原文 ↗</a>'
+            f'<a href="{escape_attr(article["source"])}" target="_blank" rel="noopener noreferrer">打开原文 ↗</a>'
             if article["source"] else ""
+        )
+        recovery_links = (
+            f'<div class="recovery-actions"><a href="articles/{article["slug"]}.html">查看状态 →</a>{source_link}</div>'
         )
         status_label = {
             "source_blocked": "需要授权",
             "quality_rejected": "内容污染",
             "privacy_review_required": "隐私审查",
+            "translation_missing": "译文缺失",
         }.get(article["content_status"], "等待处理")
         recovery_cards.append(f"""
         <article class="recovery-card" data-article-id="{escape_attr(article['article_id'])}" data-title="{escape_attr(article['title'])}" data-summary="{escape_attr(article['summary'])}" data-tags="{escape_attr('|'.join(article['tags']))}" data-authors="{escape_attr(article['authors'])}" data-source="{escape_attr(article['source'])}" data-published-value="{escape_attr(article['published_at'])}" data-collected-value="{escape_attr(article['collected_at'])}" data-processed-value="{escape_attr(article['processed_at'] or article['legacy_date'])}" data-content-status="{escape_attr(article['content_status'])}" data-article-href="articles/{article['slug']}.html">
           <div class="recovery-status"><span>{html.escape(status_label)}</span><code>{html.escape(article['content_status'])}</code></div>
           <h3>{html.escape(article['title'])}</h3>
-          <p>{reason}</p>{source_link}
+          <p>{reason}</p>{recovery_links}
         </article>""")
     recovery_html = ""
     if recovery_cards:
@@ -621,21 +648,29 @@ def render_article_page(article, asset_version=""):
     if article["authors"]:
         meta_items.append(f"作者 {html.escape(article['authors'])}")
     meta_items = [item for item in meta_items if item]
-    body_html = render_markdown(article["body"], article["title"])
+    body_html = article.get("body_html")
+    if body_html is None:
+        body_html = render_markdown(article["body"], article["title"])
     source_warning = ""
     translation_heading = "中文译文"
+    section_label = "VALIDATED CONTENT"
+    hero_label = "TRANSLATED INTELLIGENCE"
     if article["content_status"]:
         if article["content_status"] == "source_blocked":
             warning = "原站拒绝匿名访问，因此系统没有读取正文，也没有生成未经核实的译文。请在有权访问且正文可见的原文页重新保存。"
         elif article["content_status"] == "privacy_review_required":
             warning = "正文包含结构化用户画像或类似敏感字段，公开副本已隔离。请在本地完成脱敏与人工隐私审查后再发布。"
+        elif article["content_status"] == "translation_missing":
+            warning = "文章摘要已保留，但正文译文为空。系统已阻止它继续伪装成完整译文；请重新采集或翻译后再发布。"
         else:
             warning = "抓取结果疑似登录页、验证页或页面样板，已从译文库隔离。请在正文可见的原文页重新保存。"
         body_html = (
-            '<div class="quarantined-copy"><h2>没有可发布的译文</h2>'
+            '<div class="quarantined-copy"><h2>译文尚未生成</h2>'
             f'<p>{html.escape(warning)}</p></div>'
         )
-        translation_heading = "隔离状态"
+        translation_heading = "恢复状态"
+        section_label = "RECOVERY STATUS"
+        hero_label = "RECOVERY RECORD"
         source_warning = f"""
       <aside class="source-warning reveal">
         <span>尚未完成</span>
@@ -651,9 +686,9 @@ def render_article_page(article, asset_version=""):
     content = f"""
   <main class="article-shell">
     <a class="back-link" href="../index.html" data-return-library>← 返回阅读收件箱</a>
-    <article data-article-id="{escape_attr(article['article_id'])}">
+    <article data-article-id="{escape_attr(article['article_id'])}" data-content-status="{escape_attr(article['content_status'])}">
       <header class="article-hero reveal">
-        <p class="eyebrow"><i></i> TRANSLATED INTELLIGENCE</p>
+        <p class="eyebrow"><i></i> {hero_label}</p>
         <div class="keyword-row">{tags}</div>
         <h1>{html.escape(article['title'])}</h1>
         <div class="article-meta">{'<span class="meta-dot"></span>'.join(meta_items)}</div>
@@ -667,7 +702,7 @@ def render_article_page(article, asset_version=""):
       <div class="reading-layout">
         <aside class="toc-card" aria-label="文章目录"><p>本页目录</p><nav id="article-toc"><span>正在整理章节…</span></nav></aside>
         <section class="translated-copy reveal">
-          <div class="section-kicker"><span>02</span><div><p>VALIDATED CONTENT</p><h2>{translation_heading}</h2></div></div>
+          <div class="section-kicker"><span>02</span><div><p>{section_label}</p><h2>{translation_heading}</h2></div></div>
           <div class="prose" id="article-content">{body_html}</div>
         </section>
       </div>

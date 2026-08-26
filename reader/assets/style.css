@@ -397,6 +397,7 @@ body { background: var(--paper); }
 .recovery-card h3 { display: -webkit-box; overflow: hidden; margin: 8px 0 6px; font: 650 12px/1.4 var(--sans); -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .recovery-card p { display: none; }
 .recovery-card a { display: inline-flex; min-height: 32px; align-items: center; margin-top: 3px; color: var(--accent-dark); font-size: 10px; font-weight: 700; }
+.recovery-actions { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 
 .weekly-activity { margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .weekly-activity-head { display: grid; gap: 12px; }

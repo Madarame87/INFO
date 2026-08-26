@@ -71,6 +71,16 @@ class ReadingSiteTest(unittest.TestCase):
             "---\n\n## 正文状态\n\n原站拒绝自动抓取。\n",
             encoding="utf-8",
         )
+        (output / "missing.md").write_text(
+            "---\n"
+            "title: 只有摘要、没有正文的文章\n"
+            "source: https://example.test/missing\n"
+            "processed_at: 2026-07-12T02:37:00-04:00\n"
+            'summary: "摘要已经生成，但正文译文缺失，不能作为可信译文发布。"\n'
+            'tags: ["机器人", "产品"]\n'
+            "---\n",
+            encoding="utf-8",
+        )
 
     def test_builds_index_and_article_pages_with_keywords_summary_and_source(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -78,7 +88,7 @@ class ReadingSiteTest(unittest.TestCase):
             output = Path(tmp) / "translated"
             self.write_articles(output)
             index_path, articles = reader.build_site(output)
-            self.assertEqual(len(articles), 3)
+            self.assertEqual(len(articles), 4)
             self.assertTrue(index_path.exists())
             index = index_path.read_text(encoding="utf-8")
             self.assertIn("技术情报终端", index)
@@ -202,8 +212,16 @@ class ReadingSiteTest(unittest.TestCase):
             blocked = next(item for item in articles if item["content_status"] == "source_blocked")
             blocked_page = (index_path.parent / "articles" / f"{blocked['slug']}.html").read_text(encoding="utf-8")
             self.assertIn('class="source-warning reveal"', blocked_page)
-            self.assertIn("没有可发布的译文", blocked_page)
+            self.assertIn("译文尚未生成", blocked_page)
             self.assertIn("本页不计入可信译文库", blocked_page)
+
+            missing = next(item for item in articles if item["content_status"] == "translation_missing")
+            missing_page = (index_path.parent / "articles" / f"{missing['slug']}.html").read_text(encoding="utf-8")
+            self.assertIn('data-content-status="translation_missing"', missing_page)
+            self.assertIn("RECOVERY STATUS", missing_page)
+            self.assertIn("系统已阻止它继续伪装成完整译文", missing_page)
+            self.assertIn('data-content-status="translation_missing"', index)
+            self.assertIn("查看状态", index)
 
     def test_falls_back_to_summary_and_keywords_without_model_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -219,6 +237,39 @@ class ReadingSiteTest(unittest.TestCase):
             reader = import_reader(Path(tmp))
             body = '{"user_id":"user_042","hidden_profile":{"budget":"$200k","location":"Example"}}'
             self.assertEqual(reader.content_quality_status("", body), "privacy_review_required")
+
+    def test_empty_markdown_and_empty_snapshot_page_require_translation_recovery(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            reader = import_reader(Path(tmp))
+            self.assertEqual(reader.content_quality_status("摘要存在", ""), "translation_missing")
+            empty_page = '<div class="prose" id="article-content"></div>'
+            self.assertEqual(reader.content_quality_status("摘要存在", empty_page), "translation_missing")
+            filled_page = '<div class="prose" id="article-content"><p>正文存在。</p></div>'
+            self.assertEqual(reader.content_quality_status("摘要存在", filled_page), "")
+
+    def test_snapshot_html_body_is_preserved_inside_the_current_article_shell(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            reader = import_reader(Path(tmp))
+            article = {
+                "title": "保留的译文",
+                "summary": "摘要",
+                "source": "https://example.test/source",
+                "article_id": "stable-snapshot",
+                "published_at": "2026-07-12",
+                "collected_at": "",
+                "processed_at": "2026-07-12",
+                "legacy_date": "",
+                "authors": "",
+                "tags": ["产品"],
+                "content_status": "",
+                "body": "",
+                "body_html": "<h2>保留章节</h2><p>保留正文。</p>",
+            }
+            page = reader.render_article_page(article, "123456789abc")
+            self.assertIn("<h2>保留章节</h2><p>保留正文。</p>", page)
+            self.assertNotIn("&lt;h2&gt;保留章节", page)
+            self.assertIn("data-return-library", page)
+            self.assertIn('data-content-status=""', page)
 
     def test_date_semantics_preserve_precision_and_never_impersonate_collection(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -282,10 +333,10 @@ class ReadingSiteTest(unittest.TestCase):
                 second = reader.main([])
             self.assertEqual(first, 0)
             self.assertEqual(second, 0)
-            self.assertEqual(len(list((site / "articles").glob("*.html"))), 3)
+            self.assertEqual(len(list((site / "articles").glob("*.html"))), 4)
             status = json.loads(reader.STATUS_FILE.read_text(encoding="utf-8"))
             self.assertEqual(status["lastRun"]["outcome"], "success")
-            self.assertEqual(status["lastRun"]["count"], 3)
+            self.assertEqual(status["lastRun"]["count"], 4)
             # Compare filesystem identity so Windows long paths and their 8.3
             # aliases do not create a false negative in CI.
             self.assertTrue(Path(status["siteIndex"]).samefile(site / "index.html"))

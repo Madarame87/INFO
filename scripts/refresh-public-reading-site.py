@@ -11,11 +11,13 @@ import importlib.util
 from pathlib import Path
 import re
 import shutil
+from xml.sax.saxutils import escape as xml_escape
 
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR_PATH = ROOT / "flows" / "generate-reading-site.py"
 PUBLIC = ROOT / "site" / "public"
+PUBLIC_SITE_URL = "https://info.theodoreoy.com"
 
 
 def load_generator():
@@ -54,6 +56,11 @@ def article_from_attrs(attrs, generator):
     summary = attrs.get("data-summary", "")
     existing_page = PUBLIC / "articles" / f"{slug}.html"
     existing_text = existing_page.read_text(encoding="utf-8") if existing_page.exists() else ""
+    body_match = re.search(
+        r'<div class="prose" id="article-content">([\s\S]*?)</div>\s*</section>',
+        existing_text,
+    )
+    body_html = body_match.group(1) if body_match else ""
     status = generator.content_quality_status(summary, existing_text, attrs.get("data-content-status", ""))
     if status == "quality_rejected":
         summary = "抓取结果疑似登录页或页面样板，已从译文库隔离；请在可见原文页重新采集。"
@@ -73,6 +80,7 @@ def article_from_attrs(attrs, generator):
         "summary": summary,
         "tags": tags or ["技术观察"],
         "body": "",
+        "body_html": body_html,
         "path": PUBLIC / "articles" / f"{slug}.html",
         "slug": slug,
     }
@@ -88,7 +96,10 @@ def quarantined_article_from_page(path, generator):
     tags = [html.unescape(value) for value in re.findall(r'<span class="keyword">(.*?)</span>', text)]
     title = html.unescape(title_match.group(1) if title_match else path.stem)
     title = re.sub(r" · Info Collector$", "", title)
-    status = "source_blocked" if "原站拒绝匿名访问" in text else "quality_rejected"
+    status_match = re.search(r'<article\b[^>]*data-content-status="([^"]+)"', text)
+    status = status_match.group(1) if status_match else ""
+    if status not in {"source_blocked", "quality_rejected", "privacy_review_required", "translation_missing"}:
+        status = "source_blocked" if "原站拒绝匿名访问" in text else "quality_rejected"
     return {
         "title": title,
         "source": generator.safe_http_url(html.unescape(source_match.group(1))) if source_match else "",
@@ -108,12 +119,23 @@ def quarantined_article_from_page(path, generator):
     }
 
 
-def refresh_asset_version(path, version):
-    """Keep retained article bodies while moving every page to the current assets."""
-    text = path.read_text(encoding="utf-8")
-    text = re.sub(r"(assets/style\.css\?v=)[0-9a-f]{12}", rf"\g<1>{version}", text)
-    text = re.sub(r"(assets/app\.js\?v=)[0-9a-f]{12}", rf"\g<1>{version}", text)
-    path.write_text(text, encoding="utf-8", newline="\n")
+def write_discovery_files(articles, generator):
+    routes = [""] + [f"articles/{article['slug']}.html" for article in articles]
+    sitemap = "\n".join(
+        f"  <url><loc>{xml_escape(f'{PUBLIC_SITE_URL}/{route}')}</loc></url>"
+        for route in routes
+    )
+    generator.atomic_write_text(
+        PUBLIC / "robots.txt",
+        f"User-agent: *\nAllow: /\n\nSitemap: {PUBLIC_SITE_URL}/sitemap.xml\n",
+    )
+    generator.atomic_write_text(
+        PUBLIC / "sitemap.xml",
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{sitemap}\n"
+        "</urlset>\n",
+    )
 
 
 def main():
@@ -138,13 +160,11 @@ def main():
     version = generator.frontend_asset_version(assets)
     generator.atomic_write_text(PUBLIC / "index.html", generator.render_index(articles, version))
     for article in articles:
-        if article["content_status"]:
-            generator.atomic_write_text(
-                PUBLIC / "articles" / f"{article['slug']}.html",
-                generator.render_article_page(article, version),
-            )
-    for path in sorted((PUBLIC / "articles").glob("article-*.html")):
-        refresh_asset_version(path, version)
+        generator.atomic_write_text(
+            PUBLIC / "articles" / f"{article['slug']}.html",
+            generator.render_article_page(article, version),
+        )
+    write_discovery_files(articles, generator)
     print(f"refreshed {len(articles)} public records; quarantined {sum(bool(a['content_status']) for a in articles)}")
 
 
