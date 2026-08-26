@@ -32,6 +32,12 @@ LOCK_FILE = SPOOL / "state" / "reading-site.lock"
 LOG_FILE = SPOOL / "state" / "reading-site.log"
 TRIGGER = "manual"
 
+# Records intentionally withheld from the public interview showcase. The source
+# library remains untouched, but these slugs must never be rendered publicly.
+PUBLIC_EXCLUDED_ARTICLE_SLUGS = {
+    "article-8a0810a163f4",
+}
+
 KEYWORD_RULES = [
     ("智能体", r"智能体|agent(?:ic|s)?|coding agent|代理"),
     ("模型评估", r"模型评估|评估|eval(?:uation)?|benchmark|测试"),
@@ -735,7 +741,10 @@ def frontend_asset_version(source_assets):
 def build_site(output_dir, site_dir=None):
     output_dir = Path(output_dir).expanduser().resolve()
     site_dir = Path(site_dir or output_dir / "阅读站").expanduser().resolve()
-    articles = collect_articles(output_dir)
+    articles = [
+        article for article in collect_articles(output_dir)
+        if article["slug"] not in PUBLIC_EXCLUDED_ARTICLE_SLUGS
+    ]
     (site_dir / "articles").mkdir(parents=True, exist_ok=True)
     assets_target = site_dir / "assets"
     assets_target.mkdir(parents=True, exist_ok=True)

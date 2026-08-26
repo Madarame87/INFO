@@ -274,6 +274,24 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertIn("data-return-library", page)
             self.assertIn('data-content-status=""', page)
 
+    def test_public_excluded_article_is_removed_even_if_a_stale_page_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            reader = import_reader(Path(tmp))
+            output = Path(tmp) / "translated"
+            output.mkdir()
+            site_dir = Path(tmp) / "site"
+            article_dir = site_dir / "articles"
+            article_dir.mkdir(parents=True)
+            retired_slug = "article-8a0810a163f4"
+            (article_dir / f"{retired_slug}.html").write_text("stale public page", encoding="utf-8")
+            reader.collect_articles = lambda _output: [{"slug": retired_slug}]
+
+            index_path, articles = reader.build_site(output, site_dir)
+
+            self.assertEqual(articles, [])
+            self.assertNotIn(retired_slug, index_path.read_text(encoding="utf-8"))
+            self.assertFalse((article_dir / f"{retired_slug}.html").exists())
+
     def test_date_semantics_preserve_precision_and_never_impersonate_collection(self):
         with tempfile.TemporaryDirectory() as tmp:
             reader = import_reader(Path(tmp))

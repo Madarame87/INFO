@@ -75,6 +75,10 @@ async function validateLocalReferences(html, relative) {
 }
 
 const articleFiles = (await readdir(articleDir)).filter((name) => /^article-[a-z0-9]+\.html$/i.test(name)).sort();
+const retiredArticle = "article-8a0810a163f4.html";
+if (articleFiles.includes(retiredArticle) || index.includes(retiredArticle) || sitemap.includes(retiredArticle)) {
+  throw new Error(`Retired interview article is still public: ${retiredArticle}`);
+}
 const htmlDocuments = new Map([["index.html", index]]);
 for (const article of articleFiles) htmlDocuments.set(`articles/${article}`, await readFile(path.join(articleDir, article), "utf8"));
 for (const [relative, html] of htmlDocuments) {

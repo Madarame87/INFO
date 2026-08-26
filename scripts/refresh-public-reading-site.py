@@ -140,12 +140,17 @@ def write_discovery_files(articles, generator):
 
 def main():
     generator = load_generator()
+    excluded_slugs = set(generator.PUBLIC_EXCLUDED_ARTICLE_SLUGS)
     parser = SnapshotIndexParser()
     parser.feed((PUBLIC / "index.html").read_text(encoding="utf-8"))
-    articles = [article_from_attrs(attrs, generator) for attrs in parser.articles]
+    articles = [
+        article
+        for attrs in parser.articles
+        if (article := article_from_attrs(attrs, generator))["slug"] not in excluded_slugs
+    ]
     known_slugs = {article["slug"] for article in articles}
     for path in sorted((PUBLIC / "articles").glob("article-*.html")):
-        if path.stem in known_slugs:
+        if path.stem in known_slugs or path.stem in excluded_slugs:
             continue
         quarantined = quarantined_article_from_page(path, generator)
         if quarantined:
@@ -160,11 +165,16 @@ def main():
     shutil.copy2(assets.parent / "favicon.svg", PUBLIC / "favicon.svg")
     version = generator.frontend_asset_version(assets)
     generator.atomic_write_text(PUBLIC / "index.html", generator.render_index(articles, version))
+    expected_pages = set()
     for article in articles:
+        expected_pages.add(f"{article['slug']}.html")
         generator.atomic_write_text(
             PUBLIC / "articles" / f"{article['slug']}.html",
             generator.render_article_page(article, version),
         )
+    for stale in (PUBLIC / "articles").glob("article-*.html"):
+        if stale.name not in expected_pages:
+            stale.unlink()
     write_discovery_files(articles, generator)
     print(f"refreshed {len(articles)} public records; quarantined {sum(bool(a['content_status']) for a in articles)}")
 
