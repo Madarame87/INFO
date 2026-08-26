@@ -1,5 +1,4 @@
 (() => {
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const STORAGE_KEY = 'info-collector:reader-state:v1';
 
   function normalizeReaderState(value) {
@@ -107,7 +106,7 @@
     end.setDate(end.getDate() + 6);
     const favorites = articles.filter((article) => article.favorite === true).length;
     const lines = [
-      `# 每周阅读回顾｜${formatLocalDate(start)} — ${formatLocalDate(end)}`,
+      `# 每周阅读回顾｜${formatLocalDate(start)} 至 ${formatLocalDate(end)}`,
       '',
       `共判断 ${articles.length} 篇｜收藏 ${favorites} 篇｜已整理 ${articles.length - favorites} 篇`,
       '',
@@ -273,22 +272,6 @@
     copyText,
   });
 
-  function revealContent() {
-    const elements = [...document.querySelectorAll('.reveal')];
-    if (reducedMotion || !('IntersectionObserver' in window)) {
-      elements.forEach((element) => element.classList.add('is-visible'));
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        entry.target.classList.add('is-visible');
-        observer.unobserve(entry.target);
-      }
-    }, { threshold: 0.08, rootMargin: '0px 0px -40px' });
-    elements.forEach((element) => observer.observe(element));
-  }
-
   function initLibrary() {
     const viewFilters = document.getElementById('view-filters');
     const filters = document.getElementById('tag-filters');
@@ -389,11 +372,11 @@
       const states = cards.map(cardState);
       const series = weeklyActivitySeries(states);
       const current = series[series.length - 1];
-      if (weeklyBreakdown) weeklyBreakdown.textContent = `收藏 ${current.favorites} · 已整理 ${current.count - current.favorites}`;
-      if (weeklyRange) weeklyRange.textContent = `${current.shortStart}—${current.shortEnd}`;
+      if (weeklyBreakdown) weeklyBreakdown.textContent = `收藏 ${current.favorites}，已整理 ${current.count - current.favorites}`;
+      if (weeklyRange) weeklyRange.textContent = `${current.shortStart} 至 ${current.shortEnd}`;
       if (weeklyExport) {
         weeklyExport.disabled = current.count === 0;
-        weeklyExport.textContent = `导出 ${current.shortStart}—${current.shortEnd} Markdown`;
+        weeklyExport.textContent = `导出 ${current.shortStart} 至 ${current.shortEnd}`;
       }
 
       const width = 760;
@@ -447,7 +430,11 @@
         favorite.textContent = articleState.favorite ? '已收藏' : '收藏';
         favorite.setAttribute('aria-pressed', articleState.favorite ? 'true' : 'false');
       }
-      if (review) review.textContent = (articleState.reviewedAt || articleState.favorite) ? '恢复待整理' : '完成整理';
+      if (review) {
+        const reviewed = Boolean(articleState.reviewedAt) || articleState.favorite;
+        review.textContent = reviewed ? '恢复待整理' : '完成整理';
+        review.setAttribute('aria-pressed', reviewed ? 'true' : 'false');
+      }
     }
 
     function updateViewCounts() {
@@ -515,7 +502,7 @@
       link.remove();
       URL.revokeObjectURL(link.href);
       const originalLabel = weeklyExport.textContent;
-      weeklyExport.textContent = '已导出 ✓';
+      weeklyExport.textContent = '导出完成';
       window.setTimeout(() => { weeklyExport.textContent = originalLabel; }, 1400);
     });
 
@@ -595,7 +582,9 @@
         return;
       }
       if (action.dataset.action === 'review') {
-        readerState[articleId] = toggleReviewedState(current, new Date().toISOString());
+        const next = toggleReviewedState(current, new Date().toISOString());
+        if (next.reviewedAt || next.favorite) readerState[articleId] = next;
+        else delete readerState[articleId];
         saveReaderState(storage, readerState);
         renderLibrary();
         announce(readerState[articleId].reviewedAt ? '已完成整理' : '已恢复到待整理');
@@ -663,32 +652,13 @@
     document.querySelectorAll('.copy-code').forEach((button) => {
       button.addEventListener('click', async () => {
         const code = button.parentElement?.querySelector('code')?.textContent || '';
-        try {
-          await navigator.clipboard.writeText(code);
-          button.textContent = '已复制';
-          setTimeout(() => { button.textContent = '复制'; }, 1200);
-        } catch (_error) {
-          button.textContent = '复制失败';
-        }
+        const copied = await copyText(code);
+        button.textContent = copied ? '已复制' : '复制失败';
+        window.setTimeout(() => { button.textContent = '复制'; }, 1200);
       });
     });
   }
 
-  function initReadingProgress() {
-    const bar = document.getElementById('reading-progress-bar');
-    if (!bar || !document.body.classList.contains('article-page')) return;
-    const update = () => {
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      const progress = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
-      bar.style.width = `${progress * 100}%`;
-    };
-    update();
-    window.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-  }
-
-  revealContent();
   initLibrary();
   initArticle();
-  initReadingProgress();
 })();

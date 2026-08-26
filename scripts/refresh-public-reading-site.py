@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
-"""Refresh the checked-in public snapshot without needing the private Markdown library.
-
-The snapshot index already contains the public metadata contract. This script reads that
-contract, reapplies current quality gates and templates, and quarantines rejected pages.
-"""
+"""Refresh the trusted public snapshot without needing the private Markdown library."""
 
 from html.parser import HTMLParser
-import html
 import importlib.util
 from pathlib import Path
 import re
@@ -86,39 +81,6 @@ def article_from_attrs(attrs, generator):
     }
 
 
-def quarantined_article_from_page(path, generator):
-    text = path.read_text(encoding="utf-8")
-    if "quarantined-copy" not in text:
-        return None
-    title_match = re.search(r'<meta property="og:title" content="([^"]*)"', text)
-    description_match = re.search(r'<meta name="description" content="([^"]*)"', text)
-    source_match = re.search(r'<section class="source-card.*?<a href="([^"]+)"', text, re.DOTALL)
-    tags = [html.unescape(value) for value in re.findall(r'<span class="keyword">(.*?)</span>', text)]
-    title = html.unescape(title_match.group(1) if title_match else path.stem)
-    title = re.sub(r" · Info Collector$", "", title)
-    status_match = re.search(r'<article\b[^>]*data-content-status="([^"]+)"', text)
-    status = status_match.group(1) if status_match else ""
-    if status not in {"source_blocked", "quality_rejected", "privacy_review_required", "translation_missing"}:
-        status = "source_blocked" if "原站拒绝匿名访问" in text else "quality_rejected"
-    return {
-        "title": title,
-        "source": generator.safe_http_url(html.unescape(source_match.group(1))) if source_match else "",
-        "article_key": path.stem,
-        "article_id": path.stem,
-        "published_at": "",
-        "collected_at": "",
-        "processed_at": "",
-        "legacy_date": "",
-        "authors": "",
-        "content_status": status,
-        "summary": html.unescape(description_match.group(1) if description_match else "来源尚未形成可信译文"),
-        "tags": tags or ["待恢复"],
-        "body": "",
-        "path": path,
-        "slug": path.stem,
-    }
-
-
 def write_discovery_files(articles, generator):
     routes = [""] + [f"articles/{article['slug']}.html" for article in articles]
     sitemap = "\n".join(
@@ -143,18 +105,11 @@ def main():
     excluded_slugs = set(generator.PUBLIC_EXCLUDED_ARTICLE_SLUGS)
     parser = SnapshotIndexParser()
     parser.feed((PUBLIC / "index.html").read_text(encoding="utf-8"))
-    articles = [
-        article
-        for attrs in parser.articles
-        if (article := article_from_attrs(attrs, generator))["slug"] not in excluded_slugs
-    ]
-    known_slugs = {article["slug"] for article in articles}
-    for path in sorted((PUBLIC / "articles").glob("article-*.html")):
-        if path.stem in known_slugs or path.stem in excluded_slugs:
-            continue
-        quarantined = quarantined_article_from_page(path, generator)
-        if quarantined:
-            articles.append(quarantined)
+    articles = []
+    for attrs in parser.articles:
+        article = article_from_attrs(attrs, generator)
+        if article["slug"] not in excluded_slugs and not article["content_status"]:
+            articles.append(article)
     if not articles:
         raise SystemExit("public snapshot contains no article metadata")
 
@@ -176,7 +131,7 @@ def main():
         if stale.name not in expected_pages:
             stale.unlink()
     write_discovery_files(articles, generator)
-    print(f"refreshed {len(articles)} public records; quarantined {sum(bool(a['content_status']) for a in articles)}")
+    print(f"refreshed {len(articles)} trusted public records")
 
 
 if __name__ == "__main__":

@@ -138,7 +138,7 @@ test('每周阅读统计不可筛选文章，并可导出带状态的七天回�
     summary: '一段可核验的摘要。',
     favorite: true,
   }], now);
-  assert.match(markdown, /# 每周阅读回顾｜2026-07-06 — 2026-07-12/);
+  assert.match(markdown, /# 每周阅读回顾｜2026-07-06 至 2026-07-12/);
   assert.match(markdown, /共判断 1 篇｜收藏 1 篇｜已整理 0 篇/);
   assert.match(markdown, /状态：收藏/);
   assert.match(markdown, /关键词：世界模型、机器人/);

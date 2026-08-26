@@ -75,9 +75,9 @@ async function validateLocalReferences(html, relative) {
 }
 
 const articleFiles = (await readdir(articleDir)).filter((name) => /^article-[a-z0-9]+\.html$/i.test(name)).sort();
-const retiredArticle = "article-8a0810a163f4.html";
-if (articleFiles.includes(retiredArticle) || index.includes(retiredArticle) || sitemap.includes(retiredArticle)) {
-  throw new Error(`Retired interview article is still public: ${retiredArticle}`);
+const excludedArticle = "article-8a0810a163f4.html";
+if (articleFiles.includes(excludedArticle) || index.includes(excludedArticle) || sitemap.includes(excludedArticle)) {
+  throw new Error(`Excluded article is public: ${excludedArticle}`);
 }
 const htmlDocuments = new Map([["index.html", index]]);
 for (const article of articleFiles) htmlDocuments.set(`articles/${article}`, await readFile(path.join(articleDir, article), "utf8"));
@@ -89,13 +89,13 @@ for (const [relative, html] of htmlDocuments) {
 await access(workerPath);
 await access(socialImagePath);
 await access(faviconPath);
-for (const phrase of ["阅读收件箱", "先判断价值，再进入全文", "快速定位", "恢复队列", "主题筛选", "待整理", "我的收藏", "可信译文", "阅读进度", "导出 Markdown", "复制资料卡", "Info Collector", "@130U", "@aswrise"]) {
+for (const phrase of ["阅读收件箱", "先判断价值，再进入全文", "快速定位", "主题筛选", "待整理", "我的收藏", "可信译文", "阅读进度", "导出 Markdown", "复制资料卡", "Info Collector", "@130U", "@aswrise"]) {
   if (!index.includes(phrase)) throw new Error(`Missing index phrase: ${phrase}`);
 }
 if ((index.match(/href="https:\/\/github\.com\/130U"/g) || []).length !== 2 || (index.match(/href="https:\/\/github\.com\/aswrise"/g) || []).length !== 2) {
   throw new Error("Header and footer contributor credits are not unified");
 }
-if (index.includes("@THEO") || index.includes("@AQUA") || index.includes("Madarame87")) throw new Error("Legacy contributor credits remain");
+if (index.includes("@THEO") || index.includes("@AQUA") || index.includes("Madarame87")) throw new Error("Unapproved contributor credits remain");
 for (const socialPhrase of [
   '<meta property="og:image" content="https://info-collector-reading-desk.jiligualapiqiu.chatgpt.site/og.png">',
   '<meta name="twitter:card" content="summary_large_image">',
@@ -109,14 +109,14 @@ if (index.includes("data-search=")) throw new Error("Redundant search data remai
 if (!index.includes('id="result-count" aria-live="polite" aria-atomic="true"')) throw new Error("Filter result count is not an accessible live region");
 if (index.includes('data-view="weekly"')) throw new Error("Weekly activity must not behave as a fourth article filter");
 if (!index.includes('id="export-weekly"') || !index.includes('id="weekly-chart-line"') || !index.includes('id="weekly-chart-area"') || !index.includes('id="weekly-chart-marker"') || !index.includes('id="weekly-chart-value"') || !index.includes('id="weekly-periods"')) throw new Error("Premium weekly activity chart/export controls are missing");
-if (index.includes('id="weekly-chart-points"') || index.includes('id="weekly-count"')) throw new Error("Legacy weekly chart points or detached total remain");
-if (!index.includes('class="brand-signal"') || index.includes('class="brand-mark"')) throw new Error("Legacy boxed IC mark remains");
+if (index.includes('id="weekly-chart-points"') || index.includes('id="weekly-count"')) throw new Error("Unused weekly chart elements remain");
+if (!index.includes('class="brand-signal"') || index.includes('class="brand-mark"')) throw new Error("Brand signal contract is invalid");
 const styleVersion = index.match(/href="assets\/style\.css\?v=([0-9a-f]{12})"/)?.[1];
 const appVersion = index.match(/src="assets\/app\.js\?v=([0-9a-f]{12})"/)?.[1];
 if (!styleVersion || styleVersion !== appVersion) throw new Error("Reading-site assets are not cache-busted with one content version");
 if (index.includes("阅读中文全文")) throw new Error("Index still includes the removed reading CTA");
 if (index.includes("WINDOWS 11 · LOCAL-FIRST") || index.includes("INFO COLLECTOR / READING DESK")) {
-  throw new Error("Index still includes the retired system labels");
+  throw new Error("Index includes unapproved system labels");
 }
 if (!index.includes('<article class="article-card terminal-row') || index.includes('<a class="article-card')) {
   throw new Error("Article cards must be semantic containers, not full-card links");
@@ -124,14 +124,14 @@ if (!index.includes('<article class="article-card terminal-row') || index.includ
 if (!index.includes('class="article-title-link" href="articles/')) throw new Error("Article title links are missing");
 if (!index.includes('data-article-id="')) throw new Error("Stable article IDs are missing");
 if ((index.match(/data-action="favorite"/g) || []).length < 5 || (index.match(/data-action="review"/g) || []).length < 5 || (index.match(/data-action="copy-card"/g) || []).length < 5) {
-  throw new Error("Second-pass card actions are incomplete");
+  throw new Error("Card actions are incomplete");
 }
-if (!index.includes('class="card-source-link"') || !index.includes('<span>原文 ↗</span>')) throw new Error("Direct source links are missing");
+if (!index.includes('class="card-source-link"') || !index.includes('<span>原文</span>')) throw new Error("Direct source links are missing");
 if (index.includes(">DATE<")) throw new Error("Generic DATE label remains");
 if (!index.includes("发布于 2026-07-02")) throw new Error("Geoffrey Litt URL date fallback is missing");
 if (!index.includes("发布时间未知")) throw new Error("Unknown publication dates are not explicit");
 if (!style.includes(".terminal-layout { display: grid;") || !style.includes("grid-template-columns: 260px minmax(0, 1fr)")) throw new Error("Reading-terminal workbench layout is missing");
-for (const cssPhrase of ["--aquatic-soft", "system-ui", ".workspace-intro", ".search-control", ".terminal-sidebar", ".reader-feedback", ".article-title-link", ".card-action", ".view-filter", "prefers-reduced-motion", "prefers-reduced-transparency"]) {
+for (const cssPhrase of ["--accent-soft", "system-ui", ".workspace-intro", ".search-control", ".terminal-sidebar", ".reader-feedback", ".article-title-link", ".card-action", ".view-filter", "prefers-reduced-motion", "prefers-reduced-transparency", "prefers-contrast", "forced-colors", "animation-timeline: scroll()", "max-width: 900px"]) {
   if (!style.includes(cssPhrase)) throw new Error(`Missing reading-site CSS contract: ${cssPhrase}`);
 }
 if (!/\[hidden\]\s*\{[^}]*display:\s*none\s*!important;?[^}]*\}/.test(style)) {
@@ -151,8 +151,9 @@ for (const [selector, required] of [
   if (!rule || required.some((phrase) => !rule.includes(phrase))) throw new Error(`Missing frameless CSS contract for ${selector}`);
 }
 if (!app.includes("article-search") || !app.includes("matchesQuery") || !app.includes("syncUrlState") || !app.includes("info-collector:reader-state:v1") || !app.includes("buildInfoCardMarkdown") || !app.includes("weeklyActivitySeries") || !app.includes("smoothChartPath") || !app.includes("buildWeeklyReviewMarkdown")) {
-  throw new Error("Second-pass reader script contract is incomplete");
+  throw new Error("Reader script contract is incomplete");
 }
+if (app.includes("window.addEventListener('scroll'") || app.includes("revealContent")) throw new Error("Unnecessary scroll or reveal listeners remain");
 
 const fakeWindow = {
   matchMedia() { return { matches: true }; },
@@ -180,16 +181,12 @@ if (!infoCard.includes("原文：未知") || !infoCard.includes("收录时间：
   throw new Error("Portable Markdown info card fallback is invalid");
 }
 const trustedArticleLinks = [...new Set([...index.matchAll(/class="article-title-link" href="articles\/(article-[^"]+\.html)"/g)].map((match) => match[1]))];
-const recoveryArticleLinks = [...new Set([...index.matchAll(/data-article-href="articles\/(article-[^"]+\.html)"/g)].map((match) => match[1]))];
 if (trustedArticleLinks.length < 5) throw new Error(`Expected at least 5 trusted articles, found ${trustedArticleLinks.length}`);
 for (const status of ["source_blocked", "quality_rejected", "privacy_review_required", "translation_missing"]) {
-  if (!index.includes(`data-content-status="${status}"`)) throw new Error(`Recovery queue is missing ${status}`);
+  if (index.includes(`data-content-status="${status}"`)) throw new Error(`Public index exposes non-publishable status: ${status}`);
 }
-if (!index.includes('data-content-status="source_blocked"') || !index.includes('data-content-status="quality_rejected"') || !index.includes('data-content-status="privacy_review_required"')) {
-  throw new Error("Typed source, contamination and privacy-review states are not present in the recovery queue");
-}
-if ((index.match(/class="recovery-card"/g) || []).length !== recoveryArticleLinks.length) throw new Error("Recovery cards and recovery routes are inconsistent");
-const indexedArticles = [...new Set([...trustedArticleLinks, ...recoveryArticleLinks])].sort();
+if (index.includes('class="recovery-card"') || index.includes('id="recovery-queue"')) throw new Error("Public index exposes recovery workflow UI");
+const indexedArticles = [...trustedArticleLinks].sort();
 if (indexedArticles.length !== articleFiles.length || indexedArticles.some((article, index) => article !== articleFiles[index])) {
   throw new Error("Index and article directory do not expose the same page set");
 }
@@ -198,24 +195,14 @@ for (const article of trustedArticleLinks) {
   if (!html.includes(`../assets/style.css?v=${styleVersion}`) || !html.includes(`../assets/app.js?v=${appVersion}`)) {
     throw new Error(`Stale asset version in ${article}`);
   }
-  const translationMarker = html.includes("VALIDATED CONTENT") ? "VALIDATED CONTENT" : "CHINESE TRANSLATION";
-  const order = ["EXECUTIVE SUMMARY", translationMarker, "ORIGINAL SOURCE"].map((text) => html.indexOf(text));
+  const order = ["先读结论", "中文译文", "继续查看原文"].map((text) => html.indexOf(text));
   if (order.some((value) => value < 0) || !(order[0] < order[1] && order[1] < order[2])) {
     throw new Error(`Invalid content order in ${article}`);
   }
   if (!html.includes('data-article-id="')) throw new Error(`Missing stable article ID in ${article}`);
-  if (!html.includes('data-return-library') || !html.includes('data-content-status=""')) throw new Error(`Trusted article does not use the current navigation/status shell: ${article}`);
+  if (!html.includes('data-return-library') || !html.includes('data-content-status=""')) throw new Error(`Trusted article does not use the current navigation and status shell: ${article}`);
   const body = html.match(/<div class="prose" id="article-content">([\s\S]*?)<\/div>/i)?.[1] || "";
   if (!visibleText(body)) throw new Error(`Trusted article has an empty translation: ${article}`);
-}
-for (const article of recoveryArticleLinks) {
-  const html = await readFile(path.join(articleDir, article), "utf8");
-  if (!html.includes("RECOVERY STATUS") || !html.includes('data-return-library') || !html.includes('class="quarantined-copy"') || !html.includes('class="source-warning reveal"')) {
-    throw new Error(`Recovery article does not render an explicit recovery state: ${article}`);
-  }
-  if (!/data-content-status="(?:source_blocked|quality_rejected|privacy_review_required|translation_missing)"/.test(html)) {
-    throw new Error(`Recovery article has no typed content status: ${article}`);
-  }
 }
 const publicText = [style, app, robots, sitemap, ...htmlDocuments.values()].join("\n");
 if (/sk-[A-Za-z0-9_-]{16,}/.test(publicText) || /[A-Za-z]:\\Users\\/i.test(publicText) || publicText.includes("chrome-extension://")) {

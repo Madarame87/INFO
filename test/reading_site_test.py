@@ -143,7 +143,7 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertIn('data-article-id="stable-agent-key"', index)
             self.assertIn('data-article-id="article-', index)
             self.assertEqual(index.count('data-action="favorite" aria-pressed="false"'), 2)
-            self.assertEqual(index.count('data-action="review"'), 2)
+            self.assertEqual(index.count('data-action="review" aria-pressed="false"'), 2)
             self.assertEqual(index.count('data-action="copy-card"'), 2)
             self.assertEqual(index.count('class="card-source-link"'), 1)
             self.assertIn('data-content-status="source_blocked"', index)
@@ -162,10 +162,9 @@ class ReadingSiteTest(unittest.TestCase):
             agent = next(item for item in articles if item["article_id"] == "stable-agent-key")
             article_path = index_path.parent / "articles" / f"{agent['slug']}.html"
             article = article_path.read_text(encoding="utf-8")
-            self.assertIn('data-return-library>← 返回阅读收件箱', article)
-            self.assertIn("EXECUTIVE SUMMARY", article)
+            self.assertIn('data-return-library>返回阅读收件箱', article)
             self.assertIn("先读结论", article)
-            self.assertIn("VALIDATED CONTENT", article)
+            self.assertIn("中文译文", article)
             self.assertIn("访问文章原文", article)
             self.assertIn("作者 研究团队", article)
             self.assertIn("发布于 2026-07-10", article)
@@ -175,8 +174,8 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertRegex(article, r'href="\.\./assets/style\.css\?v=[0-9a-f]{12}"')
             self.assertIn('rel="icon" type="image/svg+xml" href="../favicon.svg"', article)
             self.assertRegex(article, r'src="\.\./assets/app\.js\?v=[0-9a-f]{12}"')
-            self.assertLess(article.index("EXECUTIVE SUMMARY"), article.index("VALIDATED CONTENT"))
-            self.assertLess(article.index("VALIDATED CONTENT"), article.index("ORIGINAL SOURCE"))
+            self.assertLess(article.index("先读结论"), article.index("中文译文"))
+            self.assertLess(article.index("中文译文"), article.index("继续查看原文"))
             self.assertNotIn("这段摘要不应在正文中重复", article)
             self.assertNotIn("<script>alert", article)
             self.assertIn("&lt;script&gt;", article)
@@ -195,9 +194,11 @@ class ReadingSiteTest(unittest.TestCase):
             self.assertIn("system-ui", style)
             self.assertIn("prefers-reduced-motion", style)
             self.assertIn("prefers-reduced-transparency", style)
-            self.assertIn(".site-credits { display: flex; align-items: center; gap: 11px; padding: 0; border: 0; background: transparent;", style)
-            self.assertIn(".tag-filter { position: relative; min-height: 40px; padding: 8px 0 7px; border: 0;", style)
-            self.assertIn("var(--aquatic-soft)", style)
+            self.assertIn(".site-credits { display: flex; align-items: center; gap: 7px; padding: 0; border: 0; background: transparent;", style)
+            self.assertIn(".view-filter, .tag-filter { display: flex;", style)
+            self.assertIn("var(--accent-soft)", style)
+            self.assertIn("animation-timeline: scroll()", style)
+            self.assertIn("@media (max-width: 900px)", style)
             self.assertIn("-webkit-line-clamp: 2", style)
             self.assertIn(".article-title-link", style)
             self.assertIn(".card-action", style)
@@ -214,14 +215,14 @@ class ReadingSiteTest(unittest.TestCase):
 
             blocked = next(item for item in articles if item["content_status"] == "source_blocked")
             blocked_page = (index_path.parent / "articles" / f"{blocked['slug']}.html").read_text(encoding="utf-8")
-            self.assertIn('class="source-warning reveal"', blocked_page)
+            self.assertIn('class="source-warning"', blocked_page)
             self.assertIn("译文尚未生成", blocked_page)
             self.assertIn("本页不计入可信译文库", blocked_page)
 
             missing = next(item for item in articles if item["content_status"] == "translation_missing")
             missing_page = (index_path.parent / "articles" / f"{missing['slug']}.html").read_text(encoding="utf-8")
             self.assertIn('data-content-status="translation_missing"', missing_page)
-            self.assertIn("RECOVERY STATUS", missing_page)
+            self.assertIn("恢复状态", missing_page)
             self.assertIn("系统已阻止它继续伪装成完整译文", missing_page)
             self.assertIn('data-content-status="translation_missing"', index)
             self.assertIn("查看状态", index)
@@ -282,15 +283,15 @@ class ReadingSiteTest(unittest.TestCase):
             site_dir = Path(tmp) / "site"
             article_dir = site_dir / "articles"
             article_dir.mkdir(parents=True)
-            retired_slug = "article-8a0810a163f4"
-            (article_dir / f"{retired_slug}.html").write_text("stale public page", encoding="utf-8")
-            reader.collect_articles = lambda _output: [{"slug": retired_slug}]
+            excluded_slug = "article-8a0810a163f4"
+            (article_dir / f"{excluded_slug}.html").write_text("stale public page", encoding="utf-8")
+            reader.collect_articles = lambda _output: [{"slug": excluded_slug}]
 
             index_path, articles = reader.build_site(output, site_dir)
 
             self.assertEqual(articles, [])
-            self.assertNotIn(retired_slug, index_path.read_text(encoding="utf-8"))
-            self.assertFalse((article_dir / f"{retired_slug}.html").exists())
+            self.assertNotIn(excluded_slug, index_path.read_text(encoding="utf-8"))
+            self.assertFalse((article_dir / f"{excluded_slug}.html").exists())
 
     def test_date_semantics_preserve_precision_and_never_impersonate_collection(self):
         with tempfile.TemporaryDirectory() as tmp:
